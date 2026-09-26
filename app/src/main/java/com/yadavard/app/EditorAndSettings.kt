@@ -240,7 +240,7 @@ fun SettingsPage(ai: AiSettings, count: Int, onPermission: () -> Unit, onRefresh
         item { SettingsBox("پشتیبان‌گیری • $count یادآوری") {
             Text("فایل JSON را در جای امن نگه دار. کلید هوش مصنوعی در آن نیست.", color = Muted)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { exportPicker.launch("yadavard-backup.json") }) { Text("خروجی") }
+                OutlinedButton(onClick = { exportPicker.launch("yadar-backup.json") }) { Text("خروجی") }
                 OutlinedButton(onClick = { importPicker.launch(arrayOf("application/json", "text/plain")) }) { Text("بازیابی") }
             }
         } }

@@ -24,7 +24,7 @@ import javax.crypto.spec.GCMParameterSpec
 /** The user's key is entered on-device, encrypted with Android Keystore, and never bundled in the APK. */
 class AiSettings(private val context: Context) {
     private val prefs = context.getSharedPreferences("local_ai_settings", Context.MODE_PRIVATE)
-    private val alias = "yadavard_openrouter_key_v1"
+    private val alias = "yadar_openrouter_key_v1"
     private fun secret(): SecretKey {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         (store.getKey(alias, null) as? SecretKey)?.let { return it }
@@ -98,7 +98,7 @@ class OpenRouter(private val context: Context) {
         return body
     }
     suspend fun transcribe(file: File): String = withContext(Dispatchers.IO) {
-        val boundary = "Yadavard${System.currentTimeMillis()}"
+        val boundary = "Yadar${System.currentTimeMillis()}"
         val conn = connection("audio/transcriptions").apply { setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary") }
         conn.outputStream.use { output ->
             fun part(name: String, value: String) {
