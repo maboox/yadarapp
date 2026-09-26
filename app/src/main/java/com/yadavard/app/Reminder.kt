@@ -43,6 +43,9 @@ object PersianDates {
     data class Jalali(val year: Int, val month: Int, val day: Int)
     private val monthNames = arrayOf("فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند")
     fun monthName(month: Int): String = monthNames[month - 1]
+    fun digits(value: Any): String = value.toString().map { char ->
+        if (char in '0'..'9') ('۰'.code + char.code - '0'.code).toChar() else char
+    }.joinToString("")
     private fun calendar(zone: ZoneId) = IcuCalendar.getInstance(
         IcuTimeZone.getTimeZone(zone.id), ULocale("fa_IR@calendar=persian")
     ).apply {
@@ -62,10 +65,13 @@ object PersianDates {
     fun monthLength(year: Int, month: Int, zone: ZoneId): Int = calendar(zone).apply {
         clear(); set(year, month - 1, 1)
     }.getActualMaximum(IcuCalendar.DAY_OF_MONTH)
-    fun format(time: Long, zone: ZoneId = ZoneId.systemDefault()): String {
+    fun formatDate(time: Long, zone: ZoneId = ZoneId.systemDefault()): String {
         val d = fromMillis(time, zone)
+        return "${digits(d.day)} ${monthName(d.month)} ${digits(d.year)}"
+    }
+    fun format(time: Long, zone: ZoneId = ZoneId.systemDefault()): String {
         val local = Instant.ofEpochMilli(time).atZone(zone)
-        return "${d.day} ${monthName(d.month)} ${d.year} • %02d:%02d".format(local.hour, local.minute)
+        return "${formatDate(time, zone)} • ${digits("%02d:%02d".format(local.hour, local.minute))}"
     }
 }
 
@@ -83,7 +89,10 @@ object Occurrences {
             RepeatUnit.MONTHS, RepeatUnit.YEARS -> if (r.monthDay !in 1..31) r.firstAt else {
                 val p = PersianDates.fromMillis(r.firstAt, zone)
                 var y = p.year; var m = p.month
-                if (p.day > r.monthDay) { m++; if (m == 13) { m = 1; y++ } }
+                if (p.day > r.monthDay) {
+                    if (r.unit == RepeatUnit.YEARS) y++
+                    else { m++; if (m == 13) { m = 1; y++ } }
+                }
                 val day = r.monthDay.coerceAtMost(PersianDates.monthLength(y, m, zone))
                 PersianDates.at(y, m, day, start.hour, start.minute, zone)
             }

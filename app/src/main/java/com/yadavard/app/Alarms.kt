@@ -21,6 +21,7 @@ private const val ACTION_LEAD = "com.yadavard.app.LEAD"
 private const val ACTION_SNOOZE_FIRE = "com.yadavard.app.SNOOZE_FIRE"
 private const val ACTION_DONE = "com.yadavard.app.DONE"
 private const val ACTION_SNOOZE = "com.yadavard.app.SNOOZE"
+private const val ACTION_TEST = "com.yadavard.app.TEST_ALARM"
 private const val EXTRA_ID = "id"
 private const val EXTRA_DUE = "due"
 
@@ -64,6 +65,22 @@ object ReminderAlarms {
             set(context, r.snoozeAt, pending(context, r, 2, ACTION_SNOOZE_FIRE, r.snoozeAt))
     }
     fun scheduleAll(context: Context) = ReminderStore(context).all().forEach { schedule(context, it) }
+    fun scheduleTest(context: Context) {
+        val intent = PendingIntent.getBroadcast(context, 123456789, Intent(context, AlarmReceiver::class.java).apply {
+            action = ACTION_TEST
+        }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        set(context, System.currentTimeMillis() + 2 * 60_000L, intent)
+    }
+    fun showTest(context: Context) {
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        val manager = context.getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(NotificationChannel(CHANNEL, "یادآوری‌ها", NotificationManager.IMPORTANCE_HIGH))
+        manager.notify(123456789, NotificationCompat.Builder(context, CHANNEL)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setContentTitle("آزمون اعلان یادار")
+            .setContentText("این اعلان باید دو دقیقه بعد از بستن برنامه برسد.")
+            .setAutoCancel(true).setPriority(NotificationCompat.PRIORITY_HIGH).build())
+    }
     fun show(context: Context, r: Reminder, leading: Boolean = false) {
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -89,6 +106,7 @@ object ReminderAlarms {
 
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == ACTION_TEST) { ReminderAlarms.showTest(context); return }
         val id = intent.getLongExtra(EXTRA_ID, 0)
         val store = ReminderStore(context)
         val r = store.get(id) ?: return

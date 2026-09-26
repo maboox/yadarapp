@@ -23,6 +23,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -50,6 +52,8 @@ fun ReminderEditor(original: Reminder?, onDismiss: () -> Unit, onSave: (Reminder
         ?: PersianDates.fromMillis(initial, zone).day).toString()) }
     var lead by remember(original?.id) { mutableStateOf((original?.leadMinutes ?: 0).toString()) }
     var until by remember(original?.id) { mutableStateOf(original?.untilAt) }
+    var customRepeat by remember(original?.id) { mutableStateOf(original?.unit == RepeatUnit.AFTER_DONE_DAYS || (original?.every ?: 1) != 1) }
+    var advanced by remember(original?.id) { mutableStateOf((original?.leadMinutes ?: 0) > 0 || original?.untilAt != null) }
     var pickingDate by remember { mutableStateOf(false) }
     var pickingEnd by remember { mutableStateOf(false) }
     var repeatMenu by remember { mutableStateOf(false) }
@@ -67,7 +71,9 @@ fun ReminderEditor(original: Reminder?, onDismiss: () -> Unit, onSave: (Reminder
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { pickingDate = true }, modifier = Modifier.weight(1f)) {
                         Icon(Icons.Filled.DateRange, null, Modifier.size(17.dp)); Spacer(Modifier.width(4.dp))
-                        Text(PersianDates.format(dateTime, zone).substringBefore(" •"), maxLines = 1, fontSize = 12.sp)
+                        Text(PersianDates.formatDate(dateTime, zone), maxLines = 1, softWrap = false,
+                            overflow = TextOverflow.Ellipsis, fontSize = 12.sp,
+                            style = LocalTextStyle.current.copy(textDirection = TextDirection.Rtl))
                     }
                     OutlinedButton(onClick = {
                         TimePickerDialog(context, { _, hour, minute ->
@@ -75,26 +81,65 @@ fun ReminderEditor(original: Reminder?, onDismiss: () -> Unit, onSave: (Reminder
                         }, time.hour, time.minute, true).show()
                     }) {
                         Icon(Icons.Filled.AccessTime, null, Modifier.size(17.dp)); Spacer(Modifier.width(4.dp))
-                        Text("%02d:%02d".format(time.hour, time.minute))
+                        Text(PersianDates.digits("%02d:%02d".format(time.hour, time.minute)))
                     }
                 }
-                Box {
-                    OutlinedButton(onClick = { repeatMenu = true }, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Filled.Repeat, null); Spacer(Modifier.width(8.dp)); Text("تکرار: ${repeatUnitLabel(unit)}")
-                    }
-                    DropdownMenu(expanded = repeatMenu, onDismissRequest = { repeatMenu = false }) {
-                        RepeatUnit.entries.forEach { option ->
-                            DropdownMenuItem(text = { Text(repeatUnitLabel(option)) }, onClick = { unit = option; repeatMenu = false })
+                Text("چند وقت یک‌بار؟", color = Ink, fontWeight = FontWeight.SemiBold)
+                val choices = listOf(RepeatUnit.NONE to "یک‌بار", RepeatUnit.DAYS to "هر روز",
+                    RepeatUnit.WEEKS to "هر هفته", RepeatUnit.MONTHS to "هر ماه",
+                    RepeatUnit.YEARS to "هر سال")
+                (0..1).forEach { row ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        (0..2).forEach { column ->
+                            val index = row * 3 + column
+                            val choice = choices.getOrNull(index)
+                            val label = choice?.second ?: "سفارشی"
+                            val checked = if (choice == null) customRepeat else !customRepeat && unit == choice.first
+                            FilterChip(selected = checked, onClick = {
+                                if (choice == null) {
+                                    customRepeat = true
+                                    if (unit == RepeatUnit.NONE) unit = RepeatUnit.DAYS
+                                } else {
+                                    customRepeat = false
+                                    unit = choice.first
+                                    every = "1"
+                                    if (unit == RepeatUnit.WEEKS) weekdays = 1 shl (time.dayOfWeek.value - 1)
+                                    if (unit == RepeatUnit.MONTHS || unit == RepeatUnit.YEARS)
+                                        monthDay = PersianDates.fromMillis(dateTime, zone).day.toString()
+                                }
+                            }, modifier = Modifier.weight(1f), label = { Text(label, fontSize = 11.sp, maxLines = 1) })
                         }
                     }
                 }
-                if (unit != RepeatUnit.NONE) {
-                    OutlinedTextField(every, { every = it.filter(Char::isDigit).take(4) },
-                        label = { Text("هر چند ${unitLabel(unit)}؟") }, modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
+                if (customRepeat) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("هر", color = Muted)
+                        OutlinedTextField(every, { every = it.filter(Char::isDigit).take(4) },
+                            modifier = Modifier.width(85.dp), label = { Text("تعداد") }, singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                        Box(Modifier.weight(1f)) {
+                            OutlinedButton(onClick = { repeatMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                                Text(unitLabel(unit), maxLines = 2, fontSize = 12.sp)
+                                Icon(Icons.Filled.ArrowDropDown, null)
+                            }
+                            DropdownMenu(expanded = repeatMenu, onDismissRequest = { repeatMenu = false }) {
+                                listOf(RepeatUnit.DAYS, RepeatUnit.WEEKS, RepeatUnit.MONTHS,
+                                    RepeatUnit.YEARS, RepeatUnit.AFTER_DONE_DAYS).forEach { option ->
+                                    DropdownMenuItem(text = { Text(unitLabel(option)) }, onClick = {
+                                        unit = option; repeatMenu = false
+                                        if (unit == RepeatUnit.WEEKS && weekdays == 0) weekdays = 1 shl (time.dayOfWeek.value - 1)
+                                        if (unit == RepeatUnit.MONTHS || unit == RepeatUnit.YEARS)
+                                            monthDay = PersianDates.fromMillis(dateTime, zone).day.toString()
+                                    })
+                                }
+                            }
+                        }
+                    }
+                    Text(if (unit == RepeatUnit.AFTER_DONE_DAYS) "فاصله از زمانی حساب می‌شود که «انجام شد» را بزنی."
+                        else "فاصله از تاریخ شروع حساب می‌شود.", color = Muted, fontSize = 12.sp)
                 }
                 if (unit == RepeatUnit.WEEKS) {
-                    Text("روزهای هفته", color = Muted, fontSize = 12.sp)
+                    Text("کدام روزهای هفته؟", color = Muted, fontSize = 12.sp)
                     val names = listOf("د", "س", "چ", "پ", "ج", "ش", "ی") // ISO Mon..Sun
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         names.forEachIndexed { i, label ->
@@ -106,17 +151,35 @@ fun ReminderEditor(original: Reminder?, onDismiss: () -> Unit, onSave: (Reminder
                 }
                 if (unit == RepeatUnit.MONTHS || unit == RepeatUnit.YEARS) {
                     OutlinedTextField(monthDay, { monthDay = it.filter(Char::isDigit).take(2) },
-                        label = { Text("روز ماه شمسی (اگر وجود نداشت، آخر ماه)") }, modifier = Modifier.fillMaxWidth(),
+                        label = { Text("چندم ماه شمسی؟") }, supportingText = { Text("مثلاً ۲۰؛ اگر آن روز نبود، آخر ماه") }, modifier = Modifier.fillMaxWidth(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
                 }
-                OutlinedTextField(lead, { lead = it.filter(Char::isDigit).take(6) },
-                    label = { Text("چند دقیقه زودتر هم خبر بده؟ (۰ = نه)") }, modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
-                if (unit != RepeatUnit.NONE) {
-                    OutlinedButton(onClick = { pickingEnd = true }, modifier = Modifier.fillMaxWidth()) {
-                        Text(if (until == null) "تاریخ پایان تکرار (اختیاری)" else "تا ${PersianDates.format(until!!, zone).substringBefore(" •")}")
+                if (dateTime > System.currentTimeMillis() && every.toIntOrNull()?.let { it in 1..3650 } == true &&
+                    (unit !in listOf(RepeatUnit.MONTHS, RepeatUnit.YEARS) || monthDay.toIntOrNull()?.let { it in 1..31 } == true) &&
+                    (unit != RepeatUnit.WEEKS || weekdays != 0)) {
+                    val example = runCatching {
+                        val draft = Occurrences.alignFirst(Reminder(title = title.ifBlank { "یادآوری" }, firstAt = dateTime,
+                            unit = unit, every = every.toInt(), weekdays = weekdays,
+                            monthDay = monthDay.toIntOrNull() ?: 0, untilAt = until, zone = zone.id))
+                        Occurrences.previews(draft).filter { until == null || it <= until!! }
+                    }.getOrDefault(emptyList())
+                    if (example.isNotEmpty()) Text("موعدهای بعدی: " + example.joinToString("، ") { PersianDates.format(it, zone) },
+                        color = Violet, fontSize = 12.sp)
+                }
+                TextButton(onClick = { advanced = !advanced }) {
+                    Icon(if (advanced) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null)
+                    Text("تنظیمات بیشتر")
+                }
+                if (advanced) {
+                    OutlinedTextField(lead, { lead = it.filter(Char::isDigit).take(6) },
+                        label = { Text("چند دقیقه زودتر خبر بده؟ (۰ = خیر)") }, modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
+                    if (unit != RepeatUnit.NONE) {
+                        OutlinedButton(onClick = { pickingEnd = true }, modifier = Modifier.fillMaxWidth()) {
+                            Text(if (until == null) "تاریخ پایان تکرار (اختیاری)" else "تا ${PersianDates.formatDate(until!!, zone)}")
+                        }
+                        if (until != null) TextButton(onClick = { until = null }) { Text("بدون تاریخ پایان") }
                     }
-                    if (until != null) TextButton(onClick = { until = null }) { Text("بدون تاریخ پایان") }
                 }
                 if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
                 if (original != null) TextButton(onClick = { confirmDelete = true }) {
@@ -139,22 +202,10 @@ fun ReminderEditor(original: Reminder?, onDismiss: () -> Unit, onSave: (Reminder
                 else -> ""
             }
             if (error.isNotBlank()) return@Button
-            val start = if (unit == RepeatUnit.WEEKS) {
-                val firstDay = time.dayOfWeek.value
-                val offset = (0..6).first { shift -> weekdays and (1 shl ((firstDay + shift - 1) % 7)) != 0 }
-                time.plusDays(offset.toLong()).toInstant().toEpochMilli()
-            } else if (unit == RepeatUnit.MONTHS || unit == RepeatUnit.YEARS) {
-                val p = PersianDates.fromMillis(dateTime, zone)
-                var y = p.year; var m = p.month
-                if (p.day > day) {
-                    m++; if (m > 12) { m = 1; y++ }
-                }
-                PersianDates.at(y, m, day.coerceAtMost(PersianDates.monthLength(y, m, zone)), time.hour, time.minute, zone)
-            } else dateTime
-            onSave(Reminder(id = original?.id ?: 0, title = title.trim(), note = note.trim(), firstAt = start,
-                nextAt = start, unit = unit, every = interval.coerceAtLeast(1), weekdays = weekdays,
+            onSave(Occurrences.alignFirst(Reminder(id = original?.id ?: 0, title = title.trim(), note = note.trim(), firstAt = dateTime,
+                unit = unit, every = interval.coerceAtLeast(1), weekdays = weekdays,
                 monthDay = if (unit in listOf(RepeatUnit.MONTHS, RepeatUnit.YEARS)) day else 0,
-                leadMinutes = notice, untilAt = until, zone = zone.id))
+                leadMinutes = notice, untilAt = until, zone = zone.id)))
         }) { Text("ذخیره") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } })
 
@@ -165,7 +216,12 @@ fun ReminderEditor(original: Reminder?, onDismiss: () -> Unit, onSave: (Reminder
             text = { PersianMonthGrid(selected, { selected = it }) },
             confirmButton = { TextButton(onClick = {
                 if (pickingEnd) until = selected.atTime(23, 59, 59).atZone(zone).toInstant().toEpochMilli()
-                else dateTime = selected.atTime(time.hour, time.minute).atZone(zone).toInstant().toEpochMilli()
+                else {
+                    if (monthDay == PersianDates.fromMillis(dateTime, zone).day.toString())
+                        monthDay = PersianDates.fromMillis(selected.atStartOfDay(zone).toInstant().toEpochMilli(), zone).day.toString()
+                    dateTime = selected.atTime(time.hour, time.minute).atZone(zone).toInstant().toEpochMilli()
+                    if (unit == RepeatUnit.WEEKS && !customRepeat) weekdays = 1 shl (selected.dayOfWeek.value - 1)
+                }
                 pickingDate = false; pickingEnd = false
             }) { Text("انتخاب") } },
             dismissButton = { TextButton(onClick = { pickingDate = false; pickingEnd = false }) { Text("انصراف") } })
@@ -176,13 +232,8 @@ fun ReminderEditor(original: Reminder?, onDismiss: () -> Unit, onSave: (Reminder
         dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("بی‌خیال") } })
 }
 
-private fun repeatUnitLabel(unit: RepeatUnit) = when (unit) {
-    RepeatUnit.NONE -> "فقط یک‌بار"; RepeatUnit.DAYS -> "هر چند روز"; RepeatUnit.WEEKS -> "هر چند هفته"
-    RepeatUnit.MONTHS -> "هر چند ماه شمسی"; RepeatUnit.YEARS -> "هر چند سال شمسی"
-    RepeatUnit.AFTER_DONE_DAYS -> "چند روز بعد از انجام"
-}
 private fun unitLabel(unit: RepeatUnit) = when (unit) {
-    RepeatUnit.DAYS, RepeatUnit.AFTER_DONE_DAYS -> "روز"; RepeatUnit.WEEKS -> "هفته"
+    RepeatUnit.DAYS -> "روز"; RepeatUnit.AFTER_DONE_DAYS -> "روز بعد از انجام"; RepeatUnit.WEEKS -> "هفته"
     RepeatUnit.MONTHS -> "ماه"; RepeatUnit.YEARS -> "سال"; else -> "بار"
 }
 
