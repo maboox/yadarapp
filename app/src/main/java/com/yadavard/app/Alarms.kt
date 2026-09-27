@@ -74,17 +74,20 @@ object ReminderAlarms {
     fun showTest(context: Context) {
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val manager = context.getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel(CHANNEL, "یادآوری‌ها", NotificationManager.IMPORTANCE_HIGH))
+        val lang = AppDisplay.storedLanguage(context)
+        manager.createNotificationChannel(NotificationChannel(CHANNEL, AppDisplay.text("یادآوری‌ها", "Reminders", lang), NotificationManager.IMPORTANCE_HIGH))
         manager.notify(123456789, NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle("آزمون اعلان یادار")
-            .setContentText("این اعلان باید دو دقیقه بعد از بستن برنامه برسد.")
+            .setContentTitle(AppDisplay.text("آزمون اعلان یادار", "Yadar notification test", lang))
+            .setContentText(AppDisplay.text("این اعلان باید دو دقیقه بعد از بستن برنامه برسد.", "This alert should arrive two minutes after leaving the app.", lang))
             .setAutoCancel(true).setPriority(NotificationCompat.PRIORITY_HIGH).build())
     }
     fun show(context: Context, r: Reminder, leading: Boolean = false) {
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val manager = context.getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel(CHANNEL, "یادآوری‌ها", NotificationManager.IMPORTANCE_HIGH))
+        val lang = AppDisplay.storedLanguage(context)
+        val calendar = AppDisplay.storedCalendar(context)
+        manager.createNotificationChannel(NotificationChannel(CHANNEL, AppDisplay.text("یادآوری‌ها", "Reminders", lang), NotificationManager.IMPORTANCE_HIGH))
         val launch = PendingIntent.getActivity(context, r.id.toInt(), Intent(context, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val done = pending(context, r, 3, ACTION_DONE)
@@ -93,12 +96,12 @@ object ReminderAlarms {
         }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle(if (leading) "به‌زودی: ${r.title}" else r.title)
-            .setContentText(r.note.ifBlank { PersianDates.format(r.nextAt, ZoneId.of(r.zone)) })
-            .setStyle(NotificationCompat.BigTextStyle().bigText(r.note.ifBlank { PersianDates.format(r.nextAt, ZoneId.of(r.zone)) }))
+            .setContentTitle(if (leading) AppDisplay.text("به‌زودی: ", "Upcoming: ", lang) + r.title else r.title)
+            .setContentText(r.note.ifBlank { AppDisplay.dateTime(r.nextAt, ZoneId.of(r.zone), calendar, lang) })
+            .setStyle(NotificationCompat.BigTextStyle().bigText(r.note.ifBlank { AppDisplay.dateTime(r.nextAt, ZoneId.of(r.zone), calendar, lang) }))
             .setContentIntent(launch).setAutoCancel(true).setPriority(NotificationCompat.PRIORITY_HIGH)
-            .addAction(android.R.drawable.checkbox_on_background, "انجام شد", done)
-            .addAction(android.R.drawable.ic_popup_reminder, "۱۰ دقیقه بعد", snooze)
+            .addAction(android.R.drawable.checkbox_on_background, AppDisplay.text("انجام شد", "Done", lang), done)
+            .addAction(android.R.drawable.ic_popup_reminder, AppDisplay.text("۱۰ دقیقه بعد", "In 10 minutes", lang), snooze)
             .build()
         manager.notify(r.id.toInt(), notification)
     }

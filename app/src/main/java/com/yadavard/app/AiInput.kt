@@ -91,7 +91,8 @@ class OpenRouter(private val context: Context) {
     data class Model(val id: String, val name: String, val free: Boolean)
     /** Model availability and prices change; fetch the live catalog instead of shipping fixed names. */
     suspend fun models(transcription: Boolean): List<Model> = withContext(Dispatchers.IO) {
-        val key = settings.key() ?: error("ابتدا کلید OpenRouter را در تنظیمات ذخیره کن")
+        val key = settings.key() ?: error(AppDisplay.text("ابتدا کلید OpenRouter را در تنظیمات ذخیره کن",
+            "Save an OpenRouter key in settings first", AppDisplay.storedLanguage(context)))
         val url = "https://openrouter.ai/api/v1/models" + if (transcription) "?output_modalities=transcription" else ""
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 15_000; readTimeout = 30_000
@@ -122,12 +123,15 @@ class OpenRouter(private val context: Context) {
     }
     private fun connection(endpoint: String) = (URL("https://openrouter.ai/api/v1/$endpoint").openConnection() as HttpURLConnection).apply {
         requestMethod = "POST"; doOutput = true; connectTimeout = 20_000; readTimeout = 90_000
-        setRequestProperty("Authorization", "Bearer ${settings.key() ?: error("ابتدا کلید OpenRouter را در تنظیمات وارد کنید")}")
+        setRequestProperty("Authorization", "Bearer ${settings.key() ?: error(AppDisplay.text("ابتدا کلید OpenRouter را در تنظیمات وارد کنید",
+            "Enter an OpenRouter key in settings first", AppDisplay.storedLanguage(context)))}")
     }
     private fun result(conn: HttpURLConnection): String {
         val body = (if (conn.responseCode in 200..299) conn.inputStream else conn.errorStream)
             ?.bufferedReader()?.use { it.readText() } ?: ""
-        if (conn.responseCode !in 200..299) throw IllegalStateException("خطای OpenRouter (${conn.responseCode}): ${body.take(250)}")
+        if (conn.responseCode !in 200..299) throw IllegalStateException(
+            AppDisplay.text("خطای OpenRouter", "OpenRouter error", AppDisplay.storedLanguage(context)) +
+                " (${conn.responseCode}): ${body.take(250)}")
         return body
     }
     suspend fun transcribe(file: File): String = withContext(Dispatchers.IO) {
@@ -147,10 +151,13 @@ class OpenRouter(private val context: Context) {
     suspend fun parse(text: String): Reminder = withContext(Dispatchers.IO) {
         val zone = ZoneId.systemDefault()
         val now = ZonedDateTime.now(zone)
-        val prompt = """You are a Persian reminder parser. Return ONLY a JSON object. Current instant: $now.
-User's time zone: $zone. User may speak Persian or English. Dates are Jalali unless explicitly Gregorian.
-Fields: title (short Persian task), note (optional), first_at (ISO 8601 instant WITH offset), unit (NONE/DAYS/WEEKS/MONTHS/YEARS/AFTER_DONE_DAYS), every (integer >=1), weekdays (array of ISO weekday numbers 1=Monday..7=Sunday), month_day (Jalali 1..31 or 0), lead_minutes (integer >=0), assumption (brief Persian explanation of any inferred time).
-Interpret '20th of every month' as MONTHS/month_day=20; 'every 20 days' as DAYS/every=20; 'start in 10 days, every 20 days' means first_at in 10 days. 'Every 3 months on the 5th' means first_at is the next 5th Jalali date that is at/after requested start; month_day=5, every=3. Return the first actual due date, not the anchor date.
+        val calendar = AppDisplay.storedCalendar(context)
+        val language = AppDisplay.storedLanguage(context)
+        val prompt = """You are a multilingual reminder parser. Return ONLY a JSON object. Current instant: $now.
+User's time zone: $zone. User may speak Persian or English. Default calendar: $calendar. UI language: $language.
+Interpret ambiguous calendar dates using the default calendar, unless the user explicitly says Persian/Jalali/Gregorian or supplies an unambiguous year. Year 14xx normally means Persian; year 20xx normally means Gregorian.
+Fields: title (short task in the user's own language), note (optional), first_at (ISO 8601 instant WITH offset), unit (NONE/DAYS/WEEKS/MONTHS/YEARS/AFTER_DONE_DAYS), every (integer >=1), weekdays (array of ISO weekday numbers 1=Monday..7=Sunday), month_day (day 1..31 or 0), calendar (PERSIAN/GREGORIAN for monthly and yearly recurrence, default to $calendar), lead_minutes (integer >=0), assumption (brief explanation in UI language of any inferred time).
+Interpret '20th of every month' as MONTHS/month_day=20; 'every 20 days' as DAYS/every=20; 'start in 10 days, every 20 days' means first_at in 10 days. 'Every 3 months on the 5th' means first_at is the next 5th day in the selected calendar at or after requested start; month_day=5, every=3. Return the first actual due date, not the anchor date.
 If only a day is given, default to 10:00. Morning=09:00, afternoon=16:00, evening=18:00, night=21:00. If no date is stated, default to today when time is in the future, otherwise tomorrow. Never invent location-triggered automation. Preserve any condition in note.
 User request: $text"""
         val request = JSONObject().put("model", settings.textModel).put("temperature", 0)
@@ -161,16 +168,24 @@ User request: $text"""
             val raw = JSONObject(result(conn)).getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content")
             val value = JSONObject(raw.substring(raw.indexOf('{'), raw.lastIndexOf('}') + 1))
             val due = Instant.parse(value.getString("first_at").let { ZonedDateTime.parse(it).toInstant().toString() }).toEpochMilli()
-            require(due > System.currentTimeMillis() - 60_000) { "زمان برداشت‌شده در گذشته است؛ لطفاً آن را روشن‌تر بگویید" }
+            require(due > System.currentTimeMillis() - 60_000) {
+                AppDisplay.text("زمان برداشت‌شده در گذشته است؛ لطفاً آن را روشن‌تر بگویید",
+                    "The parsed time is in the past; please clarify it", language)
+            }
             val unit = runCatching { RepeatUnit.valueOf(value.optString("unit", "NONE")) }.getOrDefault(RepeatUnit.NONE)
             val days = value.optJSONArray("weekdays")
             var mask = 0
             if (days != null) for (i in 0 until days.length()) if (days.optInt(i) in 1..7) mask = mask or (1 shl (days.getInt(i) - 1))
-            val note = listOf(value.optString("note"), value.optString("assumption").takeIf { it.isNotBlank() }?.let { "برداشت زمان: $it" } ?: "")
+            val note = listOf(value.optString("note"), value.optString("assumption").takeIf { it.isNotBlank() }?.let {
+                AppDisplay.text("برداشت زمان: ", "Assumed time: ", language) + it
+            } ?: "")
                 .filter { it.isNotBlank() }.joinToString("\n")
-            Occurrences.alignFirst(Reminder(title = value.getString("title").trim().take(180).ifBlank { error("عنوان خالی است") }, note = note,
+            Occurrences.alignFirst(Reminder(title = value.getString("title").trim().take(180).ifBlank {
+                error(AppDisplay.text("عنوان خالی است", "Title is missing", language))
+            }, note = note,
                 firstAt = due, unit = unit, every = value.optInt("every", 1).coerceIn(1, 3650), weekdays = mask,
-                monthDay = value.optInt("month_day", 0).coerceIn(0, 31), leadMinutes = value.optInt("lead_minutes", 0).coerceIn(0, 525600), zone = zone.id))
+                monthDay = value.optInt("month_day", 0).coerceIn(0, 31), leadMinutes = value.optInt("lead_minutes", 0).coerceIn(0, 525600), zone = zone.id,
+                calendar = runCatching { CalendarSystem.valueOf(value.optString("calendar", calendar.name).uppercase()) }.getOrDefault(calendar)))
         } finally { conn.disconnect() }
     }
 }

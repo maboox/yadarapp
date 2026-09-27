@@ -50,7 +50,6 @@ object WidgetCommands {
 
 object WidgetUpdater {
     private const val MIDNIGHT = "com.yadavard.app.widget.MIDNIGHT"
-    private val names = arrayOf("ش", "ی", "د", "س", "چ", "پ", "ج")
     private val todayRows = intArrayOf(R.id.today_row_0, R.id.today_row_1, R.id.today_row_2)
     private val nextRows = intArrayOf(R.id.next_row_0, R.id.next_row_1, R.id.next_row_2, R.id.next_row_3, R.id.next_row_4)
     private val weekDays = intArrayOf(R.id.week_day_0, R.id.week_day_1, R.id.week_day_2,
@@ -98,9 +97,19 @@ object WidgetUpdater {
         val zone = ZoneId.systemDefault()
         val today = LocalDate.now(zone)
         val now = System.currentTimeMillis()
+        val language = AppDisplay.storedLanguage(context)
+        val calendar = AppDisplay.storedCalendar(context)
+        fun label(fa: String, en: String) = AppDisplay.text(fa, en, language)
+        fun number(value: Any) = AppDisplay.number(value, language)
+        fun date(value: Long, inZone: ZoneId = zone) = AppDisplay.date(value, inZone, calendar, language)
+        fun dateTime(value: Long, inZone: ZoneId = zone) = AppDisplay.dateTime(value, inZone, calendar, language)
 
         for (widgetId in ids(context, QuickWidgetProvider::class.java)) {
             val view = RemoteViews(context.packageName, R.layout.widget_quick)
+            view.setTextViewText(R.id.quick_header, label("✦ یادار / ثبت سریع", "✦ Yadar / Quick add"))
+            view.setTextViewText(R.id.quick_description, label("همین الان بگو یا بنویس؛ یادت می‌مونه.", "Say or add it now; remember it later."))
+            view.setTextViewText(R.id.quick_voice, label("●  با ویس بگو", "●  Use voice"))
+            view.setTextViewText(R.id.quick_add, label("＋  یادآوری جدید", "＋  New reminder"))
             view.setOnClickPendingIntent(R.id.quick_root, activity(context, widgetId, 0, WidgetCommands.HOME))
             view.setOnClickPendingIntent(R.id.quick_voice, activity(context, widgetId, 1, WidgetCommands.VOICE))
             view.setOnClickPendingIntent(R.id.quick_add, activity(context, widgetId, 2, WidgetCommands.ADD))
@@ -112,36 +121,38 @@ object WidgetUpdater {
         }.sortedBy { it.second }
         for (widgetId in ids(context, TodayWidgetProvider::class.java)) {
             val view = RemoteViews(context.packageName, R.layout.widget_today)
-            view.setTextViewText(R.id.today_header, "امروز • ${PersianDates.digits(dueToday.size)} یادآوری")
-            view.setTextViewText(R.id.today_date, PersianDates.formatDate(now, zone))
+            view.setTextViewText(R.id.today_header, label("امروز • ${number(dueToday.size)} یادآوری", "Today • ${number(dueToday.size)} reminders"))
+            view.setTextViewText(R.id.today_date, date(now))
             view.setOnClickPendingIntent(R.id.today_root, activity(context, widgetId, 0, WidgetCommands.HOME))
             todayRows.forEachIndexed { index, rowId ->
                 val item = dueToday.getOrNull(index)
                 if (item == null && index != 0) { view.setViewVisibility(rowId, View.GONE); return@forEachIndexed }
                 view.setViewVisibility(rowId, View.VISIBLE)
-                view.setTextViewText(rowId, if (item == null) "امروز خیالت راحت باشه ✨"
-                    else "${if (item.second <= 0L) "پیگیری" else PersianDates.digits(java.time.Instant.ofEpochMilli(item.second).atZone(zone).toLocalTime().toString().take(5))}  •  ${item.first.title}")
+                view.setTextViewText(rowId, if (item == null) label("امروز خیالت راحت باشه ✨", "All clear today ✨")
+                    else "${if (item.second <= 0L) label("پیگیری", "Overdue") else number(java.time.Instant.ofEpochMilli(item.second).atZone(zone).toLocalTime().toString().take(5))}  •  ${item.first.title}")
                 view.setOnClickPendingIntent(rowId, activity(context, widgetId, index + 1,
                     if (item == null) WidgetCommands.ADD else WidgetCommands.EDIT, item?.first?.id ?: 0))
             }
-            view.setTextViewText(R.id.today_footer, if (dueToday.size > 3) "${PersianDates.digits(dueToday.size - 3)} مورد دیگر  ←" else "دیدن همه  ←")
+            view.setTextViewText(R.id.today_footer, if (dueToday.size > 3) label("${number(dueToday.size - 3)} مورد دیگر  ←", "${number(dueToday.size - 3)} more  →")
+                else label("دیدن همه  ←", "See all  →"))
             view.setOnClickPendingIntent(R.id.today_footer, activity(context, widgetId, 4, WidgetCommands.HOME))
             manager.updateAppWidget(widgetId, view)
         }
 
-        val weekStart = today.minusDays(((today.dayOfWeek.value + 1) % 7).toLong())
+        val weekStart = AppDisplay.weekStart(today, calendar)
         for (widgetId in ids(context, WeekWidgetProvider::class.java)) {
             val view = RemoteViews(context.packageName, R.layout.widget_week)
             val end = weekStart.plusDays(6)
+            view.setTextViewText(R.id.week_header, label("هفتهٔ من  ✦", "My week  ✦"))
             view.setTextViewText(R.id.week_dates,
-                "${PersianDates.formatDate(weekStart.atStartOfDay(zone).toInstant().toEpochMilli(), zone)} تا ${PersianDates.formatDate(end.atStartOfDay(zone).toInstant().toEpochMilli(), zone)}")
+                "${date(weekStart.atStartOfDay(zone).toInstant().toEpochMilli())} ${label("تا", "to")} ${date(end.atStartOfDay(zone).toInstant().toEpochMilli())}")
             view.setOnClickPendingIntent(R.id.week_root, activity(context, widgetId, 0, WidgetCommands.WEEK))
             weekDays.forEachIndexed { index, dayId ->
                 val day = weekStart.plusDays(index.toLong())
                 val at = day.atStartOfDay(zone).toInstant().toEpochMilli()
-                val number = PersianDates.fromMillis(at, zone).day
+                val dayNumber = AppDisplay.parts(at, zone, calendar).day
                 val count = reminders.count { occurrenceOn(it, day, zone) != null }
-                view.setTextViewText(dayId, "${names[index]}\n${PersianDates.digits(number)}\n${PersianDates.digits(count)} کار")
+                view.setTextViewText(dayId, "${AppDisplay.shortWeekday(day, language)}\n${number(dayNumber)}\n${number(count)} ${label("کار", "tasks")}")
                 view.setTextColor(dayId, if (day == today) 0xFF644EE9.toInt() else 0xFF4F408C.toInt())
                 view.setOnClickPendingIntent(dayId, activity(context, widgetId, index + 1, WidgetCommands.DAY, day = day))
             }
@@ -152,13 +163,15 @@ object WidgetUpdater {
         for (widgetId in ids(context, NextWidgetProvider::class.java)) {
             val view = RemoteViews(context.packageName, R.layout.widget_next)
             view.setOnClickPendingIntent(R.id.next_root, activity(context, widgetId, 0, WidgetCommands.HOME))
-            view.setTextViewText(R.id.next_subtitle, if (upcoming.isEmpty()) "یادآوری بعدی را از دکمهٔ + بساز" else "به ترتیب نزدیک‌ترین موعد")
+            view.setTextViewText(R.id.next_header, label("۵ یادآوری بعدی  ✦", "Next 5 reminders  ✦"))
+            view.setTextViewText(R.id.next_subtitle, if (upcoming.isEmpty()) label("یادآوری بعدی را از دکمهٔ + بساز", "Add your first reminder")
+                else label("به ترتیب نزدیک‌ترین موعد", "Soonest first"))
             nextRows.forEachIndexed { index, rowId ->
                 val reminder = upcoming.getOrNull(index)
                 if (reminder == null && index != 0) { view.setViewVisibility(rowId, View.GONE); return@forEachIndexed }
                 view.setViewVisibility(rowId, View.VISIBLE)
-                view.setTextViewText(rowId, if (reminder == null) "＋  اولین یادآوری رو اضافه کن" else
-                    "${PersianDates.digits(index + 1)}. ${reminder.title}  •  ${PersianDates.format(reminder.nextAt, ZoneId.of(reminder.zone))}")
+                view.setTextViewText(rowId, if (reminder == null) label("＋  اولین یادآوری رو اضافه کن", "＋  Add a reminder") else
+                    "${number(index + 1)}. ${reminder.title}  •  ${dateTime(reminder.nextAt, ZoneId.of(reminder.zone))}")
                 view.setOnClickPendingIntent(rowId, activity(context, widgetId, index + 1,
                     if (reminder == null) WidgetCommands.ADD else WidgetCommands.EDIT, reminder?.id ?: 0))
             }
@@ -168,9 +181,13 @@ object WidgetUpdater {
         val focus = upcoming.firstOrNull() ?: reminders.firstOrNull { it.nextAt == 0L }
         for (widgetId in ids(context, FocusWidgetProvider::class.java)) {
             val view = RemoteViews(context.packageName, R.layout.widget_focus)
-            view.setTextViewText(R.id.focus_title, focus?.title ?: "همه‌چیز رو به‌راهه ✨")
-            view.setTextViewText(R.id.focus_due, if (focus == null) "یادآوری تازه‌ای ثبت کن" else if (focus.nextAt == 0L) "موعد گذشته • نیاز به پیگیری"
-                else PersianDates.format(focus.nextAt, ZoneId.of(focus.zone)))
+            view.setTextViewText(R.id.focus_header, label("✦ نزدیک‌ترین یادآوری", "✦ Nearest reminder"))
+            view.setTextViewText(R.id.focus_title, focus?.title ?: label("همه‌چیز رو به‌راهه ✨", "All clear ✨"))
+            view.setTextViewText(R.id.focus_due, if (focus == null) label("یادآوری تازه‌ای ثبت کن", "Add a new reminder")
+                else if (focus.nextAt == 0L) label("موعد گذشته • نیاز به پیگیری", "Overdue • needs attention")
+                else dateTime(focus.nextAt, ZoneId.of(focus.zone)))
+            view.setTextViewText(R.id.focus_open, label("باز کردن", "Open"))
+            view.setTextViewText(R.id.focus_done, label("✓  انجام شد", "✓  Done"))
             view.setOnClickPendingIntent(R.id.focus_root, activity(context, widgetId, 0, WidgetCommands.HOME))
             view.setOnClickPendingIntent(R.id.focus_open, activity(context, widgetId, 1,
                 if (focus == null) WidgetCommands.ADD else WidgetCommands.EDIT, focus?.id ?: 0))

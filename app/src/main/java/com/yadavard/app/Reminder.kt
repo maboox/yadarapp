@@ -27,7 +27,7 @@ data class Reminder(
     val unit: RepeatUnit = RepeatUnit.NONE,
     val every: Int = 1,
     val weekdays: Int = 0, // ISO Monday=1, bit 0; Sunday=7, bit 6
-    val monthDay: Int = 0, // Persian day; 0 means day of first occurrence
+    val monthDay: Int = 0, // day in the reminder's repeat calendar; 0 means first occurrence day
     val persianMonth: Int = 0, // 1..12; 0 means month of first occurrence
     val leadMinutes: Int = 0,
     val untilAt: Long? = null,
@@ -35,7 +35,8 @@ data class Reminder(
     val done: Boolean = false,
     val lastCompletedAt: Long = 0,
     val lastFiredAt: Long = 0,
-    val snoozeAt: Long = 0
+    val snoozeAt: Long = 0,
+    val calendar: CalendarSystem = CalendarSystem.PERSIAN
 )
 
 object PersianDates {
@@ -76,7 +77,7 @@ object PersianDates {
 
 /** Computes scheduled occurrences independently of when a notification was delivered or dismissed. */
 object Occurrences {
-    /** Moves the first due date to a selected weekday or Jalali month day, if needed. */
+    /** Moves the first due date to a selected weekday or calendar month day, if needed. */
     fun alignFirst(r: Reminder): Reminder {
         val zone = ZoneId.of(r.zone)
         val start = Instant.ofEpochMilli(r.firstAt).atZone(zone)
@@ -86,14 +87,16 @@ object Occurrences {
                 start.plusDays(offset.toLong()).toInstant().toEpochMilli()
             }
             RepeatUnit.MONTHS, RepeatUnit.YEARS -> if (r.monthDay !in 1..31) r.firstAt else {
-                val p = PersianDates.fromMillis(r.firstAt, zone)
+                val p = AppDisplay.parts(r.firstAt, zone, r.calendar)
                 var y = p.year; var m = p.month
-                if (p.day > r.monthDay) {
+                fun due() = AppDisplay.at(y, m,
+                    r.monthDay.coerceAtMost(AppDisplay.monthLength(y, m, zone, r.calendar)),
+                    start.hour, start.minute, zone, r.calendar)
+                if (due() < r.firstAt) {
                     if (r.unit == RepeatUnit.YEARS) y++
                     else { m++; if (m == 13) { m = 1; y++ } }
                 }
-                val day = r.monthDay.coerceAtMost(PersianDates.monthLength(y, m, zone))
-                PersianDates.at(y, m, day, start.hour, start.minute, zone)
+                due()
             }
             else -> r.firstAt
         }
@@ -135,8 +138,8 @@ object Occurrences {
                 }
             }
             RepeatUnit.MONTHS, RepeatUnit.YEARS -> {
-                val base = PersianDates.fromMillis(r.firstAt, zone)
-                val current = PersianDates.fromMillis(threshold, zone)
+                val base = AppDisplay.parts(r.firstAt, zone, r.calendar)
+                val current = AppDisplay.parts(threshold, zone, r.calendar)
                 val baseMonthIndex = base.year * 12L + base.month - 1L
                 val delta = (current.year * 12L + current.month - 1L - baseMonthIndex).coerceAtLeast(0)
                 val period = if (r.unit == RepeatUnit.YEARS) step * 12L else step.toLong()
@@ -146,8 +149,8 @@ object Occurrences {
                     val year = (monthIndex / 12).toInt()
                     val month = (monthIndex % 12 + 1).toInt()
                     val desired = if (r.monthDay in 1..31) r.monthDay else base.day
-                    val day = desired.coerceAtMost(PersianDates.monthLength(year, month, zone))
-                    val instant = PersianDates.at(year, month, day, hour, minute, zone)
+                    val day = desired.coerceAtMost(AppDisplay.monthLength(year, month, zone, r.calendar))
+                    val instant = AppDisplay.at(year, month, day, hour, minute, zone, r.calendar)
                     if (instant >= r.firstAt && accepted(instant)) return instant
                     index++
                 }
@@ -167,7 +170,7 @@ object Occurrences {
     }
 }
 
-class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db", null, 3) {
+class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db", null, 4) {
     override fun onCreate(db: SQLiteDatabase) {
         createTable(db, "reminders")
     }
@@ -178,7 +181,8 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
             every_n INTEGER NOT NULL, weekdays INTEGER NOT NULL, month_day INTEGER NOT NULL,
             persian_month INTEGER NOT NULL, lead_minutes INTEGER NOT NULL, until_at INTEGER,
             zone TEXT NOT NULL, done INTEGER NOT NULL DEFAULT 0, completed_at INTEGER NOT NULL DEFAULT 0,
-            fired_at INTEGER NOT NULL DEFAULT 0, snooze_at INTEGER NOT NULL DEFAULT 0)""")
+            fired_at INTEGER NOT NULL DEFAULT 0, snooze_at INTEGER NOT NULL DEFAULT 0,
+            calendar_type TEXT NOT NULL DEFAULT 'PERSIAN')""")
     }
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 3) {
@@ -190,6 +194,7 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
             db.execSQL("DROP TABLE reminders")
             db.execSQL("ALTER TABLE reminders_local RENAME TO reminders")
         }
+        if (oldVersion == 3) db.execSQL("ALTER TABLE reminders ADD COLUMN calendar_type TEXT NOT NULL DEFAULT 'PERSIAN'")
     }
     private fun values(r: Reminder) = ContentValues().apply {
         put("title", r.title); put("note", r.note); put("first_at", r.firstAt); put("next_at", r.nextAt)
@@ -197,7 +202,7 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
         put("month_day", r.monthDay); put("persian_month", r.persianMonth)
         put("lead_minutes", r.leadMinutes); if (r.untilAt == null) putNull("until_at") else put("until_at", r.untilAt)
         put("zone", r.zone); put("done", if (r.done) 1 else 0); put("completed_at", r.lastCompletedAt)
-        put("fired_at", r.lastFiredAt); put("snooze_at", r.snoozeAt)
+        put("fired_at", r.lastFiredAt); put("snooze_at", r.snoozeAt); put("calendar_type", r.calendar.name)
     }
     fun save(r: Reminder): Reminder {
         val id = if (r.id == 0L) writableDatabase.insertOrThrow("reminders", null, values(r)) else {
@@ -227,6 +232,7 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
             runCatching { RepeatUnit.valueOf(string("unit")) }.getOrDefault(RepeatUnit.NONE), integer("every_n"),
             integer("weekdays"), integer("month_day"), integer("persian_month"), integer("lead_minutes"),
             if (c.isNull(untilIndex)) null else c.getLong(untilIndex), string("zone"), integer("done") == 1,
-            number("completed_at"), number("fired_at"), number("snooze_at"))
+            number("completed_at"), number("fired_at"), number("snooze_at"),
+            runCatching { CalendarSystem.valueOf(string("calendar_type")) }.getOrDefault(CalendarSystem.PERSIAN))
     }
 }
