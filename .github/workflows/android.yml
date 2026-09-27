@@ -9,6 +9,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+      - name: Exclude obsolete cloud source from older checkouts
+        run: rm -f app/src/main/java/com/yadavard/app/Cloud.kt
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
