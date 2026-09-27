@@ -3,6 +3,8 @@ package com.yadavard.app
 import android.app.AlarmManager
 import android.app.TimePickerDialog
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.Manifest
 import android.content.pm.PackageManager
@@ -11,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -35,6 +38,7 @@ import org.json.JSONObject
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlinx.coroutines.launch
 
 @Composable
 fun ReminderEditor(original: Reminder?, onDismiss: () -> Unit, onSave: (Reminder) -> Unit, onDelete: (Reminder) -> Unit) {
@@ -205,7 +209,8 @@ fun ReminderEditor(original: Reminder?, onDismiss: () -> Unit, onSave: (Reminder
             onSave(Occurrences.alignFirst(Reminder(id = original?.id ?: 0, title = title.trim(), note = note.trim(), firstAt = dateTime,
                 unit = unit, every = interval.coerceAtLeast(1), weekdays = weekdays,
                 monthDay = if (unit in listOf(RepeatUnit.MONTHS, RepeatUnit.YEARS)) day else 0,
-                leadMinutes = notice, untilAt = until, zone = zone.id)))
+                leadMinutes = notice, untilAt = until, zone = zone.id,
+                cloudId = original?.cloudId, telegramEnabled = original?.telegramEnabled ?: false)))
         }) { Text("ذخیره") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } })
 
@@ -240,10 +245,52 @@ private fun unitLabel(unit: RepeatUnit) = when (unit) {
 @Composable
 fun SettingsPage(ai: AiSettings, count: Int, onPermission: () -> Unit, onRefresh: () -> Unit) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val cloud = remember { CloudApi(context) }
+    var cloudUrl by remember { mutableStateOf(cloud.settings.url) }
+    var publicKey by remember { mutableStateOf(cloud.settings.publishableKey) }
+    var botName by remember { mutableStateOf(cloud.settings.botUsername) }
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var signedIn by remember { mutableStateOf(cloud.settings.session() != null) }
+    var cloudBusy by remember { mutableStateOf(false) }
+    var cloudMessage by remember { mutableStateOf("") }
+    var linkCode by remember { mutableStateOf("") }
+    fun saveCloudConfig() {
+        cloud.settings.url = cloudUrl
+        cloud.settings.publishableKey = publicKey
+        cloud.settings.botUsername = botName
+    }
+    fun cloudAction(action: suspend () -> String) {
+        if (cloudBusy) return
+        cloudBusy = true; cloudMessage = ""
+        scope.launch {
+            try { cloudMessage = action() }
+            catch (e: Exception) { cloudMessage = e.message ?: "اتصال برقرار نشد" }
+            finally { cloudBusy = false }
+        }
+    }
     var keyText by remember { mutableStateOf("") }
     var textModel by remember { mutableStateOf(ai.textModel) }
     var audioModel by remember { mutableStateOf(ai.audioModel) }
     var hasKey by remember { mutableStateOf(ai.key() != null) }
+    var selectingSpeech by remember { mutableStateOf<Boolean?>(null) }
+    var modelLoading by remember { mutableStateOf(false) }
+    var modelError by remember { mutableStateOf("") }
+    var modelList by remember { mutableStateOf<List<OpenRouter.Model>>(emptyList()) }
+    var modelSearch by remember { mutableStateOf("") }
+    var freeOnly by remember { mutableStateOf(false) }
+    fun openModels(speech: Boolean) {
+        if (keyText.isNotBlank()) { ai.saveKey(keyText); keyText = ""; hasKey = true }
+        selectingSpeech = speech
+        modelList = emptyList(); modelError = ""; modelSearch = ""; freeOnly = false
+        modelLoading = true
+        scope.launch {
+            try { modelList = OpenRouter(context).models(speech) }
+            catch (e: Exception) { modelError = "دریافت فهرست مدل‌ها انجام نشد: ${e.message}" }
+            finally { modelLoading = false }
+        }
+    }
     var notificationsAllowed by remember { mutableStateOf(Build.VERSION.SDK_INT < 33 ||
         context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) }
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -277,8 +324,24 @@ fun SettingsPage(ai: AiSettings, count: Int, onPermission: () -> Unit, onRefresh
             Text(if (hasKey) "کلید OpenRouter روی همین گوشی ذخیره شده" else "برای ورودی صوتی و جمله‌ای، کلید خودت را وارد کن", color = Muted)
             OutlinedTextField(keyText, { keyText = it }, label = { Text("کلید OpenRouter") },
                 visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth(), singleLine = true)
-            OutlinedTextField(textModel, { textModel = it }, label = { Text("مدل تحلیل متن") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(audioModel, { audioModel = it }, label = { Text("مدل تبدیل صدا به متن") }, modifier = Modifier.fillMaxWidth())
+            OutlinedButton(onClick = { openModels(false) }, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth()) {
+                    Text("انتخاب مدل تحلیل متن", fontWeight = FontWeight.SemiBold)
+                    Text(textModel, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            OutlinedButton(onClick = { openModels(true) }, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth()) {
+                    Text("انتخاب مدل تبدیل ویس به متن", fontWeight = FontWeight.SemiBold)
+                    Text(audioModel, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            var manualModels by remember { mutableStateOf(false) }
+            TextButton(onClick = { manualModels = !manualModels }) { Text("وارد کردن شناسهٔ مدل به‌صورت دستی") }
+            if (manualModels) {
+                OutlinedTextField(textModel, { textModel = it }, label = { Text("شناسهٔ مدل تحلیل متن") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(audioModel, { audioModel = it }, label = { Text("شناسهٔ مدل تبدیل ویس") }, modifier = Modifier.fillMaxWidth())
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = {
                     if (keyText.isNotBlank()) { ai.saveKey(keyText); keyText = ""; hasKey = true }
@@ -287,7 +350,7 @@ fun SettingsPage(ai: AiSettings, count: Int, onPermission: () -> Unit, onRefresh
                 }) { Text("ذخیره") }
                 if (hasKey) TextButton(onClick = { ai.saveKey(""); hasKey = false }) { Text("حذف کلید") }
             }
-            Text("برای تحلیل، متن یا ویس به سرویس انتخابی ارسال می‌شود. هزینه تابع مدل و مصرف حساب شماست.", color = Muted, fontSize = 12.sp)
+            Text("فهرست مدل‌ها از OpenRouter دریافت می‌شود. برچسب رایگان بر اساس تعرفهٔ فعلی است؛ محدودیت مصرف و موجودی حساب را در OpenRouter بررسی کن. ویس ابتدا با مدل جداگانه به متن تبدیل می‌شود.", color = Muted, fontSize = 12.sp)
         } }
         item { SettingsBox("پشتیبان‌گیری • $count یادآوری") {
             Text("فایل JSON را در جای امن نگه دار. کلید هوش مصنوعی در آن نیست.", color = Muted)
@@ -296,9 +359,82 @@ fun SettingsPage(ai: AiSettings, count: Int, onPermission: () -> Unit, onRefresh
                 OutlinedButton(onClick = { importPicker.launch(arrayOf("application/json", "text/plain")) }) { Text("بازیابی") }
             }
         } }
-        item { SettingsBox("اتصال تلگرام") {
-            Text("اتصال حساب و ربات به سرویس همگام‌سازی نیاز دارد. این نسخهٔ آفلاین هنوز اتصال تلگرام ندارد.", color = Muted)
+        item { SettingsBox("حساب و تلگرام • اختیاری") {
+            Text("بدون حساب هم یادار کامل آفلاین کار می‌کند. برای همگام‌سازی و ثبت از ربات، سرویس Supabase را یک‌بار راه بینداز.", color = Muted, fontSize = 12.sp)
+            OutlinedTextField(cloudUrl, { cloudUrl = it }, label = { Text("نشانی پروژهٔ Supabase (https://...)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            OutlinedTextField(publicKey, { publicKey = it }, label = { Text("Publishable / anon key عمومی") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            OutlinedTextField(botName, { botName = it }, label = { Text("نام کاربری ربات (بدون @)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            OutlinedButton(onClick = { saveCloudConfig(); cloudMessage = "اطلاعات پروژه ذخیره شد" }) { Text("ذخیرهٔ تنظیمات اتصال") }
+            if (!signedIn) {
+                OutlinedTextField(email, { email = it }, label = { Text("ایمیل حساب یادار") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(password, { password = it }, label = { Text("رمز حساب") }, modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = PasswordVisualTransformation(), singleLine = true)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Button(enabled = !cloudBusy, onClick = { saveCloudConfig(); cloudAction {
+                        val ready = cloud.signIn(email, password, false)
+                        signedIn = ready; if (ready) { password = ""; cloud.sync(onRefresh) }; "وارد حساب شدی و یادآوری‌ها همگام شدند"
+                    } }) { Text("ورود") }
+                    OutlinedButton(enabled = !cloudBusy, onClick = { saveCloudConfig(); cloudAction {
+                        val ready = cloud.signIn(email, password, true)
+                        signedIn = ready; password = ""
+                        if (ready) { cloud.sync(onRefresh); "حساب ساخته شد و وارد شدی" }
+                        else "ایمیل تأیید را باز کن؛ سپس از اینجا وارد شو"
+                    } }) { Text("ساخت حساب") }
+                }
+            } else {
+                Text("حساب متصل است", color = Violet)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedButton(enabled = !cloudBusy, onClick = { cloudAction {
+                        val result = cloud.sync(onRefresh); "همگام‌سازی انجام شد ($result تغییر)"
+                    } }) { Text("همگام‌سازی") }
+                    Button(enabled = !cloudBusy, onClick = { cloudAction {
+                        linkCode = cloud.linkCode(); "کد اتصال ساخته شد؛ آن را در ربات وارد کن"
+                    } }) { Text("اتصال ربات") }
+                }
+                if (linkCode.isNotBlank()) {
+                    Text("کد موقت: $linkCode", color = Ink, fontWeight = FontWeight.Bold)
+                    if (cloud.settings.botUsername.matches(Regex("[A-Za-z0-9_]{5,32}")))
+                        TextButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW,
+                            Uri.parse("https://t.me/${cloud.settings.botUsername}?start=$linkCode"))) }) { Text("باز کردن ربات با کد") }
+                }
+                TextButton(onClick = { cloud.settings.saveSession(null); signedIn = false; linkCode = ""; cloudMessage = "از حساب خارج شدی؛ اطلاعات گوشی باقی ماند" }) { Text("خروج از حساب") }
+            }
+            if (cloudBusy) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if (cloudMessage.isNotBlank()) Text(cloudMessage, color = Muted, fontSize = 12.sp)
         } }
+    }
+    selectingSpeech?.let { speech ->
+        AlertDialog(onDismissRequest = { selectingSpeech = null }, title = { Text(if (speech) "مدل تبدیل ویس" else "مدل تحلیل متن") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(modelSearch, { modelSearch = it }, label = { Text("جست‌وجوی نام یا شناسه") },
+                        modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(freeOnly, onCheckedChange = { freeOnly = it }); Text("فقط مدل‌های رایگان")
+                    }
+                    if (modelLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    if (modelError.isNotBlank()) Text(modelError, color = MaterialTheme.colorScheme.error)
+                    val filtered = modelList.filter { (!freeOnly || it.free) &&
+                        (modelSearch.isBlank() || it.name.contains(modelSearch, ignoreCase = true) ||
+                            it.id.contains(modelSearch, ignoreCase = true)) }
+                    if (!modelLoading && modelError.isBlank() && filtered.isEmpty()) Text("مدلی با این شرایط پیدا نشد", color = Muted)
+                    LazyColumn(Modifier.heightIn(max = 340.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        items(filtered.size) { index ->
+                            val model = filtered[index]
+                            Surface(onClick = {
+                                if (speech) { audioModel = model.id; ai.audioModel = model.id }
+                                else { textModel = model.id; ai.textModel = model.id }
+                                selectingSpeech = null
+                            }, shape = RoundedCornerShape(12.dp), color = if (model.free) Mint else Canvas) {
+                                Column(Modifier.fillMaxWidth().padding(9.dp)) {
+                                    Text(model.name + if (model.free) " • رایگان" else "", fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                                    Text(model.id, color = Muted, fontSize = 10.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+            }, confirmButton = { TextButton(onClick = { selectingSpeech = null }) { Text("بستن") } })
     }
 }
 

@@ -1,0 +1,10 @@
+project_id = "yadar"
+
+[functions.link-code]
+verify_jwt = false  # Function validates the user's JWT through Supabase Auth.
+
+[functions.telegram-webhook]
+verify_jwt = false  # Telegram authenticates using its secret_token header.
+
+[functions.send-due]
+verify_jwt = false  # Cron sends a separate secret header.

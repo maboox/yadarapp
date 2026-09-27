@@ -1,0 +1,43 @@
+name: Deploy optional Telegram backend
+on:
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      TEXT_MODEL: ${{ vars.TEXT_MODEL }}
+      AUDIO_MODEL: ${{ vars.AUDIO_MODEL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Check required secrets
+        run: |
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_PROJECT_REF SUPABASE_DB_PASSWORD TELEGRAM_BOT_TOKEN OPENROUTER_API_KEY TELEGRAM_WEBHOOK_SECRET CRON_SECRET; do
+            if [ -z "${!name}" ]; then echo "Missing GitHub secret: $name"; exit 1; fi
+          done
+      - name: Deploy schema, functions and secrets
+        run: |
+          supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          supabase db push --yes
+          supabase secrets set "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN" "OPENROUTER_API_KEY=$OPENROUTER_API_KEY" "TELEGRAM_WEBHOOK_SECRET=$TELEGRAM_WEBHOOK_SECRET" "CRON_SECRET=$CRON_SECRET" "TEXT_MODEL=${TEXT_MODEL:-openai/gpt-4o-mini}" "AUDIO_MODEL=${AUDIO_MODEL:-openai/whisper-large-v3}"
+          supabase functions deploy link-code --no-verify-jwt
+          supabase functions deploy telegram-webhook --no-verify-jwt
+          supabase functions deploy send-due --no-verify-jwt
+      - name: Register Telegram webhook
+        run: |
+          response=$(curl --fail --silent --show-error --retry 2 --request POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
+            --data-urlencode "url=https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/telegram-webhook" \
+            --data-urlencode "secret_token=${TELEGRAM_WEBHOOK_SECRET}")
+          BOT_WEBHOOK_RESPONSE="$response" python3 -c 'import json,os; assert json.loads(os.environ["BOT_WEBHOOK_RESPONSE"])["ok"], "Webhook registration failed"; print("Telegram webhook registered")'

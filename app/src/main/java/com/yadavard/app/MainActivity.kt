@@ -70,7 +70,11 @@ class MainActivity : ComponentActivity() {
         val scope = rememberCoroutineScope()
         val ai = remember { AiSettings(context) }
         val recorder = remember { VoiceRecorder(context) }
-        @Suppress("UNUSED_VARIABLE") val currentPermissions = permissionRevision.intValue
+        val cloud = remember { CloudApi(context) }
+        val currentPermissions = permissionRevision.intValue
+        LaunchedEffect(currentPermissions) {
+            if (cloud.settings.session() != null) runCatching { cloud.sync(::refresh) }
+        }
         var tab by remember { mutableIntStateOf(0) }
         var selectedDashboardDate by remember { mutableStateOf(LocalDate.now()) }
         var showExactPrompt by remember { mutableStateOf(false) }
@@ -93,6 +97,7 @@ class MainActivity : ComponentActivity() {
             val saved = store.save(r)
             ReminderAlarms.schedule(context, saved)
             refresh()
+            if (cloud.settings.session() != null) scope.launch { runCatching { cloud.sync(::refresh) } }
             if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
                 notifyPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
             else if (Build.VERSION.SDK_INT >= 31 && !getSystemService(AlarmManager::class.java).canScheduleExactAlarms())
@@ -177,7 +182,10 @@ class MainActivity : ComponentActivity() {
         }
         if (showEditor) ReminderEditor(editor, onDismiss = { showEditor = false }, onSave = {
             save(it); showEditor = false
-        }, onDelete = { r -> ReminderAlarms.cancel(context, r); store.delete(r.id); refresh(); showEditor = false })
+        }, onDelete = { r ->
+            ReminderAlarms.cancel(context, r); store.delete(r.id); refresh(); showEditor = false
+            if (cloud.settings.session() != null) scope.launch { runCatching { cloud.sync(::refresh) } }
+        })
         review?.let { r ->
             AlertDialog(onDismissRequest = { review = null }, icon = { Icon(Icons.Filled.AutoAwesome, null, tint = Violet) },
                 title = { Text("یادآوری ثبت شد") }, text = {

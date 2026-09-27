@@ -36,7 +36,11 @@ data class Reminder(
     val lastCompletedAt: Long = 0,
     val lastFiredAt: Long = 0,
     val snoozeAt: Long = 0,
-    val telegramEnabled: Boolean = false
+    val telegramEnabled: Boolean = false,
+    val cloudId: String? = null,
+    val cloudDirty: Boolean = true,
+    val cloudDeleted: Boolean = false,
+    val modifiedAt: Long = System.currentTimeMillis()
 )
 
 object PersianDates {
@@ -168,7 +172,7 @@ object Occurrences {
     }
 }
 
-class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db", null, 1) {
+class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db", null, 2) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("""CREATE TABLE reminders (
             id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, note TEXT NOT NULL,
@@ -177,9 +181,18 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
             persian_month INTEGER NOT NULL, lead_minutes INTEGER NOT NULL, until_at INTEGER,
             zone TEXT NOT NULL, done INTEGER NOT NULL DEFAULT 0, completed_at INTEGER NOT NULL DEFAULT 0,
             fired_at INTEGER NOT NULL DEFAULT 0, snooze_at INTEGER NOT NULL DEFAULT 0,
-            telegram_enabled INTEGER NOT NULL DEFAULT 0)""")
+            telegram_enabled INTEGER NOT NULL DEFAULT 0,
+            cloud_id TEXT, cloud_dirty INTEGER NOT NULL DEFAULT 1,
+            cloud_deleted INTEGER NOT NULL DEFAULT 0, modified_at INTEGER NOT NULL DEFAULT 0)""")
     }
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        if (oldVersion < 2) {
+            db.execSQL("ALTER TABLE reminders ADD COLUMN cloud_id TEXT")
+            db.execSQL("ALTER TABLE reminders ADD COLUMN cloud_dirty INTEGER NOT NULL DEFAULT 1")
+            db.execSQL("ALTER TABLE reminders ADD COLUMN cloud_deleted INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE reminders ADD COLUMN modified_at INTEGER NOT NULL DEFAULT 0")
+        }
+    }
     private fun values(r: Reminder) = ContentValues().apply {
         put("title", r.title); put("note", r.note); put("first_at", r.firstAt); put("next_at", r.nextAt)
         put("unit", r.unit.name); put("every_n", r.every); put("weekdays", r.weekdays)
@@ -188,19 +201,58 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
         put("zone", r.zone); put("done", if (r.done) 1 else 0); put("completed_at", r.lastCompletedAt)
         put("fired_at", r.lastFiredAt); put("snooze_at", r.snoozeAt)
         put("telegram_enabled", if (r.telegramEnabled) 1 else 0)
+        if (r.cloudId == null) putNull("cloud_id") else put("cloud_id", r.cloudId)
+        put("cloud_dirty", if (r.cloudDirty) 1 else 0)
+        put("cloud_deleted", if (r.cloudDeleted) 1 else 0)
+        put("modified_at", r.modifiedAt)
     }
     fun save(r: Reminder): Reminder {
-        val id = if (r.id == 0L) writableDatabase.insertOrThrow("reminders", null, values(r)) else {
-            writableDatabase.update("reminders", values(r), "id=?", arrayOf(r.id.toString())); r.id
+        val local = r.copy(cloudDirty = true, modifiedAt = System.currentTimeMillis())
+        val id = if (local.id == 0L) writableDatabase.insertOrThrow("reminders", null, values(local)) else {
+            writableDatabase.update("reminders", values(local), "id=?", arrayOf(local.id.toString())); local.id
         }
-        return r.copy(id = id)
+        return local.copy(id = id)
     }
-    fun delete(id: Long) { writableDatabase.delete("reminders", "id=?", arrayOf(id.toString())) }
+    fun saveFromCloud(r: Reminder): Reminder {
+        val synced = r.copy(cloudDirty = false)
+        val id = if (synced.id == 0L) writableDatabase.insertOrThrow("reminders", null, values(synced)) else {
+            writableDatabase.update("reminders", values(synced), "id=?", arrayOf(synced.id.toString())); synced.id
+        }
+        return synced.copy(id = id)
+    }
+    fun saveAlarmState(r: Reminder) {
+        val values = ContentValues().apply {
+            put("next_at", r.nextAt); put("fired_at", r.lastFiredAt); put("snooze_at", r.snoozeAt)
+        }
+        writableDatabase.update("reminders", values, "id=?", arrayOf(r.id.toString()))
+    }
+    fun markSynced(id: Long, cloudId: String, revision: Long) {
+        writableDatabase.update("reminders", ContentValues().apply {
+            put("cloud_id", cloudId); put("cloud_dirty", 0)
+        }, "id=? AND modified_at=?", arrayOf(id.toString(), revision.toString()))
+    }
+    fun delete(id: Long) {
+        val r = get(id) ?: return
+        if (r.cloudId == null) writableDatabase.delete("reminders", "id=?", arrayOf(id.toString()))
+        else save(r.copy(cloudDeleted = true))
+    }
     fun get(id: Long): Reminder? = readableDatabase.query("reminders", null, "id=?", arrayOf(id.toString()), null, null, null).use { c ->
         if (c.moveToFirst()) fromCursor(c) else null
     }
-    fun all(): List<Reminder> = readableDatabase.query("reminders", null, null, null, null, null, "next_at ASC").use { c ->
+    fun all(): List<Reminder> = readableDatabase.query("reminders", null, "cloud_deleted=0", null, null, null, "next_at ASC").use { c ->
         buildList { while (c.moveToNext()) add(fromCursor(c)) }
+    }
+    fun allForSync(): List<Reminder> = readableDatabase.query("reminders", null, null, null, null, null, null).use { c ->
+        buildList { while (c.moveToNext()) add(fromCursor(c)) }
+    }
+    fun byCloudId(cloudId: String): Reminder? = readableDatabase.query("reminders", null, "cloud_id=?", arrayOf(cloudId), null, null, null).use { c ->
+        if (c.moveToFirst()) fromCursor(c) else null
+    }
+    fun resetCloudBinding() {
+        writableDatabase.delete("reminders", "cloud_deleted=1", null)
+        writableDatabase.update("reminders", ContentValues().apply {
+            putNull("cloud_id"); put("cloud_dirty", 1); put("modified_at", System.currentTimeMillis())
+        }, null, null)
     }
     private fun fromCursor(c: android.database.Cursor): Reminder {
         fun number(name: String) = c.getLong(c.getColumnIndexOrThrow(name))
@@ -211,6 +263,8 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
             runCatching { RepeatUnit.valueOf(string("unit")) }.getOrDefault(RepeatUnit.NONE), integer("every_n"),
             integer("weekdays"), integer("month_day"), integer("persian_month"), integer("lead_minutes"),
             if (c.isNull(untilIndex)) null else c.getLong(untilIndex), string("zone"), integer("done") == 1,
-            number("completed_at"), number("fired_at"), number("snooze_at"), integer("telegram_enabled") == 1)
+            number("completed_at"), number("fired_at"), number("snooze_at"), integer("telegram_enabled") == 1,
+            c.getColumnIndexOrThrow("cloud_id").let { if (c.isNull(it)) null else c.getString(it) },
+            integer("cloud_dirty") == 1, integer("cloud_deleted") == 1, number("modified_at"))
     }
 }

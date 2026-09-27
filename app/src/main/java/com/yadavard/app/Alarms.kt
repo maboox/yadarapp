@@ -116,12 +116,13 @@ class AlarmReceiver : BroadcastReceiver() {
             ACTION_FIRE -> if (!r.done && r.nextAt == expected && r.lastFiredAt != expected) {
                 ReminderAlarms.show(context, r)
                 val next = Occurrences.nextAfter(r, maxOf(System.currentTimeMillis(), expected))
-                val changed = store.save(r.copy(nextAt = next ?: 0, lastFiredAt = expected))
+                val changed = r.copy(nextAt = next ?: 0, lastFiredAt = expected)
+                store.saveAlarmState(changed)
                 if (next != null) ReminderAlarms.schedule(context, changed)
             }
             ACTION_SNOOZE_FIRE -> if (r.snoozeAt == expected && expected != 0L) {
                 ReminderAlarms.show(context, r)
-                store.save(r.copy(snoozeAt = 0))
+                store.saveAlarmState(r.copy(snoozeAt = 0))
             }
             ACTION_SNOOZE -> {
                 val changed = store.save(r.copy(snoozeAt = System.currentTimeMillis() + 10 * 60_000L))

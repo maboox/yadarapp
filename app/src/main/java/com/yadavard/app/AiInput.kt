@@ -8,6 +8,7 @@ import android.util.Base64
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import org.json.JSONArray
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -87,6 +88,38 @@ class VoiceRecorder(private val context: Context) {
 
 class OpenRouter(private val context: Context) {
     private val settings = AiSettings(context)
+    data class Model(val id: String, val name: String, val free: Boolean)
+    /** Model availability and prices change; fetch the live catalog instead of shipping fixed names. */
+    suspend fun models(transcription: Boolean): List<Model> = withContext(Dispatchers.IO) {
+        val key = settings.key() ?: error("ابتدا کلید OpenRouter را در تنظیمات ذخیره کن")
+        val url = "https://openrouter.ai/api/v1/models" + if (transcription) "?output_modalities=transcription" else ""
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 15_000; readTimeout = 30_000
+            setRequestProperty("Authorization", "Bearer $key")
+        }
+        try {
+            val entries = JSONObject(result(conn)).getJSONArray("data")
+            buildList {
+                for (i in 0 until entries.length()) {
+                    val item = entries.getJSONObject(i)
+                    val id = item.optString("id")
+                    if (id.isBlank()) continue
+                    val architecture = item.optJSONObject("architecture")
+                    val outputs = architecture?.optJSONArray("output_modalities")
+                    val inputs = architecture?.optJSONArray("input_modalities")
+                    fun has(array: JSONArray?, target: String): Boolean = array != null &&
+                        (0 until array.length()).any { array.optString(it) == target }
+                    if (transcription && !has(outputs, "transcription")) continue
+                    if (!transcription && outputs != null && !has(outputs, "text")) continue
+                    if (!transcription && inputs != null && !has(inputs, "text")) continue
+                    val pricing = item.optJSONObject("pricing")
+                    val allZero = pricing != null && pricing.length() > 0 &&
+                        pricing.keys().asSequence().all { key -> pricing.optString(key).toDoubleOrNull() == 0.0 }
+                    add(Model(id, item.optString("name", id).ifBlank { id }, id.endsWith(":free") || allZero))
+                }
+            }.sortedWith(compareByDescending<Model> { it.free }.thenBy { it.name.lowercase() })
+        } finally { conn.disconnect() }
+    }
     private fun connection(endpoint: String) = (URL("https://openrouter.ai/api/v1/$endpoint").openConnection() as HttpURLConnection).apply {
         requestMethod = "POST"; doOutput = true; connectTimeout = 20_000; readTimeout = 90_000
         setRequestProperty("Authorization", "Bearer ${settings.key() ?: error("ابتدا کلید OpenRouter را در تنظیمات وارد کنید")}")
