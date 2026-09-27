@@ -141,11 +141,13 @@ class AlarmReceiver : BroadcastReceiver() {
                 if (changed.nextAt > 0 && !changed.done) ReminderAlarms.schedule(context, changed)
             }
         }
+        if (intent.action != ACTION_LEAD) WidgetUpdater.update(context)
     }
 }
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         ReminderAlarms.scheduleAll(context)
+        WidgetUpdater.update(context)
     }
 }

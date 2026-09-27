@@ -5,5 +5,3 @@ local.properties
 *.iml
 *.jks
 *.keystore
-supabase/functions/.env
-supabase/.env*

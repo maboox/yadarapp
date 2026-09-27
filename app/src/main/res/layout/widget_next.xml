@@ -1,0 +1,15 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/next_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:layoutDirection="rtl" android:orientation="vertical" android:padding="15dp"
+    android:background="@drawable/widget_surface">
+    <TextView android:id="@+id/next_header" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="۵ یادآوری بعدی  ✦" android:textColor="#2C2386" android:textSize="17sp"
+        android:textStyle="bold" />
+    <TextView android:id="@+id/next_subtitle" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="2dp" android:text="از نزدیک‌ترین موعد" android:textColor="#77768E" android:textSize="11sp" />
+    <TextView android:id="@+id/next_row_0" style="@style/WidgetReminderRow" />
+    <TextView android:id="@+id/next_row_1" style="@style/WidgetReminderRow" />
+    <TextView android:id="@+id/next_row_2" style="@style/WidgetReminderRow" />
+    <TextView android:id="@+id/next_row_3" style="@style/WidgetReminderRow" />
+    <TextView android:id="@+id/next_row_4" style="@style/WidgetReminderRow" />
+</LinearLayout>

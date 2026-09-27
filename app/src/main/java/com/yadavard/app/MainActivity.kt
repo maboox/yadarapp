@@ -48,10 +48,12 @@ class MainActivity : ComponentActivity() {
     private val store by lazy { ReminderStore(this) }
     private val entries = mutableStateListOf<Reminder>()
     private val permissionRevision = mutableIntStateOf(0)
+    private var widgetCommand by mutableStateOf<Intent?>(null)
     private var exactAllowedOnLastResume: Boolean? = null
     private fun refresh() { entries.clear(); entries.addAll(store.all()) }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        widgetCommand = intent.takeIf { it.action?.startsWith("com.yadavard.app.widget.") == true }
         refresh()
         setContent { YadavardTheme { CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) { Screen() } } }
     }
@@ -61,7 +63,13 @@ class MainActivity : ComponentActivity() {
         if (exactAllowedOnLastResume == false && allowed) ReminderAlarms.scheduleAll(this)
         exactAllowedOnLastResume = allowed
         refresh()
+        WidgetUpdater.update(this)
         permissionRevision.intValue++
+    }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        widgetCommand = intent
     }
 
     @Composable
@@ -70,11 +78,7 @@ class MainActivity : ComponentActivity() {
         val scope = rememberCoroutineScope()
         val ai = remember { AiSettings(context) }
         val recorder = remember { VoiceRecorder(context) }
-        val cloud = remember { CloudApi(context) }
-        val currentPermissions = permissionRevision.intValue
-        LaunchedEffect(currentPermissions) {
-            if (cloud.settings.session() != null) runCatching { cloud.sync(::refresh) }
-        }
+        @Suppress("UNUSED_VARIABLE") val currentPermissions = permissionRevision.intValue
         var tab by remember { mutableIntStateOf(0) }
         var selectedDashboardDate by remember { mutableStateOf(LocalDate.now()) }
         var showExactPrompt by remember { mutableStateOf(false) }
@@ -97,7 +101,7 @@ class MainActivity : ComponentActivity() {
             val saved = store.save(r)
             ReminderAlarms.schedule(context, saved)
             refresh()
-            if (cloud.settings.session() != null) scope.launch { runCatching { cloud.sync(::refresh) } }
+            WidgetUpdater.update(context)
             if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
                 notifyPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
             else if (Build.VERSION.SDK_INT >= 31 && !getSystemService(AlarmManager::class.java).canScheduleExactAlarms())
@@ -152,6 +156,24 @@ class MainActivity : ComponentActivity() {
             } else micPermission.launch(Manifest.permission.RECORD_AUDIO)
         }
 
+        LaunchedEffect(widgetCommand) {
+            val command = widgetCommand ?: return@LaunchedEffect
+            when (command.action) {
+                WidgetCommands.ADD -> { editor = null; showEditor = true }
+                WidgetCommands.VOICE -> { tab = 0; if (!recording) voice() }
+                WidgetCommands.HOME -> { tab = 0; selectedDashboardDate = LocalDate.now() }
+                WidgetCommands.DAY -> {
+                    tab = 0
+                    selectedDashboardDate = LocalDate.ofEpochDay(command.getLongExtra(WidgetCommands.EXTRA_DAY, LocalDate.now().toEpochDay()))
+                }
+                WidgetCommands.WEEK -> tab = 1
+                WidgetCommands.EDIT -> {
+                    store.get(command.getLongExtra(WidgetCommands.EXTRA_ID, 0))?.let { editor = it; showEditor = true }
+                }
+            }
+            widgetCommand = null
+        }
+
         Scaffold(containerColor = Canvas, bottomBar = {
             NavigationBar(containerColor = Color.White, tonalElevation = 0.dp) {
                 NavigationBarItem(selected = tab == 0, onClick = { tab = 0 }, icon = { Icon(Icons.Filled.Home, null) }, label = { Text("خانه") })
@@ -182,10 +204,7 @@ class MainActivity : ComponentActivity() {
         }
         if (showEditor) ReminderEditor(editor, onDismiss = { showEditor = false }, onSave = {
             save(it); showEditor = false
-        }, onDelete = { r ->
-            ReminderAlarms.cancel(context, r); store.delete(r.id); refresh(); showEditor = false
-            if (cloud.settings.session() != null) scope.launch { runCatching { cloud.sync(::refresh) } }
-        })
+        }, onDelete = { r -> ReminderAlarms.cancel(context, r); store.delete(r.id); refresh(); WidgetUpdater.update(context); showEditor = false })
         review?.let { r ->
             AlertDialog(onDismissRequest = { review = null }, icon = { Icon(Icons.Filled.AutoAwesome, null, tint = Violet) },
                 title = { Text("یادآوری ثبت شد") }, text = {
@@ -307,7 +326,7 @@ private fun HomePage(items: List<Reminder>, selectedDate: LocalDate, onSelectDat
     }
 }
 
-private fun occurrenceOn(r: Reminder, date: LocalDate, zone: ZoneId): Long? {
+internal fun occurrenceOn(r: Reminder, date: LocalDate, zone: ZoneId): Long? {
     val start = date.atStartOfDay(zone).toInstant().toEpochMilli()
     val end = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
     if (date == LocalDate.now(zone) && r.nextAt == 0L) return 0L

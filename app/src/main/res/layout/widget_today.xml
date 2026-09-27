@@ -1,0 +1,25 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/today_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:layoutDirection="rtl" android:orientation="vertical" android:padding="15dp"
+    android:background="@drawable/widget_surface">
+    <TextView android:id="@+id/today_header" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="امروزِ یادار" android:textColor="#2C2386" android:textSize="17sp"
+        android:textStyle="bold" android:singleLine="true" />
+    <TextView android:id="@+id/today_date" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="2dp" android:text="تاریخ شمسی" android:textColor="#77768E" android:textSize="11sp" />
+    <TextView android:id="@+id/today_row_0" android:layout_width="match_parent" android:layout_height="35dp"
+        android:layout_marginTop="10dp" android:background="@drawable/widget_chip" android:gravity="center_vertical"
+        android:paddingStart="10dp" android:paddingEnd="10dp" android:text="یادآوری اول" android:textColor="#242341"
+        android:textSize="12sp" android:singleLine="true" android:ellipsize="end" />
+    <TextView android:id="@+id/today_row_1" android:layout_width="match_parent" android:layout_height="35dp"
+        android:layout_marginTop="5dp" android:background="@drawable/widget_chip" android:gravity="center_vertical"
+        android:paddingStart="10dp" android:paddingEnd="10dp" android:text="یادآوری دوم" android:textColor="#242341"
+        android:textSize="12sp" android:singleLine="true" android:ellipsize="end" />
+    <TextView android:id="@+id/today_row_2" android:layout_width="match_parent" android:layout_height="35dp"
+        android:layout_marginTop="5dp" android:background="@drawable/widget_chip" android:gravity="center_vertical"
+        android:paddingStart="10dp" android:paddingEnd="10dp" android:text="یادآوری سوم" android:textColor="#242341"
+        android:textSize="12sp" android:singleLine="true" android:ellipsize="end" />
+    <TextView android:id="@+id/today_footer" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="10dp" android:text="دیدن همه  ←" android:textColor="#644EE9"
+        android:textSize="11sp" android:textStyle="bold" />
+</LinearLayout>

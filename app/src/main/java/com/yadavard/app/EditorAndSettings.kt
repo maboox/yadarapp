@@ -3,8 +3,6 @@ package com.yadavard.app
 import android.app.AlarmManager
 import android.app.TimePickerDialog
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import android.Manifest
 import android.content.pm.PackageManager
@@ -209,8 +207,7 @@ fun ReminderEditor(original: Reminder?, onDismiss: () -> Unit, onSave: (Reminder
             onSave(Occurrences.alignFirst(Reminder(id = original?.id ?: 0, title = title.trim(), note = note.trim(), firstAt = dateTime,
                 unit = unit, every = interval.coerceAtLeast(1), weekdays = weekdays,
                 monthDay = if (unit in listOf(RepeatUnit.MONTHS, RepeatUnit.YEARS)) day else 0,
-                leadMinutes = notice, untilAt = until, zone = zone.id,
-                cloudId = original?.cloudId, telegramEnabled = original?.telegramEnabled ?: false)))
+                leadMinutes = notice, untilAt = until, zone = zone.id)))
         }) { Text("ذخیره") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } })
 
@@ -246,30 +243,6 @@ private fun unitLabel(unit: RepeatUnit) = when (unit) {
 fun SettingsPage(ai: AiSettings, count: Int, onPermission: () -> Unit, onRefresh: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val cloud = remember { CloudApi(context) }
-    var cloudUrl by remember { mutableStateOf(cloud.settings.url) }
-    var publicKey by remember { mutableStateOf(cloud.settings.publishableKey) }
-    var botName by remember { mutableStateOf(cloud.settings.botUsername) }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var signedIn by remember { mutableStateOf(cloud.settings.session() != null) }
-    var cloudBusy by remember { mutableStateOf(false) }
-    var cloudMessage by remember { mutableStateOf("") }
-    var linkCode by remember { mutableStateOf("") }
-    fun saveCloudConfig() {
-        cloud.settings.url = cloudUrl
-        cloud.settings.publishableKey = publicKey
-        cloud.settings.botUsername = botName
-    }
-    fun cloudAction(action: suspend () -> String) {
-        if (cloudBusy) return
-        cloudBusy = true; cloudMessage = ""
-        scope.launch {
-            try { cloudMessage = action() }
-            catch (e: Exception) { cloudMessage = e.message ?: "اتصال برقرار نشد" }
-            finally { cloudBusy = false }
-        }
-    }
     var keyText by remember { mutableStateOf("") }
     var textModel by remember { mutableStateOf(ai.textModel) }
     var audioModel by remember { mutableStateOf(ai.audioModel) }
@@ -306,7 +279,7 @@ fun SettingsPage(ai: AiSettings, count: Int, onPermission: () -> Unit, onRefresh
         if (uri != null) try {
             val json = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: error("فایل خوانده نشد")
             val saved = Backup.importData(json, ReminderStore(context))
-            ReminderAlarms.scheduleAll(context); onRefresh()
+            ReminderAlarms.scheduleAll(context); onRefresh(); WidgetUpdater.update(context)
             Toast.makeText(context, "$saved یادآوری وارد شد", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) { Toast.makeText(context, "بازیابی انجام نشد: ${e.message}", Toast.LENGTH_LONG).show() }
     }
@@ -358,49 +331,6 @@ fun SettingsPage(ai: AiSettings, count: Int, onPermission: () -> Unit, onRefresh
                 OutlinedButton(onClick = { exportPicker.launch("yadar-backup.json") }) { Text("خروجی") }
                 OutlinedButton(onClick = { importPicker.launch(arrayOf("application/json", "text/plain")) }) { Text("بازیابی") }
             }
-        } }
-        item { SettingsBox("حساب و تلگرام • اختیاری") {
-            Text("بدون حساب هم یادار کامل آفلاین کار می‌کند. برای همگام‌سازی و ثبت از ربات، سرویس Supabase را یک‌بار راه بینداز.", color = Muted, fontSize = 12.sp)
-            OutlinedTextField(cloudUrl, { cloudUrl = it }, label = { Text("نشانی پروژهٔ Supabase (https://...)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-            OutlinedTextField(publicKey, { publicKey = it }, label = { Text("Publishable / anon key عمومی") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-            OutlinedTextField(botName, { botName = it }, label = { Text("نام کاربری ربات (بدون @)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-            OutlinedButton(onClick = { saveCloudConfig(); cloudMessage = "اطلاعات پروژه ذخیره شد" }) { Text("ذخیرهٔ تنظیمات اتصال") }
-            if (!signedIn) {
-                OutlinedTextField(email, { email = it }, label = { Text("ایمیل حساب یادار") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                OutlinedTextField(password, { password = it }, label = { Text("رمز حساب") }, modifier = Modifier.fillMaxWidth(),
-                    visualTransformation = PasswordVisualTransformation(), singleLine = true)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Button(enabled = !cloudBusy, onClick = { saveCloudConfig(); cloudAction {
-                        val ready = cloud.signIn(email, password, false)
-                        signedIn = ready; if (ready) { password = ""; cloud.sync(onRefresh) }; "وارد حساب شدی و یادآوری‌ها همگام شدند"
-                    } }) { Text("ورود") }
-                    OutlinedButton(enabled = !cloudBusy, onClick = { saveCloudConfig(); cloudAction {
-                        val ready = cloud.signIn(email, password, true)
-                        signedIn = ready; password = ""
-                        if (ready) { cloud.sync(onRefresh); "حساب ساخته شد و وارد شدی" }
-                        else "ایمیل تأیید را باز کن؛ سپس از اینجا وارد شو"
-                    } }) { Text("ساخت حساب") }
-                }
-            } else {
-                Text("حساب متصل است", color = Violet)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedButton(enabled = !cloudBusy, onClick = { cloudAction {
-                        val result = cloud.sync(onRefresh); "همگام‌سازی انجام شد ($result تغییر)"
-                    } }) { Text("همگام‌سازی") }
-                    Button(enabled = !cloudBusy, onClick = { cloudAction {
-                        linkCode = cloud.linkCode(); "کد اتصال ساخته شد؛ آن را در ربات وارد کن"
-                    } }) { Text("اتصال ربات") }
-                }
-                if (linkCode.isNotBlank()) {
-                    Text("کد موقت: $linkCode", color = Ink, fontWeight = FontWeight.Bold)
-                    if (cloud.settings.botUsername.matches(Regex("[A-Za-z0-9_]{5,32}")))
-                        TextButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW,
-                            Uri.parse("https://t.me/${cloud.settings.botUsername}?start=$linkCode"))) }) { Text("باز کردن ربات با کد") }
-                }
-                TextButton(onClick = { cloud.settings.saveSession(null); signedIn = false; linkCode = ""; cloudMessage = "از حساب خارج شدی؛ اطلاعات گوشی باقی ماند" }) { Text("خروج از حساب") }
-            }
-            if (cloudBusy) LinearProgressIndicator(Modifier.fillMaxWidth())
-            if (cloudMessage.isNotBlank()) Text(cloudMessage, color = Muted, fontSize = 12.sp)
         } }
     }
     selectingSpeech?.let { speech ->
