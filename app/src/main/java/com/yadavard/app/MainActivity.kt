@@ -45,18 +45,21 @@ import java.time.LocalDate
 
 class MainActivity : ComponentActivity() {
     private val command = mutableStateOf<Intent?>(null)
+    private val onboarded = mutableStateOf(true)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         AppDisplay.load(this)
         Notifier.ensureChannels(this)
+        onboarded.value = Prefs.onboarded(this)
         command.value = intent?.takeIf { it.action != Intent.ACTION_MAIN }
         setContent {
             YadarTheme {
                 CompositionLocalProvider(LocalLayoutDirection provides
                     if (AppDisplay.language == AppLanguage.FA) LayoutDirection.Rtl else LayoutDirection.Ltr) {
-                    AppRoot(command.value) { command.value = null }
+                    if (onboarded.value) AppRoot(command.value) { command.value = null }
+                    else OnboardingScreen { Prefs.setOnboarded(this); onboarded.value = true }
                 }
             }
         }
@@ -135,27 +138,27 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { permissionTick++; vm.refresh() }
 
-    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { permissionTick++ }
-    LaunchedEffect(Unit) {
-        if (Build.VERSION.SDK_INT >= 33 && !Notifier.allowed(context) && !Prefs.askedNotifications(context)) {
-            Prefs.setAskedNotifications(context)
-            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
-    }
-
+    var voiceOpen by remember { mutableStateOf(false) }
     val speech = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val text = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
         if (!text.isNullOrBlank()) { quickText = text; tab = Tab.HOME }
     }
+    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) voiceOpen = true
+        else Toast.makeText(context, t("برای ضبط صدا، اجازهٔ میکروفون لازم است.", "Microphone permission is needed to record."), Toast.LENGTH_LONG).show()
+    }
     fun startVoice() {
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, if (AppDisplay.language == AppLanguage.FA) "fa-IR" else "en-US")
-            putExtra(RecognizerIntent.EXTRA_PROMPT, t("بگو چی رو و کی یادت بندازم", "Say what and when"))
+        // With an OpenRouter key, record inside the app and let AI transcribe and understand it;
+        // otherwise use Google's dictation (avoiding vendor assistants such as Mi AI).
+        if (AiSettings(context).hasKey()) {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                android.content.pm.PackageManager.PERMISSION_GRANTED) voiceOpen = true
+            else micPermission.launch(Manifest.permission.RECORD_AUDIO)
+            return
         }
-        try { speech.launch(intent) } catch (_: ActivityNotFoundException) {
-            Toast.makeText(context, t("تبدیل گفتار در این گوشی در دسترس نیست. اپ Google را نصب یا به‌روز کنید.",
-                "Speech recognition is not available. Install or update the Google app."), Toast.LENGTH_LONG).show()
+        try { speech.launch(speechIntent(context)) } catch (_: ActivityNotFoundException) {
+            Toast.makeText(context, t("تشخیص گفتار در دسترس نیست. اپ Google را نصب کن یا در تنظیمات کلید OpenRouter را وارد کن تا صدا با هوش مصنوعی تبدیل شود.",
+                "Speech recognition is not available. Install the Google app or add an OpenRouter key in settings for AI voice."), Toast.LENGTH_LONG).show()
         }
     }
 
@@ -254,6 +257,13 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                 }
             }
         }
+        if (voiceOpen) VoiceDialog(onDismiss = { voiceOpen = false },
+            onDraft = { draft ->
+                voiceOpen = false
+                editor = EditorRequest(null, draft.copy(alertStyle = Prefs.defaultAlert(context),
+                    leadMinutes = if (draft.leadMinutes > 0) draft.leadMinutes else Prefs.defaultLead(context)))
+            },
+            onText = { text -> voiceOpen = false; quickText = text; tab = Tab.HOME })
         var shown by remember { mutableStateOf<EditorRequest?>(null) }
         if (editor != null) shown = editor
         BackHandler(enabled = editor != null) { editor = null }

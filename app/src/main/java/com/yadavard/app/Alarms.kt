@@ -10,8 +10,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.media.AudioAttributes
-import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
@@ -26,6 +24,7 @@ object Scheduler {
     private const val EXTRA_AT = "at"
     private const val ACTION_PREFIX = "com.yadavard.app.alarm."
     const val ACTION_TEST = "com.yadavard.app.alarm.TEST"
+    const val EXTRA_ALARM = "alarm"
 
     private fun intent(context: Context, id: Long, kind: AlarmKind) = Intent(context, AlarmReceiver::class.java).apply {
         action = ACTION_PREFIX + kind.name
@@ -97,8 +96,9 @@ object Scheduler {
 
     fun rescheduleAll(context: Context) = Repo.all(context).forEach { schedule(context, it) }
 
-    fun scheduleTest(context: Context, delayMillis: Long) {
-        val pi = PendingIntent.getBroadcast(context, 0, Intent(context, AlarmReceiver::class.java).setAction(ACTION_TEST),
+    fun scheduleTest(context: Context, delayMillis: Long, alarm: Boolean) {
+        val pi = PendingIntent.getBroadcast(context, if (alarm) 2 else 1,
+            Intent(context, AlarmReceiver::class.java).setAction(ACTION_TEST).putExtra(EXTRA_ALARM, alarm),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val manager = context.getSystemService(AlarmManager::class.java)
         val time = System.currentTimeMillis() + delayMillis
@@ -110,8 +110,10 @@ object Scheduler {
 }
 
 object Notifier {
-    const val CHANNEL_REMINDERS = "yadar_reminders_v2"
-    const val CHANNEL_ALARMS = "yadar_alarms_v2"
+    // v3 channels are silent: Yadar plays sound and vibration itself (see AlertSound / AlertService),
+    // because some phones mute channel sounds of newly installed apps.
+    const val CHANNEL_REMINDERS = "yadar_reminders_v3"
+    const val CHANNEL_ALARMS = "yadar_alarms_v3"
     const val CHANNEL_UPCOMING = "yadar_upcoming_v2"
     const val CHANNEL_QUIET = "yadar_quiet_v2"
     const val ACTION_DONE = "com.yadavard.app.action.DONE"
@@ -119,9 +121,10 @@ object Notifier {
     const val ACTION_OPEN = "com.yadavard.app.action.OPEN"
     const val EXTRA_ID = "reminder_id"
     const val EXTRA_MINUTES = "minutes"
-    private const val TEST_ID = 999_999_001
+    private const val TEST_NOTIFICATION_ID = 999_999_001
+    const val SERVICE_ID = 999_999_002
 
-    fun mainId(id: Long) = (id * 2).toInt()
+    fun mainId(id: Long) = if (id == AlertService.TEST_ID) 999_999_003 else (id * 2).toInt()
     private fun leadId(id: Long) = (id * 2 + 1).toInt()
 
     fun allowed(context: Context): Boolean = Build.VERSION.SDK_INT < 33 ||
@@ -137,21 +140,19 @@ object Notifier {
         val manager = context.getSystemService(NotificationManager::class.java)
         val fa = Prefs.language(context) == AppLanguage.FA
         fun label(f: String, e: String) = if (fa) f else e
-        manager.deleteNotificationChannel("reminders") // channel of older versions
+        listOf("reminders", "yadar_reminders_v2", "yadar_alarms_v2").forEach { manager.deleteNotificationChannel(it) }
         manager.createNotificationChannel(NotificationChannel(CHANNEL_REMINDERS, label("یادآوری‌ها", "Reminders"),
             NotificationManager.IMPORTANCE_HIGH).apply {
-            description = label("اعلان موعد یادآوری‌ها", "Alerts when a reminder is due")
-            enableVibration(true); vibrationPattern = longArrayOf(0, 250, 150, 250)
+            description = label("اعلان موعد یادآوری‌ها (صدا را خود یادار پخش می‌کند)", "Due reminders (Yadar plays the sound itself)")
+            setSound(null, null); enableVibration(false)
             enableLights(true); lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         })
-        manager.createNotificationChannel(NotificationChannel(CHANNEL_ALARMS, label("هشدار تمام‌صفحه", "Alarms"),
+        manager.createNotificationChannel(NotificationChannel(CHANNEL_ALARMS, label("زنگ تمام‌صفحه", "Alarms"),
             NotificationManager.IMPORTANCE_HIGH).apply {
-            description = label("یادآوری‌های مهم با صدای زنگ و صفحهٔ کامل", "Important reminders that ring with a full-screen alert")
-            setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
-                AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
-            enableVibration(true); vibrationPattern = longArrayOf(0, 600, 400, 600, 400, 600)
+            description = label("یادآوری‌هایی که مانند ساعت زنگ‌دار زنگ می‌زنند", "Reminders that ring like an alarm clock")
+            setSound(null, null); enableVibration(false)
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            setBypassDnd(true)
         })
         manager.createNotificationChannel(NotificationChannel(CHANNEL_UPCOMING, label("اعلان پیش از موعد", "Advance notices"),
             NotificationManager.IMPORTANCE_DEFAULT).apply {
@@ -178,14 +179,14 @@ object Notifier {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
-    private fun fullScreen(context: Context, id: Long): PendingIntent =
+    fun fullScreen(context: Context, id: Long): PendingIntent =
         PendingIntent.getActivity(context, 0, Intent(context, AlarmActivity::class.java).apply {
             data = Uri.parse("yadar://alarm-screen/$id")
             putExtra(EXTRA_ID, id)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_USER_ACTION
         }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
-    private fun notify(context: Context, id: Int, notification: Notification) {
+    fun post(context: Context, id: Int, notification: Notification) {
         if (!allowed(context)) return
         try { context.getSystemService(NotificationManager::class.java).notify(id, notification) }
         catch (_: SecurityException) { }
@@ -194,11 +195,21 @@ object Notifier {
     private fun label(context: Context, fa: String, en: String) =
         if (Prefs.language(context) == AppLanguage.FA) fa else en
 
-    /**
-     * Posts the alert for a due reminder. [ring] selects the full-screen ringing style;
-     * [quiet] reposts silently (for example after the ringing period ended).
-     */
-    fun showAlert(context: Context, r: Reminder, occurrence: Long, ring: Boolean, quiet: Boolean = false, repeat: Boolean = false) {
+    fun testReminder(context: Context): Reminder {
+        val now = System.currentTimeMillis()
+        return Reminder(id = AlertService.TEST_ID, title = label(context, "آزمون زنگ یادار", "Yadar alarm test"),
+            note = label(context, "اگر صدا را می‌شنوی، زنگ‌ها درست کار می‌کنند.", "If you hear this, alarms work."),
+            firstAt = now, pendingAt = now, alertedAt = now, alertStyle = AlertStyle.ALARM)
+    }
+
+    fun serviceNotification(context: Context): Notification {
+        ensureChannels(context)
+        return NotificationCompat.Builder(context, CHANNEL_QUIET).setSmallIcon(R.drawable.ic_stat_reminder)
+            .setContentTitle(label(context, "یادار", "Yadar")).setPriority(NotificationCompat.PRIORITY_LOW).build()
+    }
+
+    /** Builds the alert notification for a due occurrence. */
+    fun buildAlert(context: Context, r: Reminder, occurrence: Long, ring: Boolean, quiet: Boolean = false): Notification {
         ensureChannels(context)
         val lang = Prefs.language(context)
         val cal = Prefs.calendar(context)
@@ -221,25 +232,36 @@ object Notifier {
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setSubText(categoryLabel(r.category, lang))
             .setWhen(occurrence).setShowWhen(true)
-            .setContentIntent(open(context, r.id))
+            .setContentIntent(if (ring && !quiet) fullScreen(context, r.id) else open(context, r.id))
             .setCategory(if (ring) NotificationCompat.CATEGORY_ALARM else NotificationCompat.CATEGORY_REMINDER)
             .setPriority(if (quiet) NotificationCompat.PRIORITY_LOW else NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(!ring)
-            .setOnlyAlertOnce(quiet)
+            .setSilent(true)
             .addAction(R.drawable.ic_action_done, label(context, "انجام شد", "Done"), broadcast(context, ACTION_DONE, r.id))
             .addAction(R.drawable.ic_action_snooze, label(context, "${Dates.digits(snooze.toString(), lang)} دقیقه بعد", "Snooze $snooze min"),
                 broadcast(context, ACTION_SNOOZE, r.id, snooze))
         if (snooze != 60) builder.addAction(R.drawable.ic_action_snooze, label(context, "یک ساعت بعد", "1 hour"),
             broadcast(context, ACTION_SNOOZE, r.id, 60))
-        if (repeat) builder.setTicker(r.title)
-        if (ring && !quiet) {
-            builder.setFullScreenIntent(fullScreen(context, r.id), true).setOngoing(true)
-        }
-        val notification = builder.build()
-        if (ring && !quiet) notification.flags = notification.flags or Notification.FLAG_INSISTENT
+        if (ring && !quiet) builder.setFullScreenIntent(fullScreen(context, r.id), true).setOngoing(true)
+        return builder.build()
+    }
+
+    /**
+     * Shows the alert for a due reminder and makes it audible: alarm-style reminders ring through
+     * [AlertService] until handled; regular ones play one notification sound.
+     */
+    fun showAlert(context: Context, r: Reminder, occurrence: Long, ring: Boolean, quiet: Boolean = false) {
         context.getSystemService(NotificationManager::class.java).cancel(leadId(r.id))
-        notify(context, mainId(r.id), notification)
+        if (quiet) {
+            AlertService.stop(r.id, remove = false)
+            post(context, mainId(r.id), buildAlert(context, r, occurrence, ring = false, quiet = true))
+            return
+        }
+        if (ring && AlertService.ring(context, r.id)) return
+        post(context, mainId(r.id), buildAlert(context, r, occurrence, ring))
+        if (ring) { AlertSound.vibrate(context, false); AlertSound.playOnce(context, alarm = true) }
+        else AlertSound.notifyOnce(context)
     }
 
     fun showLead(context: Context, r: Reminder) {
@@ -247,7 +269,7 @@ object Notifier {
         val lang = Prefs.language(context)
         val text = Dates.formatDateTime(r.nextAt, r.zoneId, Prefs.calendar(context), lang, withYear = false) +
             " • " + Dates.relative(r.nextAt, System.currentTimeMillis(), lang)
-        notify(context, leadId(r.id), NotificationCompat.Builder(context, CHANNEL_UPCOMING)
+        post(context, leadId(r.id), NotificationCompat.Builder(context, CHANNEL_UPCOMING)
             .setSmallIcon(R.drawable.ic_stat_reminder).setColor(0xFF5B4BDB.toInt())
             .setContentTitle(label(context, "به‌زودی: ", "Coming up: ") + r.title)
             .setContentText(text).setStyle(NotificationCompat.BigTextStyle().bigText(
@@ -260,14 +282,17 @@ object Notifier {
 
     fun showTest(context: Context) {
         ensureChannels(context)
-        notify(context, TEST_ID, NotificationCompat.Builder(context, CHANNEL_REMINDERS)
+        post(context, TEST_NOTIFICATION_ID, NotificationCompat.Builder(context, CHANNEL_REMINDERS)
             .setSmallIcon(R.drawable.ic_stat_reminder).setColor(0xFF5B4BDB.toInt())
             .setContentTitle(label(context, "اعلان آزمایشی یادار ✓", "Yadar test notification ✓"))
-            .setContentText(label(context, "اعلان‌ها درست کار می‌کنند.", "Notifications are working."))
-            .setPriority(NotificationCompat.PRIORITY_MAX).setAutoCancel(true).build())
+            .setContentText(label(context, "اگر صدا را شنیدی، اعلان‌ها درست کار می‌کنند.", "If you heard a sound, notifications work."))
+            .setPriority(NotificationCompat.PRIORITY_MAX).setSilent(true).setAutoCancel(true).build())
+        AlertSound.vibrate(context, false)
+        AlertSound.playOnce(context, alarm = false)
     }
 
     fun cancel(context: Context, id: Long) {
+        AlertService.stop(id, remove = true)
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.cancel(mainId(id)); manager.cancel(leadId(id))
     }
@@ -291,10 +316,15 @@ object Notifier {
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Scheduler.ACTION_TEST) {
-            Notifier.showTest(context)
+            if (intent.getBooleanExtra(Scheduler.EXTRA_ALARM, false)) {
+                if (!AlertService.ring(context, AlertService.TEST_ID)) Notifier.showTest(context)
+            } else Notifier.showTest(context)
             return
         }
         val kind = Scheduler.kindOf(intent) ?: return
+        // Keep the process alive for a few seconds so the alert sound can finish playing.
+        val pending = goAsync()
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ runCatching { pending.finish() } }, 6_000)
         val r = Repo.get(context, Scheduler.idOf(intent)) ?: return
         val at = Scheduler.atOf(intent)
         val now = System.currentTimeMillis()
@@ -317,7 +347,7 @@ class AlarmReceiver : BroadcastReceiver() {
             AlarmKind.NAG -> {
                 if (r.pendingAt == 0L || r.snoozeAt > 0 || r.alertedAt + r.nagMinutes * 60_000L != at) return
                 val updated = Repo.save(context, r.copy(alertedAt = now))
-                Notifier.showAlert(context, updated, r.pendingAt, ring = r.alertStyle == AlertStyle.ALARM, repeat = true)
+                Notifier.showAlert(context, updated, r.pendingAt, ring = r.alertStyle == AlertStyle.ALARM)
             }
             AlarmKind.QUIET -> if (r.pendingAt > 0 && r.alertedAt == at && r.snoozeAt == 0L)
                 Notifier.showAlert(context, r, r.pendingAt, ring = true, quiet = true)

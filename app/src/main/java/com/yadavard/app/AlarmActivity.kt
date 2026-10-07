@@ -1,6 +1,5 @@
 package com.yadavard.app
 
-import android.app.KeyguardManager
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -43,7 +42,6 @@ class AlarmActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= 27) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
-            getSystemService(KeyguardManager::class.java)?.requestDismissKeyguard(this, null)
         } else {
             @Suppress("DEPRECATION")
             window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
@@ -52,25 +50,27 @@ class AlarmActivity : ComponentActivity() {
         enableEdgeToEdge()
         AppDisplay.load(this)
         reminderId = intent.getLongExtra(Notifier.EXTRA_ID, 0)
-        val reminder = Repo.get(this, reminderId)
-        if (reminder == null || reminder.done || reminder.pendingAt == 0L) { finish(); return }
+        val test = reminderId == AlertService.TEST_ID
+        val reminder = if (test) Notifier.testReminder(this) else Repo.get(this, reminderId)
+        if (reminder == null || (!test && (reminder.done || reminder.pendingAt == 0L))) { finish(); return }
         // Close automatically when the reminder is handled from the notification instead.
-        lifecycleScope.launch {
+        if (!test) lifecycleScope.launch {
             Repo.changes.collect {
                 val current = Repo.get(this@AlarmActivity, reminderId)
                 if (current == null || current.done || current.pendingAt == 0L || current.snoozeAt > 0) finish()
             }
         }
+        fun stopTest() { AlertService.stop(AlertService.TEST_ID, remove = true); Notifier.cancel(this, AlertService.TEST_ID) }
         setContent {
             YadarTheme(darkOverride = true) {
                 CompositionLocalProvider(LocalLayoutDirection provides
                     if (AppDisplay.language == AppLanguage.FA) LayoutDirection.Rtl else LayoutDirection.Ltr) {
                     AlarmScreen(reminder, Prefs.snoozeMinutes(this),
-                        onDone = { Repo.complete(this, reminderId); finish() },
-                        onSnooze = { minutes -> Repo.snooze(this, reminderId, minutes); finish() },
+                        onDone = { if (test) stopTest() else Repo.complete(this, reminderId); finish() },
+                        onSnooze = { minutes -> if (test) stopTest() else Repo.snooze(this, reminderId, minutes); finish() },
                         onClose = {
                             // Stop ringing but keep the reminder visible as pending.
-                            Repo.get(this, reminderId)?.let { Notifier.showAlert(this, it, it.pendingAt, ring = true, quiet = true) }
+                            if (test) stopTest() else AlertService.stop(reminderId, remove = false, quietRepost = true)
                             finish()
                         })
                 }

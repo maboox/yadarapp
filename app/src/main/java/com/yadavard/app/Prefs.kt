@@ -43,6 +43,18 @@ object Prefs {
     fun useAi(context: Context): Boolean = prefs(context).getBoolean("use_ai", false)
     fun setUseAi(context: Context, value: Boolean) = prefs(context).edit().putBoolean("use_ai", value).apply()
 
+    /** Custom sound URIs; null means the phone's default notification / alarm sound. */
+    fun reminderSound(context: Context): String? = prefs(context).getString("reminder_sound", null)
+    fun setReminderSound(context: Context, value: String?) = prefs(context).edit().putString("reminder_sound", value).apply()
+    fun alarmSound(context: Context): String? = prefs(context).getString("alarm_sound", null)
+    fun setAlarmSound(context: Context, value: String?) = prefs(context).edit().putString("alarm_sound", value).apply()
+
+    fun vibrate(context: Context): Boolean = prefs(context).getBoolean("vibrate", true)
+    fun setVibrate(context: Context, value: Boolean) = prefs(context).edit().putBoolean("vibrate", value).apply()
+
+    fun onboarded(context: Context): Boolean = prefs(context).getBoolean("onboarded", false)
+    fun setOnboarded(context: Context) = prefs(context).edit().putBoolean("onboarded", true).apply()
+
     fun askedNotifications(context: Context): Boolean = prefs(context).getBoolean("asked_notifications", false)
     fun setAskedNotifications(context: Context) = prefs(context).edit().putBoolean("asked_notifications", true).apply()
 }

@@ -7,6 +7,7 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.media.RingtoneManager
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -35,26 +36,37 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     @Suppress("UNUSED_VARIABLE") val tick = permissionTick
-    val notifications = Notifier.allowed(context)
-    val exact = Scheduler.canExact(context)
-    val fullScreen = Notifier.canFullScreen(context)
-    val battery = Notifier.ignoringBattery(context)
-    val notifyLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { onPermissionChanged() }
-
-    fun open(intent: Intent) {
-        try { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-        catch (_: Exception) {
-            context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        }
-    }
-    val appNotificationSettings = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
 
     var snooze by remember { mutableIntStateOf(Prefs.snoozeMinutes(context)) }
     var ring by remember { mutableIntStateOf(Prefs.ringMinutes(context)) }
     var defaultAlert by remember { mutableStateOf(Prefs.defaultAlert(context)) }
     var defaultLead by remember { mutableIntStateOf(Prefs.defaultLead(context)) }
     var reliable by remember { mutableStateOf(Prefs.reliableMode(context)) }
+    var vibrate by remember { mutableStateOf(Prefs.vibrate(context)) }
+    var soundTick by remember { mutableIntStateOf(0) }
+    var pickingAlarmSound by remember { mutableStateOf(false) }
+    val soundPicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            @Suppress("DEPRECATION")
+            val uri = result.data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            val default = RingtoneManager.getDefaultUri(if (pickingAlarmSound) RingtoneManager.TYPE_ALARM else RingtoneManager.TYPE_NOTIFICATION)
+            val value = uri?.takeIf { it != default && !RingtoneManager.isDefault(it) }?.toString()
+            if (pickingAlarmSound) Prefs.setAlarmSound(context, value) else Prefs.setReminderSound(context, value)
+            soundTick++
+        }
+    }
+    fun pickSound(alarm: Boolean) {
+        pickingAlarmSound = alarm
+        val type = if (alarm) RingtoneManager.TYPE_ALARM else RingtoneManager.TYPE_NOTIFICATION
+        soundPicker.launch(Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+            putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, if (alarm) RingtoneManager.TYPE_ALARM or RingtoneManager.TYPE_RINGTONE else type)
+            putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+            putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+            putExtra(RingtoneManager.EXTRA_RINGTONE_DEFAULT_URI, RingtoneManager.getDefaultUri(type))
+            putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, AlertSound.soundUri(context, alarm))
+            putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, if (alarm) t("صدای زنگ هشدار", "Alarm sound") else t("صدای اعلان", "Reminder sound"))
+        })
+    }
 
     val exportPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) scope.launch {
@@ -86,42 +98,46 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
 
         item {
             SettingsCard(t("سلامت اعلان‌ها", "Notification health"), Icons.Rounded.HealthAndSafety) {
-                val allGood = notifications && exact && fullScreen && battery
-                Text(if (allGood) t("همه‌چیز آماده است؛ یادآوری‌ها سر وقت می‌رسند ✓", "All set — reminders will arrive on time ✓")
+                Text(if (allCriticalGranted(context)) t("همه‌چیز آماده است؛ یادآوری‌ها سر وقت و با صدا می‌رسند ✓", "All set — reminders arrive on time and with sound ✓")
                     else t("موارد قرمز را درست کن تا هیچ یادآوری‌ای جا نماند.", "Fix the red items so no reminder is missed."),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                HealthRow(t("اجازهٔ اعلان", "Notification permission"), notifications, t("فعال کن", "Allow")) {
-                    if (Build.VERSION.SDK_INT >= 33) notifyLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) else open(appNotificationSettings)
-                }
-                HealthRow(t("آلارم دقیق", "Exact alarms"), exact, t("فعال کن", "Allow")) {
-                    if (Build.VERSION.SDK_INT >= 31) open(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}")))
-                }
-                HealthRow(t("زنگ تمام‌صفحه", "Full-screen alarms"), fullScreen, t("فعال کن", "Allow")) {
-                    if (Build.VERSION.SDK_INT >= 34) open(Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:${context.packageName}")))
-                }
-                HealthRow(t("بدون محدودیت باتری", "Unrestricted battery"), battery, t("فعال کن", "Allow")) {
-                    @SuppressLint("BatteryLife")
-                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${context.packageName}"))
-                    open(intent)
-                }
-                Text(t("در گوشی‌های شیائومی، سامسونگ، هواوی و… در تنظیمات برنامه «اجرای خودکار / Autostart» را هم روشن کن.",
-                    "On Xiaomi, Samsung, Huawei, etc. also enable “Autostart” for this app in system settings."),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                PermissionChecklist(tick, onChanged = onPermissionChanged)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilledTonalButton(onClick = { Notifier.showTest(context) }, modifier = Modifier.weight(1f)) {
                         Icon(Icons.Rounded.NotificationsActive, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
-                        Text(t("اعلان آزمایشی", "Test now"), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(t("اعلان آزمایشی", "Test notification"), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    OutlinedButton(onClick = {
-                        Scheduler.scheduleTest(context, 60_000L)
-                        Toast.makeText(context, t("برنامه را ببند؛ یک دقیقهٔ دیگر اعلان می‌رسد.", "Close the app; a notification arrives in one minute."),
+                    FilledTonalButton(onClick = {
+                        Scheduler.scheduleTest(context, 10_000L, alarm = true)
+                        Toast.makeText(context, t("گوشی را قفل کن؛ ۱۰ ثانیهٔ دیگر زنگ تمام‌صفحه می‌خورد.", "Lock the phone; a full-screen alarm rings in 10 seconds."),
                             Toast.LENGTH_LONG).show()
-                    }, modifier = Modifier.weight(1f)) { Text(t("آزمون ۱ دقیقه بعد", "Test in 1 min"), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    }, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Rounded.Alarm, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
+                        Text(t("آزمون زنگ", "Test alarm"), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
-                TextButton(onClick = { open(appNotificationSettings) }) {
-                    Icon(Icons.Rounded.MusicNote, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
-                    Text(t("صدا و لرزش اعلان‌ها", "Notification sound & vibration"))
+                OutlinedButton(onClick = {
+                    Scheduler.scheduleTest(context, 60_000L, alarm = false)
+                    Toast.makeText(context, t("برنامه را کامل ببند؛ یک دقیقهٔ دیگر اعلان می‌رسد.", "Close the app completely; a notification arrives in one minute."),
+                        Toast.LENGTH_LONG).show()
+                }, modifier = Modifier.fillMaxWidth()) { Text(t("آزمون اعلان در پس‌زمینه (۱ دقیقه بعد)", "Background test (in 1 minute)")) }
+            }
+        }
+
+        item {
+            SettingsCard(t("صدا و لرزش", "Sound & vibration"), Icons.Rounded.MusicNote) {
+                @Suppress("UNUSED_VARIABLE") val readSound = soundTick
+                SoundRow(t("صدای یادآوری", "Reminder sound"), AlertSound.soundName(context, alarm = false),
+                    onPick = { pickSound(false) }, onPreview = { AlertSound.playOnce(context, alarm = false) })
+                SoundRow(t("صدای زنگ تمام‌صفحه", "Alarm sound"), AlertSound.soundName(context, alarm = true),
+                    onPick = { pickSound(true) }, onPreview = { AlertSound.playOnce(context, alarm = true) })
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(t("لرزش", "Vibration"), Modifier.weight(1f))
+                    Switch(vibrate, { vibrate = it; Prefs.setVibrate(context, it) })
                 }
+                Text(t("صدای یادآوری‌های معمولی از بلندی «اعلان» و زنگ تمام‌صفحه از بلندی «زنگ هشدار» گوشی پخش می‌شود. زنگ تمام‌صفحه در حالت بی‌صدا هم پخش می‌شود.",
+                    "Regular reminders use the notification volume; alarms use the alarm volume and ring even in silent mode."),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -206,6 +222,8 @@ private fun AiCard() {
     var keyText by remember { mutableStateOf("") }
     var useAi by remember { mutableStateOf(Prefs.useAi(context)) }
     var model by remember { mutableStateOf(ai.model) }
+    var audioModel by remember { mutableStateOf(ai.audioModel) }
+    var pickingAudio by remember { mutableStateOf(false) }
     var models by remember { mutableStateOf<List<OpenRouter.Model>>(emptyList()) }
     var picking by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
@@ -213,8 +231,8 @@ private fun AiCard() {
     var freeOnly by remember { mutableStateOf(false) }
 
     SettingsCard(t("هوش مصنوعی (اختیاری)", "AI (optional)"), Icons.Rounded.AutoAwesome) {
-        Text(t("ثبت سریع بدون اینترنت هم جمله‌های فارسی و انگلیسی را می‌فهمد. با کلید OpenRouter می‌توانی جمله‌های پیچیده‌تر را هم با هوش مصنوعی تحلیل کنی.",
-            "Quick add understands Persian and English offline. Add an OpenRouter key to parse complex sentences with AI."),
+        Text(t("ثبت سریع بدون اینترنت هم جمله‌های فارسی و انگلیسی را می‌فهمد. با کلید OpenRouter، دکمهٔ میکروفون صدا را داخل خود برنامه ضبط می‌کند و هوش مصنوعی آن را به متن و یادآوری تبدیل می‌کند.",
+            "Quick add understands Persian and English offline. With an OpenRouter key, the mic records inside the app and AI turns your voice into a reminder."),
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(t("استفاده از هوش مصنوعی در ثبت سریع", "Use AI for quick add"), Modifier.weight(1f))
@@ -230,17 +248,24 @@ private fun AiCard() {
             }) { Text(t("ذخیرهٔ کلید", "Save key")) }
             if (hasKey) TextButton(onClick = { ai.saveKey(""); hasKey = false; useAi = false; Prefs.setUseAi(context, false) }) { Text(t("حذف کلید", "Remove key")) }
         }
-        OutlinedButton(onClick = {
-            picking = true; loading = true
+        fun load(audio: Boolean) {
+            pickingAudio = audio; picking = true; loading = true; models = emptyList(); search = ""
             scope.launch {
-                try { models = OpenRouter(context).models() }
+                try { models = OpenRouter(context).models(transcription = audio) }
                 catch (e: Exception) { Toast.makeText(context, e.message, Toast.LENGTH_LONG).show(); picking = false }
                 finally { loading = false }
             }
-        }, enabled = hasKey, modifier = Modifier.fillMaxWidth()) {
+        }
+        OutlinedButton(onClick = { load(false) }, enabled = hasKey, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.fillMaxWidth()) {
-                Text(t("مدل", "Model"))
+                Text(t("مدل فهم متن", "Text model"))
                 Text(model, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        OutlinedButton(onClick = { load(true) }, enabled = hasKey, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth()) {
+                Text(t("مدل تبدیل صدا", "Voice model"))
+                Text(audioModel, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -257,8 +282,11 @@ private fun AiCard() {
                     items(shown, key = { it.id }) { m ->
                         ListItem(headlineContent = { Text(m.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             supportingContent = { Text(m.id + if (m.free) t(" • رایگان", " • free") else "", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                            trailingContent = { if (m.id == model) Icon(Icons.Rounded.Check, null) },
-                            modifier = Modifier.clickable { model = m.id; ai.model = m.id; picking = false })
+                            trailingContent = { if (m.id == (if (pickingAudio) audioModel else model)) Icon(Icons.Rounded.Check, null) },
+                            modifier = Modifier.clickable {
+                                if (pickingAudio) { audioModel = m.id; ai.audioModel = m.id } else { model = m.id; ai.model = m.id }
+                                picking = false
+                            })
                         HorizontalDivider()
                     }
                 }
@@ -268,13 +296,14 @@ private fun AiCard() {
 }
 
 @Composable
-private fun HealthRow(label: String, ok: Boolean, fix: String, onFix: () -> Unit) {
+private fun SoundRow(label: String, value: String, onPick: () -> Unit, onPreview: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-        Icon(if (ok) Icons.Rounded.CheckCircle else Icons.Rounded.Cancel, null,
-            tint = if (ok) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error)
-        Spacer(Modifier.width(10.dp))
-        Text(label, Modifier.weight(1f))
-        if (!ok) FilledTonalButton(onClick = onFix, contentPadding = PaddingValues(horizontal = 14.dp)) { Text(fix) }
+        Column(Modifier.weight(1f).clickable(onClick = onPick).padding(vertical = 4.dp)) {
+            Text(label)
+            Text(value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        IconButton(onClick = onPreview) { Icon(Icons.Rounded.PlayArrow, t("پخش", "Play")) }
+        TextButton(onClick = onPick) { Text(t("تغییر", "Change")) }
     }
 }
 
