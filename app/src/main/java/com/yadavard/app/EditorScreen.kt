@@ -12,6 +12,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Label
+import androidx.compose.material.icons.automirrored.rounded.Notes
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -293,10 +295,10 @@ fun EditorScreen(request: EditorRequest, onClose: () -> Unit, onSave: (Reminder)
                 }
                 AnimatedVisibility(showMore) {
                     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        Block(t("دسته‌بندی", "Category"), Icons.Rounded.Label) {
+                        Block(t("دسته‌بندی", "Category"), Icons.AutoMirrored.Rounded.Label) {
                             ChoiceChips(Category.entries, category, { it.label() }, { category = it }, icon = { it.icon() })
                         }
-                        Block(t("جزئیات", "Details"), Icons.Rounded.Notes) {
+                        Block(t("جزئیات", "Details"), Icons.AutoMirrored.Rounded.Notes) {
                             OutlinedTextField(note, { note = it }, Modifier.fillMaxWidth(), minLines = 2, maxLines = 6,
                                 placeholder = { Text(t("توضیحات، آدرس، شماره تماس…", "Notes, address, phone number…")) }, shape = RoundedCornerShape(16.dp))
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))

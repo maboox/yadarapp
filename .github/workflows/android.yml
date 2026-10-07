@@ -1,13 +1,15 @@
 name: Build Android APK
 on:
   push:
-  pull_request:
   workflow_dispatch:
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -31,8 +33,20 @@ jobs:
           mkdir -p out
           cp app/build/outputs/apk/release/app-release.apk out/Yadar-${GITHUB_SHA::7}.apk
           cp app/build/outputs/apk/debug/app-debug.apk out/Yadar-debug-${GITHUB_SHA::7}.apk
+      # Releases do not count against the Actions artifact storage quota, so the APK is always downloadable there.
+      - name: Publish APK as a GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BRANCH="${GITHUB_REF_NAME//\//-}"
+          TAG="apk-${BRANCH}"
+          gh release delete "$TAG" --yes --cleanup-tag || true
+          gh release create "$TAG" out/Yadar-*.apk --prerelease --target "$GITHUB_SHA" \
+            --title "Yadar APK (${GITHUB_REF_NAME} @ ${GITHUB_SHA::7})" \
+            --notes "Built from ${GITHUB_SHA}. Install Yadar-${GITHUB_SHA::7}.apk; the -debug file is only for troubleshooting."
       - uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: yadar-apk
           path: out/Yadar-*.apk
-          if-no-files-found: error
+          retention-days: 5
