@@ -193,6 +193,17 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
         consumed()
     }
 
+    var aiDrafts by remember { mutableStateOf<Pair<String?, List<Reminder>>?>(null) }
+    fun saveDrafts(list: List<Reminder>) {
+        if (list.isEmpty()) return
+        list.forEach { vm.save(it) }
+        scope.launch {
+            snackbar.currentSnackbarData?.dismiss()
+            snackbar.showSnackbar(if (list.size == 1) t("ثبت شد: ${list[0].title}", "Saved: ${list[0].title}")
+                else t("${n(list.size)} یادآوری ثبت شد ✓", "${list.size} reminders saved ✓"), duration = SnackbarDuration.Short)
+        }
+    }
+
     val showSaved: (Reminder) -> Unit = { r ->
         scope.launch {
             snackbar.currentSnackbarData?.dismiss()
@@ -230,6 +241,7 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
             saved = showSaved,
             voice = ::startVoice,
             saveDirect = { r -> vm.save(r) { saved -> showSaved(saved) } },
+            confirmAi = { text, list -> aiDrafts = text to list },
         )
     }
 
@@ -268,11 +280,8 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
             }
         }
         if (voiceOpen) VoiceDialog(onDismiss = { voiceOpen = false },
-            onDraft = { draft ->
-                voiceOpen = false
-                editor = EditorRequest(null, draft.copy(alertStyle = Prefs.defaultAlert(context),
-                    leadMinutes = if (draft.leadMinutes > 0) draft.leadMinutes else Prefs.defaultLead(context)))
-            },
+            onSave = { list -> voiceOpen = false; saveDrafts(list) },
+            onEdit = { r, others -> voiceOpen = false; saveDrafts(others); editor = EditorRequest(null, r) },
             onText = { text -> voiceOpen = false; quickText = text; tab = Tab.HOME },
             onGoogle = {
                 voiceOpen = false
@@ -280,6 +289,12 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                     Toast.makeText(context, t("تشخیص گفتار Google در دسترس نیست.", "Google dictation is not available."), Toast.LENGTH_LONG).show()
                 }
             })
+        aiDrafts?.let { (text, list) ->
+            DraftConfirmDialog(text, list,
+                onSave = { saved -> aiDrafts = null; saveDrafts(saved) },
+                onEdit = { r, others -> aiDrafts = null; saveDrafts(others); editor = EditorRequest(null, r) },
+                onCancel = { aiDrafts = null })
+        }
         var shown by remember { mutableStateOf<EditorRequest?>(null) }
         if (editor != null) shown = editor
         BackHandler(enabled = editor != null) { editor = null }
@@ -310,6 +325,7 @@ class ReminderActions(
     val saved: (Reminder) -> Unit,
     val voice: () -> Unit,
     val saveDirect: (Reminder) -> Unit,
+    val confirmAi: (String?, List<Reminder>) -> Unit,
 )
 
 /** A draft reminder at 09:00 on [day], used when adding from a calendar day. */

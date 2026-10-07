@@ -18,13 +18,16 @@ data class QuickResult(
     val weekdays: Int = 0,
     val monthDay: Int = 0,
     val understood: Boolean = false,
+    val alarm: Boolean = false,
+    val important: Boolean = false,
 ) {
     fun toReminder(zone: ZoneId, calendar: CalendarSystem, now: Long): Reminder? {
         val time = at ?: return null
         var r = Recurrence.align(Reminder(title = title, firstAt = time, unit = unit, every = every,
             weekdays = if (unit == RepeatUnit.WEEKS) weekdays else 0,
             monthDay = if (unit == RepeatUnit.MONTHS || unit == RepeatUnit.YEARS) monthDay else 0,
-            zone = zone.id, calendar = calendar))
+            zone = zone.id, calendar = calendar, important = important,
+            alertStyle = if (alarm) AlertStyle.ALARM else AlertStyle.NOTIFICATION))
         if (r.repeating && r.nextAt <= now) {
             val next = Recurrence.nextAfter(r, now) ?: return null
             r = r.copy(firstAt = next, nextAt = next)
@@ -115,6 +118,9 @@ object QuickParser {
     private val pTimeAt = rx("\\bat\\s+(\\d{1,2})(?:[:.](\\d{2}))?\\b")
     private val pTimeFaPart = rx("\\b(\\d{1,2})$S$FA_PART")
     private val pPartOfDay = rx("\\b(?:$FA_PART|morning|noon|afternoon|evening|night)\\b")
+
+    private val pAlarm = rx("(?:با$S)?(?:زنگ${S}تمام${S}صفحه|تمام${S}صفحه|آلارم|الارم|زنگ${S}هشدار)(?:${S}(?:بزن|بخوره|بذار|بگذار))?|\\bfull[\\s-]?screen\\b|\\bwith\\s+(?:an\\s+)?alarm\\b|\\balarm\\b")
+    private val pImportant = rx("\\b(?:خیلی$S)?(?:مهم|فوری)\\b|\\b(?:important|urgent)\\b")
 
     private val fillers = listOf(
         rx("(?:به${S}من$S|بهم$S)?یاد(?:م|ت)?$S(?:بنداز|بندازی|بیار|بیاری|انداز|باشه|بمونه)"),
@@ -384,6 +390,10 @@ object QuickParser {
         if (hour != null && (hour!! !in 0..23 || minute !in 0..59)) { hour = null; minute = 0; ambiguousHour = false }
         if (hour != null || defaultHour != null) understood = true
 
+        // Alert options.
+        val alarm = take(pAlarm) != null
+        val important = take(pImportant) != null
+
         // Title.
         fillers.forEach { p -> while (take(p) != null) Unit }
         val title = cleanTitle(text).ifBlank { input.trim() }
@@ -428,7 +438,7 @@ object QuickParser {
                 }
             }
         }
-        return QuickResult(title, at, unit, every, weekdays, monthDay, understood)
+        return QuickResult(title, at, unit, every, weekdays, monthDay, understood, alarm, important)
     }
 
     private fun enUnit(word: String): RepeatUnit {

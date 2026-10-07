@@ -275,37 +275,43 @@ class OpenRouter(private val context: Context) {
         } finally { conn.disconnect() }
     }
 
-    /** Parses free text into a reminder draft. The result is shown to the user before it is saved. */
-    suspend fun parse(text: String): Reminder = withContext(Dispatchers.IO) {
+    /**
+     * Turns a sentence (or a voice transcript) into one or more reminder drafts with every option the user
+     * mentioned. Options the user did not mention keep the app defaults.
+     */
+    suspend fun parseMany(text: String): List<Reminder> = withContext(Dispatchers.IO) {
         val zone = ZoneId.systemDefault()
         val now = ZonedDateTime.now(zone)
         val calendar = Prefs.calendar(context)
         val today = Dates.formatDate(now.toLocalDate(), CalendarSystem.PERSIAN, AppLanguage.EN)
-        val prompt = """You turn a user's sentence into ONE reminder. Return ONLY a JSON object, no prose.
-Current local time: $now (time zone $zone). Today in the Persian calendar: $today. Default calendar: $calendar.
-The user may write Persian or English. Interpret ambiguous dates with the default calendar; 14xx years are Persian, 20xx Gregorian.
-Fields:
-- title: short task in the user's language, without date/time words
-- note: optional extra details
-- first_at: ISO-8601 local date-time WITH offset of the first due moment (must be in the future)
+        val prompt = """You turn what the user said into reminders. The user may mention SEVERAL separate tasks; create one reminder per task.
+Return ONLY JSON: {"reminders":[ ... ]} with no prose.
+Current local time: $now (time zone $zone, ${now.dayOfWeek}). Today in the Persian calendar: $today. Default calendar: $calendar.
+The user usually speaks Persian (or English). Interpret dates with the default calendar; 14xx years are Persian, 20xx Gregorian.
+Fields of each reminder (use null for anything the user did not mention):
+- title: short task in the user's language, without date/time or option words
+- note: extra details the user gave, or null
+- first_at: ISO-8601 local date-time WITH offset of the first due moment, in the future
 - unit: NONE | HOURS | DAYS | WEEKS | MONTHS | YEARS | AFTER_DONE_DAYS
 - every: integer >= 1
-- weekdays: array of ISO weekday numbers (1=Monday..7=Sunday) for WEEKS
-- month_day: 1..31 for monthly/yearly on a fixed day, -1 for the last day, 0 otherwise
-- calendar: PERSIAN | GREGORIAN (calendar for monthly/yearly rules)
-- category: GENERAL | PERSONAL | WORK | HEALTH | BILLS | BIRTHDAY | SHOPPING | STUDY
-- important: boolean
-- lead_minutes: minutes of advance notice, 0 if none
-Rules: "every 20 days" = DAYS/every=20; "20th of every month" = MONTHS/month_day=20; "10 days after I do it" = AFTER_DONE_DAYS.
-Default times: morning 09:00, noon 12:00, afternoon 16:00, evening 18:00, night 21:00; a date without time = 09:00.
+- weekdays: ISO weekday numbers (1=Monday..7=Sunday) for WEEKS, else []
+- month_day: 1..31 for a fixed day of month, -1 for the last day, 0 otherwise
+- calendar: PERSIAN | GREGORIAN for monthly/yearly rules
+- until: ISO date (yyyy-MM-dd, Gregorian) when the repetition ends, or null
+- category: GENERAL | PERSONAL | WORK | HEALTH | BILLS | BIRTHDAY | SHOPPING | STUDY (pick the best fit)
+- important: true only if the user says it is important/urgent/مهم/فوری
+- alert_style: "ALARM" if the user asks for an alarm, ringing, loud sound, full screen, wake me up, زنگ, آلارم, تمام صفحه, با صدا, بیدارم کن; "NOTIFICATION" if they explicitly ask for a normal/silent notification; otherwise null
+- lead_minutes: advance notice in minutes if the user asks to be told earlier (e.g. "۱۰ دقیقه قبلش خبرم کن" = 10, "یه روز قبل" = 1440), else null
+- nag_minutes: if the user asks to keep reminding until done ("تا انجامش ندادم هر ۵ دقیقه یادم بنداز"), the interval in minutes (default 10), else null
+Rules: "every 20 days" = DAYS/every=20; "20th of every month" = MONTHS/month_day=20; "every 8 hours" = HOURS/every=8; "10 days after I do it" = AFTER_DONE_DAYS/every=10.
+Default times: morning 09:00, noon 12:00, afternoon 16:00, evening 18:00, night 21:00; a date without a time = 09:00.
 No date: today if the time is still ahead, otherwise tomorrow.
-Sentence: $text"""
+User said: $text"""
         val body = JSONObject().put("model", settings.model).put("temperature", 0)
             .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", prompt)))
         val conn = (URL("https://openrouter.ai/api/v1/chat/completions").openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"; doOutput = true; connectTimeout = 20_000; readTimeout = 60_000
             setRequestProperty("Authorization", "Bearer ${requireKey()}")
-            // A redirect would silently drop the Authorization header (and turn POST into GET).
             instanceFollowRedirects = false
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("X-Title", "Yadar")
@@ -313,20 +319,58 @@ Sentence: $text"""
         try {
             conn.outputStream.use { it.write(body.toString().toByteArray(StandardCharsets.UTF_8)) }
             val raw = JSONObject(read(conn)).getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content")
-            val json = JSONObject(raw.substring(raw.indexOf('{'), raw.lastIndexOf('}') + 1))
-            val due = ZonedDateTime.parse(json.getString("first_at")).toInstant().toEpochMilli()
-            val unit = runCatching { RepeatUnit.valueOf(json.optString("unit", "NONE").uppercase()) }.getOrDefault(RepeatUnit.NONE)
-            var mask = 0
-            json.optJSONArray("weekdays")?.let { days -> for (i in 0 until days.length()) days.optInt(i).takeIf { it in 1..7 }?.let { mask = mask or (1 shl (it - 1)) } }
-            val title = json.optString("title").trim().take(200).ifBlank { text.trim().take(200) }
-            Recurrence.align(Reminder(title = title, note = json.optString("note").trim(),
-                category = runCatching { Category.valueOf(json.optString("category", "GENERAL").uppercase()) }.getOrDefault(Category.GENERAL),
-                important = json.optBoolean("important"),
-                firstAt = due, unit = unit, every = json.optInt("every", 1).coerceIn(1, 10_000),
-                weekdays = mask, monthDay = json.optInt("month_day", 0).coerceIn(-1, 31),
-                leadMinutes = json.optInt("lead_minutes", 0).coerceIn(0, 525_600), zone = zone.id,
-                calendar = runCatching { CalendarSystem.valueOf(json.optString("calendar", calendar.name).uppercase()) }.getOrDefault(calendar),
-                alertStyle = Prefs.defaultAlert(context)))
+            val items = parseJson(raw)
+            val result = items.mapNotNull { runCatching { toReminder(it, text, zone, calendar) }.getOrNull() }
+            if (result.isEmpty()) error(if (fa()) "یادآوری‌ای از این جمله پیدا نشد" else "No reminder found in that sentence")
+            result
         } finally { conn.disconnect() }
+    }
+
+    suspend fun parse(text: String): Reminder = parseMany(text).first()
+
+    private fun parseJson(raw: String): List<JSONObject> {
+        val start = raw.indexOfFirst { it == '{' || it == '[' }
+        require(start >= 0) { "no JSON" }
+        val trimmed = raw.substring(start)
+        if (trimmed.startsWith("[")) {
+            val array = JSONArray(trimmed.substring(0, trimmed.lastIndexOf(']') + 1))
+            return (0 until array.length()).mapNotNull { array.optJSONObject(it) }
+        }
+        val obj = JSONObject(trimmed.substring(0, trimmed.lastIndexOf('}') + 1))
+        val list = obj.optJSONArray("reminders") ?: return listOf(obj)
+        return (0 until list.length()).mapNotNull { list.optJSONObject(it) }
+    }
+
+    private fun JSONObject.str(name: String): String? = if (isNull(name)) null else optString(name).trim().takeIf { it.isNotBlank() && it != "null" }
+    private fun JSONObject.int(name: String): Int? = if (isNull(name) || !has(name)) null else optString(name).trim().toDoubleOrNull()?.toInt()
+
+    private fun toReminder(json: JSONObject, text: String, zone: ZoneId, calendar: CalendarSystem): Reminder {
+        val due = ZonedDateTime.parse(json.getString("first_at")).toInstant().toEpochMilli()
+        val unit = runCatching { RepeatUnit.valueOf(json.str("unit")?.uppercase() ?: "NONE") }.getOrDefault(RepeatUnit.NONE)
+        var mask = 0
+        json.optJSONArray("weekdays")?.let { days -> for (i in 0 until days.length()) days.optInt(i).takeIf { it in 1..7 }?.let { mask = mask or (1 shl (it - 1)) } }
+        val title = json.str("title")?.take(200) ?: text.trim().take(200)
+        val alert = when (json.str("alert_style")?.uppercase()) {
+            "ALARM" -> AlertStyle.ALARM
+            "NOTIFICATION" -> AlertStyle.NOTIFICATION
+            else -> Prefs.defaultAlert(context)
+        }
+        val until = json.str("until")?.let { v ->
+            runCatching { java.time.LocalDate.parse(v.take(10)).atTime(23, 59).atZone(zone).toInstant().toEpochMilli() }.getOrNull()
+        }
+        var r = Recurrence.align(Reminder(title = title, note = json.str("note").orEmpty(),
+            category = runCatching { Category.valueOf(json.str("category")?.uppercase() ?: "GENERAL") }.getOrDefault(Category.GENERAL),
+            important = json.optBoolean("important", false),
+            firstAt = due, unit = unit, every = (json.int("every") ?: 1).coerceIn(1, 10_000),
+            weekdays = mask, monthDay = (json.int("month_day") ?: 0).coerceIn(-1, 31),
+            untilAt = if (unit == RepeatUnit.NONE || unit == RepeatUnit.AFTER_DONE_DAYS) null else until,
+            leadMinutes = (json.int("lead_minutes") ?: Prefs.defaultLead(context)).coerceIn(0, 525_600),
+            nagMinutes = (json.int("nag_minutes") ?: 0).coerceIn(0, 1440), zone = zone.id,
+            calendar = runCatching { CalendarSystem.valueOf(json.str("calendar")?.uppercase() ?: calendar.name) }.getOrDefault(calendar),
+            alertStyle = alert))
+        // A repeating rule whose first date already passed continues from its next occurrence.
+        if (r.repeating && r.nextAt <= System.currentTimeMillis())
+            Recurrence.nextAfter(r, System.currentTimeMillis())?.let { r = r.copy(nextAt = it) }
+        return r
     }
 }

@@ -216,7 +216,7 @@ private fun QuickAddCard(text: String, onText: (String) -> Unit, now: Long, acti
     val parsed = remember(text, now / 60_000) {
         if (text.isBlank()) null else QuickParser.parse(text, System.currentTimeMillis(), zone, AppDisplay.calendar)
     }
-    fun withDefaults(r: Reminder) = r.copy(alertStyle = Prefs.defaultAlert(context),
+    fun withDefaults(r: Reminder) = r.copy(alertStyle = if (r.alertStyle == AlertStyle.ALARM) AlertStyle.ALARM else Prefs.defaultAlert(context),
         leadMinutes = if (r.leadMinutes > 0) r.leadMinutes else Prefs.defaultLead(context))
 
     fun submit() {
@@ -226,9 +226,8 @@ private fun QuickAddCard(text: String, onText: (String) -> Unit, now: Long, acti
             busy = true
             scope.launch {
                 try {
-                    val r = OpenRouter(context).parse(text)
-                    // AI results open in the editor so the user can confirm them before saving.
-                    actions.create(withDefaults(r))
+                    // AI results are shown for a few seconds and then saved unless the user edits them.
+                    actions.confirmAi(null, OpenRouter(context).parseMany(text))
                     onText("")
                 } catch (e: Exception) {
                     Toast.makeText(context, e.message ?: t("تحلیل انجام نشد", "Could not understand"), Toast.LENGTH_LONG).show()

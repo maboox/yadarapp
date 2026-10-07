@@ -190,8 +190,8 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
 
         item {
             SettingsCard(t("پشتیبان‌گیری", "Backup"), Icons.Rounded.Backup) {
-                Text(t("${n(count)} یادآوری روی این گوشی ذخیره است. فایل پشتیبان را جای امن نگه دار؛ کلید هوش مصنوعی داخل آن نیست.",
-                    "$count reminders on this phone. Keep the backup file safe; your AI key is not included."),
+                Text(t("${n(count)} یادآوری روی این گوشی ذخیره است. نسخه‌های جدید را روی همین نصب کن تا اطلاعات بماند. یادار بعد از هر تغییر یک نسخهٔ پشتیبان خودکار در پوشهٔ Download/Yadar می‌گذارد که با حذف برنامه هم پاک نمی‌شود؛ با «بازیابی» برش گردان. کلید هوش مصنوعی داخل پشتیبان نیست.",
+                    "$count reminders on this phone. Install new versions over this one to keep your data. Yadar also saves an automatic backup to Download/Yadar after every change, which survives uninstalling; bring it back with Restore. Your AI key is not included."),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilledTonalButton(onClick = { exportPicker.launch("yadar-backup.json") }, Modifier.weight(1f)) {

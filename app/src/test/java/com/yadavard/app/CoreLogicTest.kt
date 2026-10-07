@@ -154,6 +154,11 @@ class CoreLogicTest {
         }
         parse("ساعت ۵ جلسه").let { assertEquals(at(2026, 10, 7, 17), it.at) }
         parse("خرید نان").let { assertFalse(it.understood); assertNull(it.at); assertEquals("خرید نان", it.title) }
+        parse("فردا ساعت ۷ با آلارم بیدار شدن، مهم").let {
+            assertTrue(it.alarm); assertTrue(it.important); assertEquals("بیدار شدن", it.title)
+            assertEquals(AlertStyle.ALARM, it.toReminder(zone, CalendarSystem.PERSIAN, now)!!.alertStyle)
+        }
+        parse("ساعت ۵ زنگ بزنم به علی").let { assertFalse(it.alarm); assertEquals("زنگ بزنم به علی", it.title) }
         parse("امشب فیلم").let { assertEquals(at(2026, 10, 7, 21), it.at); assertEquals("فیلم", it.title) }
     }
 

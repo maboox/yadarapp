@@ -178,11 +178,45 @@ object Repo {
     fun changed(context: Context) {
         _changes.value = _changes.value + 1
         WidgetUpdater.update(context)
+        Backup.scheduleAuto(context)
     }
 }
 
 /** JSON backup. Schema 2 stores every field; schema 1 files from older versions are still accepted. */
 object Backup {
+    private val executor = java.util.concurrent.Executors.newSingleThreadScheduledExecutor()
+    private var pending: java.util.concurrent.ScheduledFuture<*>? = null
+    const val AUTO_NAME = "yadar-auto-backup.json"
+
+    /** Debounced automatic backup to Download/Yadar, which survives uninstalling the app. */
+    fun scheduleAuto(context: Context) {
+        val app = context.applicationContext
+        synchronized(this) {
+            pending?.cancel(false)
+            pending = executor.schedule({ runCatching { autoBackup(app) } }, 5, java.util.concurrent.TimeUnit.SECONDS)
+        }
+    }
+
+    private fun autoBackup(context: Context) {
+        if (android.os.Build.VERSION.SDK_INT < 29) return
+        val items = Repo.all(context)
+        if (items.isEmpty()) return // never replace a good backup with an empty one
+        val resolver = context.contentResolver
+        val collection = android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI
+        val dir = android.os.Environment.DIRECTORY_DOWNLOADS + "/Yadar/"
+        val column = android.provider.MediaStore.MediaColumns.DISPLAY_NAME
+        val pathColumn = android.provider.MediaStore.MediaColumns.RELATIVE_PATH
+        // Only files created by this installation are visible here, so an older backup is never overwritten.
+        val existing = resolver.query(collection, arrayOf(android.provider.MediaStore.MediaColumns._ID),
+            "$column=? AND $pathColumn=?", arrayOf(AUTO_NAME, dir), null)?.use { c ->
+            if (c.moveToFirst()) android.content.ContentUris.withAppendedId(collection, c.getLong(0)) else null
+        }
+        val uri = existing ?: resolver.insert(collection, ContentValues().apply {
+            put(column, AUTO_NAME); put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/json"); put(pathColumn, dir)
+        }) ?: return
+        resolver.openOutputStream(uri, "wt")?.use { it.write(export(items).toByteArray()) }
+    }
+
     fun export(items: List<Reminder>): String = JSONObject().put("app", "yadar").put("schema", 2)
         .put("exportedAt", System.currentTimeMillis())
         .put("reminders", JSONArray().apply {

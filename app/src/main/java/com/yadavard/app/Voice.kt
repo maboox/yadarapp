@@ -41,14 +41,15 @@ fun speechIntent(context: Context): Intent {
     return if (google.resolveActivity(context.packageManager) != null) google else base
 }
 
-private enum class VoiceStage { RECORDING, CONVERTING, UNDERSTANDING, ERROR }
+private enum class VoiceStage { RECORDING, CONVERTING, UNDERSTANDING, CONFIRM, ERROR }
 
 /**
  * Records inside the app and uses OpenRouter to transcribe and understand the voice note.
  * [onDraft] receives a ready reminder draft; [onText] gets the transcript when only text is available.
  */
 @Composable
-fun VoiceDialog(onDismiss: () -> Unit, onDraft: (Reminder) -> Unit, onText: (String) -> Unit, onGoogle: () -> Unit) {
+fun VoiceDialog(onDismiss: () -> Unit, onSave: (List<Reminder>) -> Unit, onEdit: (Reminder, List<Reminder>) -> Unit,
+                onText: (String) -> Unit, onGoogle: () -> Unit) {
     val context = LocalContext.current
     val recorder = remember { VoiceRecorder(context) }
     var stage by remember { mutableStateOf(VoiceStage.RECORDING) }
@@ -58,6 +59,7 @@ fun VoiceDialog(onDismiss: () -> Unit, onDraft: (Reminder) -> Unit, onText: (Str
     var transcript by remember { mutableStateOf("") }
     var attempt by remember { mutableIntStateOf(0) }
     var stopRequested by remember { mutableStateOf(false) }
+    var drafts by remember { mutableStateOf<List<Reminder>>(emptyList()) }
 
     DisposableEffect(Unit) { onDispose { recorder.discard() } }
 
@@ -81,23 +83,24 @@ fun VoiceDialog(onDismiss: () -> Unit, onDraft: (Reminder) -> Unit, onText: (Str
         }
         transcript = text
         stage = VoiceStage.UNDERSTANDING
-        val draft = try { ai.parse(text) } catch (_: Exception) { null }
-        if (draft != null) onDraft(draft) else onText(text)
+        val found = try { ai.parseMany(text) } catch (_: Exception) { emptyList() }
+        if (found.isEmpty()) onText(text) else { drafts = found; stage = VoiceStage.CONFIRM }
     }
 
     val scale by animateFloatAsState(1f + level * 0.6f, label = "level")
     Dialog(onDismissRequest = { if (stage != VoiceStage.CONVERTING && stage != VoiceStage.UNDERSTANDING) onDismiss() },
         properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surfaceContainerLow,
-            modifier = Modifier.padding(24.dp).fillMaxWidth().widthIn(max = 420.dp)) {
-            Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            modifier = Modifier.padding(16.dp).fillMaxWidth().widthIn(max = 480.dp)) {
+            Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text(when (stage) {
                     VoiceStage.RECORDING -> t("در حال گوش دادن…", "Listening…")
                     VoiceStage.CONVERTING -> t("در حال تبدیل صدا به متن…", "Transcribing…")
                     VoiceStage.UNDERSTANDING -> t("در حال فهمیدن یادآوری…", "Understanding…")
+                    VoiceStage.CONFIRM -> t("این را فهمیدم ✓", "Here's what I understood ✓")
                     VoiceStage.ERROR -> t("مشکلی پیش آمد", "Something went wrong")
                 }, style = MaterialTheme.typography.titleMedium)
-                Box(Modifier.size(150.dp), contentAlignment = Alignment.Center) {
+                if (stage != VoiceStage.CONFIRM) Box(Modifier.size(150.dp), contentAlignment = Alignment.Center) {
                     if (stage == VoiceStage.RECORDING) Box(Modifier.size(110.dp).scale(scale).clip(CircleShape)
                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)))
                     if (stage == VoiceStage.CONVERTING || stage == VoiceStage.UNDERSTANDING)
@@ -126,6 +129,7 @@ fun VoiceDialog(onDismiss: () -> Unit, onDraft: (Reminder) -> Unit, onText: (Str
                     VoiceStage.CONVERTING, VoiceStage.UNDERSTANDING -> {
                         if (transcript.isNotBlank()) Text("«$transcript»", textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
                     }
+                    VoiceStage.CONFIRM -> DraftConfirmContent(transcript, drafts, onSave, onEdit, onDismiss)
                     VoiceStage.ERROR -> {
                         Text(error, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall)
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
