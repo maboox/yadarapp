@@ -65,6 +65,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // If an alarm is still ringing, always give the user its screen so it can be stopped.
+        val ringing = AlertService.ringingId()
+        if (ringing != 0L) runCatching {
+            startActivity(Intent(this, AlarmActivity::class.java).setData(android.net.Uri.parse("yadar://alarm-screen/$ringing"))
+                .putExtra(Notifier.EXTRA_ID, ringing).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -263,7 +273,13 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                 editor = EditorRequest(null, draft.copy(alertStyle = Prefs.defaultAlert(context),
                     leadMinutes = if (draft.leadMinutes > 0) draft.leadMinutes else Prefs.defaultLead(context)))
             },
-            onText = { text -> voiceOpen = false; quickText = text; tab = Tab.HOME })
+            onText = { text -> voiceOpen = false; quickText = text; tab = Tab.HOME },
+            onGoogle = {
+                voiceOpen = false
+                try { speech.launch(speechIntent(context)) } catch (_: ActivityNotFoundException) {
+                    Toast.makeText(context, t("تشخیص گفتار Google در دسترس نیست.", "Google dictation is not available."), Toast.LENGTH_LONG).show()
+                }
+            })
         var shown by remember { mutableStateOf<EditorRequest?>(null) }
         if (editor != null) shown = editor
         BackHandler(enabled = editor != null) { editor = null }

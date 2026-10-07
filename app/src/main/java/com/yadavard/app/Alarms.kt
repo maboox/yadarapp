@@ -119,6 +119,7 @@ object Notifier {
     const val ACTION_DONE = "com.yadavard.app.action.DONE"
     const val ACTION_SNOOZE = "com.yadavard.app.action.SNOOZE"
     const val ACTION_OPEN = "com.yadavard.app.action.OPEN"
+    const val ACTION_SILENCE = "com.yadavard.app.action.SILENCE"
     const val EXTRA_ID = "reminder_id"
     const val EXTRA_MINUTES = "minutes"
     private const val TEST_NOTIFICATION_ID = 999_999_001
@@ -241,9 +242,12 @@ object Notifier {
             .addAction(R.drawable.ic_action_done, label(context, "انجام شد", "Done"), broadcast(context, ACTION_DONE, r.id))
             .addAction(R.drawable.ic_action_snooze, label(context, "${Dates.digits(snooze.toString(), lang)} دقیقه بعد", "Snooze $snooze min"),
                 broadcast(context, ACTION_SNOOZE, r.id, snooze))
-        if (snooze != 60) builder.addAction(R.drawable.ic_action_snooze, label(context, "یک ساعت بعد", "1 hour"),
+        if (snooze != 60 && !(ring && !quiet)) builder.addAction(R.drawable.ic_action_snooze, label(context, "یک ساعت بعد", "1 hour"),
             broadcast(context, ACTION_SNOOZE, r.id, 60))
-        if (ring && !quiet) builder.setFullScreenIntent(fullScreen(context, r.id), true).setOngoing(true)
+        if (ring && !quiet) {
+            builder.setFullScreenIntent(fullScreen(context, r.id), true).setOngoing(true)
+            builder.addAction(R.drawable.ic_action_snooze, label(context, "قطع زنگ", "Silence"), broadcast(context, ACTION_SILENCE, r.id))
+        }
         return builder.build()
     }
 
@@ -360,8 +364,10 @@ class ActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val id = intent.getLongExtra(Notifier.EXTRA_ID, 0)
         when (intent.action) {
-            Notifier.ACTION_DONE -> Repo.complete(context, id)
-            Notifier.ACTION_SNOOZE -> Repo.snooze(context, id,
+            Notifier.ACTION_DONE -> if (id == AlertService.TEST_ID) Notifier.cancel(context, id) else Repo.complete(context, id)
+            Notifier.ACTION_SILENCE -> if (id == AlertService.TEST_ID) Notifier.cancel(context, id)
+                else AlertService.stop(id, remove = false, quietRepost = true)
+            Notifier.ACTION_SNOOZE -> if (id == AlertService.TEST_ID) Notifier.cancel(context, id) else Repo.snooze(context, id,
                 intent.getIntExtra(Notifier.EXTRA_MINUTES, Prefs.snoozeMinutes(context)).takeIf { it > 0 } ?: Prefs.snoozeMinutes(context))
         }
     }

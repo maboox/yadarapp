@@ -43,11 +43,34 @@ object Phone {
         putExtra("extra_pkgname", context.packageName)
     }
 
+    /**
+     * Reads MIUI-only permission switches through AppOpsManager (10020 = show on lock screen,
+     * 10021 = start activities in the background, 10008 = autostart). Returns null when it cannot tell.
+     */
+    fun miuiOp(context: Context, op: Int): Boolean? = if (!isXiaomi) null else runCatching {
+        val ops = context.getSystemService(android.app.AppOpsManager::class.java)
+        val method = android.app.AppOpsManager::class.java.getMethod("checkOpNoThrow",
+            Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, String::class.java)
+        (method.invoke(ops, op, android.os.Process.myUid(), context.packageName) as Int) == android.app.AppOpsManager.MODE_ALLOWED
+    }.getOrNull()
+
+    fun canOverlay(context: Context): Boolean = Settings.canDrawOverlays(context)
+
+    private fun confirmed(context: Context, key: String) =
+        context.getSharedPreferences("settings", Context.MODE_PRIVATE).getBoolean("confirmed_$key", false)
+    fun confirm(context: Context, key: String) =
+        context.getSharedPreferences("settings", Context.MODE_PRIVATE).edit().putBoolean("confirmed_$key", true).apply()
+
+    /** Detected state, or the user's own confirmation when the phone does not expose it. */
+    fun xiaomiState(context: Context, op: Int, key: String): Boolean? =
+        if (confirmed(context, key)) true else miuiOp(context, op)
+
     fun miuiAutostart() = Intent().setComponent(ComponentName("com.miui.securitycenter",
         "com.miui.permcenter.autostart.AutoStartManagementActivity"))
 }
 
-data class PermItem(val title: String, val hint: String, val ok: Boolean?, val action: String, val fix: () -> Unit)
+data class PermItem(val title: String, val hint: String, val ok: Boolean?, val action: String,
+                    val confirmKey: String? = null, val fix: () -> Unit)
 
 /**
  * Everything a reminder needs to arrive on time and be heard. [ok] = null means "cannot be detected,
@@ -83,12 +106,25 @@ fun PermissionChecklist(tick: Int, onChanged: () -> Unit, compact: Boolean = fal
             AlertSound.volumeOk(context, alarm = true), fix) { Phone.open(context, Intent(Settings.ACTION_SOUND_SETTINGS)) })
         add(PermItem(t("صدای اعلان", "Notification volume"), t("صدای اعلان گوشی صفر نباشد.", "The phone's notification volume must not be zero."),
             AlertSound.volumeOk(context, alarm = false), fix) { Phone.open(context, Intent(Settings.ACTION_SOUND_SETTINGS)) })
+        add(PermItem(t("نمایش روی سایر برنامه‌ها", "Display over other apps"),
+            t("لازم است تا صفحهٔ زنگ وقتی گوشی باز است هم نمایش داده شود.", "Needed so the alarm screen can open while you use the phone."),
+            Phone.canOverlay(context), fix) {
+            Phone.open(context, Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
+        })
         if (Phone.isXiaomi) {
-            add(PermItem(t("اجرای خودکار (شیائومی)", "Autostart (Xiaomi)"), t("در فهرست، «یادار» را روشن کن.", "Turn on Yadar in the list."),
-                null, t("باز کن", "Open")) { Phone.open(context, Phone.miuiAutostart(), Phone.appDetails(context)) })
-            add(PermItem(t("نمایش روی صفحهٔ قفل و پنجرهٔ بازشو (شیائومی)", "Lock screen & pop-ups (Xiaomi)"),
-                t("«نمایش روی صفحهٔ قفل» و «نمایش پنجرهٔ بازشو در پس‌زمینه» را مجاز کن.", "Allow “Show on Lock screen” and “Display pop-up windows while running in the background”."),
-                null, t("باز کن", "Open")) { Phone.open(context, Phone.miuiPermissions(context), Phone.appDetails(context)) })
+            add(PermItem(t("اجرای خودکار (شیائومی)", "Autostart (Xiaomi)"), t("در فهرست، «یادار» را روشن کن؛ بعد «انجام دادم» را بزن.", "Turn on Yadar in the list, then tap “Done”."),
+                Phone.xiaomiState(context, 10008, "autostart"), t("باز کن", "Open"), "autostart") {
+                Phone.open(context, Phone.miuiAutostart(), Phone.appDetails(context))
+            })
+            add(PermItem(t("نمایش روی صفحهٔ قفل (شیائومی)", "Show on lock screen (Xiaomi)"), t("در «سایر مجوزها» این گزینه را مجاز کن.", "Allow it under “Other permissions”."),
+                Phone.xiaomiState(context, 10020, "lockscreen"), t("باز کن", "Open"), "lockscreen") {
+                Phone.open(context, Phone.miuiPermissions(context), Phone.appDetails(context))
+            })
+            add(PermItem(t("پنجرهٔ بازشو در پس‌زمینه (شیائومی)", "Pop-ups in background (Xiaomi)"),
+                t("«نمایش پنجره‌های بازشو هنگام اجرا در پس‌زمینه» را مجاز کن؛ بدون آن صفحهٔ زنگ باز نمی‌شود.", "Allow “Display pop-up windows while running in the background”, or the alarm screen can't open."),
+                Phone.xiaomiState(context, 10021, "popup"), t("باز کن", "Open"), "popup") {
+                Phone.open(context, Phone.miuiPermissions(context), Phone.appDetails(context))
+            })
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 10.dp)) {
@@ -103,13 +139,17 @@ fun PermissionChecklist(tick: Int, onChanged: () -> Unit, compact: Boolean = fal
                 }
                 if (item.ok != true) {
                     Spacer(Modifier.width(6.dp))
-                    FilledTonalButton(onClick = item.fix, contentPadding = PaddingValues(horizontal = 12.dp)) { Text(item.action) }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        FilledTonalButton(onClick = item.fix, contentPadding = PaddingValues(horizontal = 12.dp)) { Text(item.action) }
+                        if (item.confirmKey != null) TextButton(onClick = { Phone.confirm(context, item.confirmKey); onChanged() },
+                            contentPadding = PaddingValues(horizontal = 8.dp)) { Text(t("انجام دادم", "Done"), style = MaterialTheme.typography.labelMedium) }
+                    }
                 }
             }
         }
     }
 }
 
-fun allCriticalGranted(context: Context): Boolean = Notifier.allowed(context) && Scheduler.canExact(context) &&
+fun allCriticalGranted(context: Context): Boolean = Notifier.allowed(context) && Scheduler.canExact(context) && Phone.canOverlay(context) &&
     Notifier.canFullScreen(context) && Notifier.ignoringBattery(context) &&
     AlertSound.volumeOk(context, true) && AlertSound.volumeOk(context, false)

@@ -48,7 +48,7 @@ private enum class VoiceStage { RECORDING, CONVERTING, UNDERSTANDING, ERROR }
  * [onDraft] receives a ready reminder draft; [onText] gets the transcript when only text is available.
  */
 @Composable
-fun VoiceDialog(onDismiss: () -> Unit, onDraft: (Reminder) -> Unit, onText: (String) -> Unit) {
+fun VoiceDialog(onDismiss: () -> Unit, onDraft: (Reminder) -> Unit, onText: (String) -> Unit, onGoogle: () -> Unit) {
     val context = LocalContext.current
     val recorder = remember { VoiceRecorder(context) }
     var stage by remember { mutableStateOf(VoiceStage.RECORDING) }
@@ -77,7 +77,7 @@ fun VoiceDialog(onDismiss: () -> Unit, onDraft: (Reminder) -> Unit, onText: (Str
         stage = VoiceStage.CONVERTING
         val ai = OpenRouter(context)
         val text = try { ai.transcribe(file) } catch (e: Exception) {
-            error = t("تبدیل صدا انجام نشد: ", "Could not transcribe: ") + (e.message ?: ""); stage = VoiceStage.ERROR; return@LaunchedEffect
+            error = t("تبدیل صدا انجام نشد. کلید را در تنظیمات با «آزمایش کلید» بررسی کن.\n", "Could not transcribe. Check the key with “Test key” in settings.\n") + (e.message ?: ""); stage = VoiceStage.ERROR; return@LaunchedEffect
         }
         transcript = text
         stage = VoiceStage.UNDERSTANDING
@@ -132,6 +132,7 @@ fun VoiceDialog(onDismiss: () -> Unit, onDraft: (Reminder) -> Unit, onText: (Str
                             OutlinedButton(onClick = onDismiss) { Text(t("بستن", "Close")) }
                             Button(onClick = { attempt++ }) { Text(t("دوباره", "Retry")) }
                         }
+                        TextButton(onClick = onGoogle) { Text(t("استفاده از تشخیص گفتار Google", "Use Google dictation instead")) }
                     }
                 }
             }

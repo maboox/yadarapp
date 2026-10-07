@@ -248,6 +248,21 @@ private fun AiCard() {
             }) { Text(t("ذخیرهٔ کلید", "Save key")) }
             if (hasKey) TextButton(onClick = { ai.saveKey(""); hasKey = false; useAi = false; Prefs.setUseAi(context, false) }) { Text(t("حذف کلید", "Remove key")) }
         }
+        if (hasKey) {
+            var testing by remember { mutableStateOf(false) }
+            var testResult by remember { mutableStateOf("") }
+            OutlinedButton(onClick = {
+                testing = true; testResult = ""
+                scope.launch {
+                    testResult = try { OpenRouter(context).testKey() } catch (e: Exception) { "✗ " + (e.message ?: "") }
+                    testing = false
+                }
+            }, enabled = !testing, modifier = Modifier.fillMaxWidth()) {
+                if (testing) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(t("آزمایش کلید", "Test key"))
+            }
+            if (testResult.isNotBlank()) Text(testResult, style = MaterialTheme.typography.bodySmall,
+                color = if (testResult.startsWith("✗")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary)
+        }
         fun load(audio: Boolean) {
             pickingAudio = audio; picking = true; loading = true; models = emptyList(); search = ""
             scope.launch {
@@ -275,6 +290,13 @@ private fun AiCard() {
                 OutlinedTextField(search, { search = it }, Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text(t("جست‌وجو", "Search")) })
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(freeOnly, { freeOnly = it }); Text(t("فقط رایگان", "Free only"))
+                }
+                if (pickingAudio) {
+                    Text(t("پیشنهادی برای فارسی:", "Recommended:"), style = MaterialTheme.typography.labelLarge)
+                    RECOMMENDED_AUDIO_MODELS.forEach { id ->
+                        FilterChip(audioModel == id, { audioModel = id; ai.audioModel = id; picking = false }, { Text(id) })
+                    }
+                    HorizontalDivider()
                 }
                 if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
                 val shown = models.filter { (!freeOnly || it.free) && (search.isBlank() || it.name.contains(search, true) || it.id.contains(search, true)) }

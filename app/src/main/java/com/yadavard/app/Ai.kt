@@ -35,9 +35,9 @@ class AiSettings(context: Context) {
     }
 
     fun saveKey(value: String) {
-        if (value.isBlank()) { prefs.edit().remove("key").apply(); return }
+        if (clean(value).isBlank()) { prefs.edit().remove("key").apply(); return }
         val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, secret()) }
-        val encrypted = cipher.doFinal(value.trim().toByteArray(StandardCharsets.UTF_8))
+        val encrypted = cipher.doFinal(clean(value).toByteArray(StandardCharsets.UTF_8))
         prefs.edit().putString("key", Base64.encodeToString(cipher.iv + encrypted, Base64.NO_WRAP)).apply()
     }
 
@@ -48,9 +48,16 @@ class AiSettings(context: Context) {
             val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply {
                 init(Cipher.DECRYPT_MODE, secret(), GCMParameterSpec(128, bytes.copyOfRange(0, 12)))
             }
-            String(cipher.doFinal(bytes.copyOfRange(12, bytes.size)), StandardCharsets.UTF_8)
+            clean(String(cipher.doFinal(bytes.copyOfRange(12, bytes.size)), StandardCharsets.UTF_8)).ifBlank { null }
         } catch (_: Exception) { null }
     }
+
+    /**
+     * Keys are plain ASCII. Pasting from chat apps or a Persian keyboard can add invisible characters
+     * (direction marks, spaces, line breaks) or a "Bearer" prefix, which break the Authorization header.
+     */
+    private fun clean(value: String): String =
+        value.filter { it.code in 33..126 }.removePrefix("Bearer").removePrefix("bearer")
 
     fun hasKey(): Boolean = !key().isNullOrBlank()
 
@@ -135,6 +142,10 @@ class VoiceRecorder(private val context: Context) {
 /** Multimodal model that accepts audio input on OpenRouter; used by default for voice. */
 const val FALLBACK_AUDIO_MODEL = "google/gemini-2.5-flash"
 
+/** Models known to understand Persian speech through audio input; shown first in the voice-model picker. */
+val RECOMMENDED_AUDIO_MODELS = listOf("google/gemini-2.5-flash", "google/gemini-2.5-flash-lite",
+    "google/gemini-2.5-pro", "openai/gpt-4o-audio-preview")
+
 class OpenRouter(private val context: Context) {
     private val settings = AiSettings(context)
     data class Model(val id: String, val name: String, val free: Boolean)
@@ -145,6 +156,8 @@ class OpenRouter(private val context: Context) {
 
     private fun read(conn: HttpURLConnection): String {
         val code = conn.responseCode
+        if (code in 300..399) error((if (fa()) "OpenRouter درخواست را جای دیگری فرستاد" else "OpenRouter redirected the request") +
+            " ($code → ${conn.getHeaderField("Location")}). " + (if (fa()) "اگر VPN یا پروکسی روشن است، یک‌بار بدون آن امتحان کن." else "If a VPN or proxy is on, try without it."))
         val body = (if (code in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.use { it.readText() }.orEmpty()
         if (code !in 200..299) error((if (fa()) "خطای OpenRouter" else "OpenRouter error") + " ($code): " + body.take(200))
         return body
@@ -155,6 +168,8 @@ class OpenRouter(private val context: Context) {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 15_000; readTimeout = 30_000
             setRequestProperty("Authorization", "Bearer ${requireKey()}")
+            // A redirect would silently drop the Authorization header (and turn POST into GET).
+            instanceFollowRedirects = false
         }
         try {
             val data = JSONObject(read(conn)).getJSONArray("data")
@@ -165,7 +180,8 @@ class OpenRouter(private val context: Context) {
                     val outputs = item.optJSONObject("architecture")?.optJSONArray("output_modalities")
                     val inputs = item.optJSONObject("architecture")?.optJSONArray("input_modalities")
                     fun has(a: JSONArray?, v: String) = a != null && (0 until a.length()).any { a.optString(it) == v }
-                    if (transcription) { if (!has(inputs, "audio") && !has(outputs, "transcription")) continue }
+                    // Voice models must take audio in and give text out (excludes video/music generators).
+                    if (transcription) { if (!(has(inputs, "audio") && (outputs == null || has(outputs, "text"))) && !has(outputs, "transcription")) continue }
                     else if (outputs != null && !has(outputs, "text")) continue
                     val pricing = item.optJSONObject("pricing")
                     val free = id.endsWith(":free") || (pricing != null && pricing.length() > 0 &&
@@ -183,12 +199,34 @@ class OpenRouter(private val context: Context) {
     suspend fun transcribe(file: java.io.File): String = withContext(Dispatchers.IO) {
         try {
             val model = settings.audioModel
-            val speechOnly = listOf("whisper", "transcribe", "speech").any { model.contains(it, ignoreCase = true) }
-            val text = if (speechOnly) runCatching { transcriptionEndpoint(file, model) }
-                .getOrElse { chatTranscribe(file, FALLBACK_AUDIO_MODEL) }
-            else chatTranscribe(file, model)
-            text.trim().ifBlank { error(if (fa()) "صدایی تشخیص داده نشد" else "No speech recognized") }
+            val speechOnly = listOf("whisper", "transcribe").any { model.contains(it, ignoreCase = true) }
+            val attempts = buildList<Pair<String, () -> String>> {
+                add(model to { if (speechOnly) transcriptionEndpoint(file, model) else chatTranscribe(file, model) })
+                if (model != FALLBACK_AUDIO_MODEL) add(FALLBACK_AUDIO_MODEL to { chatTranscribe(file, FALLBACK_AUDIO_MODEL) })
+            }
+            val errors = mutableListOf<String>()
+            for ((name, attempt) in attempts) {
+                val text = runCatching(attempt).onFailure { errors += "$name: ${it.message}" }.getOrNull()?.trim()
+                if (!text.isNullOrBlank()) return@withContext text
+            }
+            error(errors.joinToString("\n").ifBlank { if (fa()) "صدایی تشخیص داده نشد" else "No speech recognized" })
         } finally { file.delete() }
+    }
+
+    /** Checks the saved key against OpenRouter and returns a short description of the account. */
+    suspend fun testKey(): String = withContext(Dispatchers.IO) {
+        val conn = (URL("https://openrouter.ai/api/v1/key").openConnection() as HttpURLConnection).apply {
+            connectTimeout = 15_000; readTimeout = 20_000
+            setRequestProperty("Authorization", "Bearer ${requireKey()}")
+            instanceFollowRedirects = false
+        }
+        try {
+            val data = JSONObject(read(conn)).optJSONObject("data")
+            val label = data?.optString("label").orEmpty()
+            val remaining = data?.opt("limit_remaining")?.takeIf { it != JSONObject.NULL }?.toString()
+            (if (fa()) "کلید معتبر است ✓" else "Key is valid ✓") + (if (label.isNotBlank()) " ($label)" else "") +
+                (remaining?.let { if (fa()) " • اعتبار باقی‌مانده: $it" else " • remaining: $it" } ?: "")
+        } finally { conn.disconnect() }
     }
 
     private fun transcriptionEndpoint(file: java.io.File, model: String): String {
@@ -196,6 +234,8 @@ class OpenRouter(private val context: Context) {
         val conn = (URL("https://openrouter.ai/api/v1/audio/transcriptions").openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"; doOutput = true; connectTimeout = 20_000; readTimeout = 90_000
             setRequestProperty("Authorization", "Bearer ${requireKey()}")
+            // A redirect would silently drop the Authorization header (and turn POST into GET).
+            instanceFollowRedirects = false
             setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
             setRequestProperty("X-Title", "Yadar")
         }
@@ -224,6 +264,8 @@ class OpenRouter(private val context: Context) {
         val conn = (URL("https://openrouter.ai/api/v1/chat/completions").openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"; doOutput = true; connectTimeout = 20_000; readTimeout = 90_000
             setRequestProperty("Authorization", "Bearer ${requireKey()}")
+            // A redirect would silently drop the Authorization header (and turn POST into GET).
+            instanceFollowRedirects = false
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("X-Title", "Yadar")
         }
@@ -263,6 +305,8 @@ Sentence: $text"""
         val conn = (URL("https://openrouter.ai/api/v1/chat/completions").openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"; doOutput = true; connectTimeout = 20_000; readTimeout = 60_000
             setRequestProperty("Authorization", "Bearer ${requireKey()}")
+            // A redirect would silently drop the Authorization header (and turn POST into GET).
+            instanceFollowRedirects = false
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("X-Title", "Yadar")
         }

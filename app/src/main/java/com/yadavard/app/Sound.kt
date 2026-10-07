@@ -155,6 +155,13 @@ class AlertService : Service() {
             Notifier.post(this, Notifier.mainId(id), notification)
         }
         currentId = id
+        // Open the alarm screen directly as well: some phones (e.g. MIUI) ignore full-screen intents but allow
+        // this when "display over other apps" / "pop-ups in background" is granted. Harmless when blocked.
+        runCatching {
+            startActivity(Intent(this, AlarmActivity::class.java)
+                .setData(Uri.parse("yadar://alarm-screen/$id")).putExtra(Notifier.EXTRA_ID, id)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_USER_ACTION))
+        }
         releasePlayer()
         player = AlertSound.player(this, alarm = true, loop = true)?.also { runCatching { it.start() } }
         AlertSound.vibrate(this, repeat = true)
@@ -195,6 +202,7 @@ class AlertService : Service() {
         private val main = Handler(Looper.getMainLooper())
 
         fun ringing(): Boolean = instance?.currentId?.let { it != 0L } == true
+        fun ringingId(): Long = instance?.currentId ?: 0L
 
         fun ring(context: Context, id: Long): Boolean = try {
             ContextCompat.startForegroundService(context, Intent(context, AlertService::class.java).putExtra(EXTRA_ID, id))
