@@ -1,6 +1,7 @@
 name: Build Android APK
 on:
   push:
+  pull_request:
   workflow_dispatch:
 jobs:
   build:
@@ -9,8 +10,6 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Exclude obsolete cloud source from older checkouts
-        run: rm -f app/src/main/java/com/yadavard/app/Cloud.kt
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -23,10 +22,17 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Build installable debug APK
-        run: gradle :app:assembleDebug --no-daemon
+      - name: Unit tests
+        run: gradle :app:testDebugUnitTest --no-daemon --stacktrace
+      - name: Build APKs
+        run: gradle :app:assembleRelease :app:assembleDebug --no-daemon --stacktrace
+      - name: Collect APKs
+        run: |
+          mkdir -p out
+          cp app/build/outputs/apk/release/app-release.apk out/Yadar-${GITHUB_SHA::7}.apk
+          cp app/build/outputs/apk/debug/app-debug.apk out/Yadar-debug-${GITHUB_SHA::7}.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: yadar-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: yadar-apk
+          path: out/Yadar-*.apk
           if-no-files-found: error

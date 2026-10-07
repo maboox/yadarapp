@@ -1,6 +1,6 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/next_root" android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:layoutDirection="rtl" android:padding="14dp" android:background="@drawable/widget_bg">
+    android:orientation="vertical" android:layoutDirection="ltr" android:padding="14dp" android:background="@drawable/widget_bg">
     <TextView android:id="@+id/next_header" android:layout_width="match_parent" android:layout_height="wrap_content"
         android:text="پیش رو" android:textColor="@color/widget_text" android:textSize="15sp" android:textStyle="bold"
         android:textAlignment="viewStart" />
