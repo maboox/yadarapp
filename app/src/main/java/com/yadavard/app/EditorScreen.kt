@@ -42,7 +42,8 @@ fun EditorScreen(request: EditorRequest, onClose: () -> Unit, onSave: (Reminder)
     val context = LocalContext.current
     val zone = ZoneId.systemDefault()
     val original = request.original
-    val source = original ?: request.draft
+    // A draft (for example an assistant edit) takes precedence over the stored reminder it modifies.
+    val source = request.draft ?: original
     val now = System.currentTimeMillis()
     val initialAt = source?.let { if (it.pendingAt > 0 && !it.repeating) it.pendingAt else it.nextAt.takeIf { n -> n > 0 } ?: it.firstAt }
         ?: Instant.ofEpochMilli(now).atZone(zone).plusHours(1).withMinute(0).withSecond(0).withNano(0).toInstant().toEpochMilli()

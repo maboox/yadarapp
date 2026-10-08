@@ -188,6 +188,31 @@ object Backup {
     private var pending: java.util.concurrent.ScheduledFuture<*>? = null
     const val AUTO_NAME = "yadar-auto-backup.json"
 
+    /** Full single-reminder JSON (including id and alarm state), used to pass drafts between screens. */
+    fun toJson(r: Reminder): JSONObject = JSONObject().apply {
+        put("id", r.id); put("title", r.title); put("note", r.note); put("category", r.category.name)
+        put("important", r.important); put("alertStyle", r.alertStyle.name); put("firstAt", r.firstAt); put("nextAt", r.nextAt)
+        put("unit", r.unit.name); put("every", r.every); put("weekdays", r.weekdays); put("monthDay", r.monthDay)
+        put("untilAt", r.untilAt ?: JSONObject.NULL); put("leadMinutes", r.leadMinutes); put("nagMinutes", r.nagMinutes)
+        put("zone", r.zone); put("calendar", r.calendar.name); put("done", r.done); put("completedAt", r.completedAt)
+        put("completedCount", r.completedCount); put("pendingAt", r.pendingAt); put("alertedAt", r.alertedAt)
+        put("snoozeAt", r.snoozeAt); put("createdAt", r.createdAt)
+    }
+
+    fun fromJson(v: JSONObject): Reminder = Reminder(id = v.optLong("id"), title = v.getString("title"), note = v.optString("note"),
+        category = runCatching { Category.valueOf(v.optString("category")) }.getOrDefault(Category.GENERAL),
+        important = v.optBoolean("important"),
+        alertStyle = runCatching { AlertStyle.valueOf(v.optString("alertStyle")) }.getOrDefault(AlertStyle.NOTIFICATION),
+        firstAt = v.getLong("firstAt"), nextAt = v.optLong("nextAt"),
+        unit = runCatching { RepeatUnit.valueOf(v.optString("unit")) }.getOrDefault(RepeatUnit.NONE),
+        every = v.optInt("every", 1), weekdays = v.optInt("weekdays"), monthDay = v.optInt("monthDay"),
+        untilAt = if (v.isNull("untilAt")) null else v.optLong("untilAt"), leadMinutes = v.optInt("leadMinutes"),
+        nagMinutes = v.optInt("nagMinutes"), zone = v.optString("zone", ZoneId.systemDefault().id),
+        calendar = runCatching { CalendarSystem.valueOf(v.optString("calendar")) }.getOrDefault(CalendarSystem.PERSIAN),
+        done = v.optBoolean("done"), completedAt = v.optLong("completedAt"), completedCount = v.optInt("completedCount"),
+        pendingAt = v.optLong("pendingAt"), alertedAt = v.optLong("alertedAt"), snoozeAt = v.optLong("snoozeAt"),
+        createdAt = v.optLong("createdAt", System.currentTimeMillis()))
+
     /** Debounced automatic backup to Download/Yadar, which survives uninstalling the app. */
     fun scheduleAuto(context: Context) {
         val app = context.applicationContext

@@ -326,6 +326,92 @@ User said: $text"""
         } finally { conn.disconnect() }
     }
 
+    private fun chat(prompt: String, history: List<Pair<String, String>> = emptyList()): String {
+        val messages = JSONArray()
+        history.takeLast(3).forEach { (q, a) ->
+            messages.put(JSONObject().put("role", "user").put("content", q))
+            messages.put(JSONObject().put("role", "assistant").put("content", a))
+        }
+        messages.put(JSONObject().put("role", "user").put("content", prompt))
+        val body = JSONObject().put("model", settings.model).put("temperature", 0).put("messages", messages)
+        val conn = (URL("https://openrouter.ai/api/v1/chat/completions").openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"; doOutput = true; connectTimeout = 20_000; readTimeout = 60_000
+            setRequestProperty("Authorization", "Bearer ${requireKey()}")
+            instanceFollowRedirects = false
+            setRequestProperty("Content-Type", "application/json")
+            setRequestProperty("X-Title", "Yadar")
+        }
+        try {
+            conn.outputStream.use { it.write(body.toString().toByteArray(StandardCharsets.UTF_8)) }
+            return JSONObject(read(conn)).getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content")
+        } finally { conn.disconnect() }
+    }
+
+    /**
+     * The Yadar assistant: understands requests to create, change, delete, complete or postpone reminders
+     * and questions about the schedule. [history] holds earlier (user text, assistant reply) turns.
+     */
+    suspend fun assist(text: String, history: List<Pair<String, String>> = emptyList()): AssistantResult = withContext(Dispatchers.IO) {
+        val zone = ZoneId.systemDefault()
+        val now = ZonedDateTime.now(zone)
+        val calendar = Prefs.calendar(context)
+        val lang = Prefs.language(context)
+        val today = Dates.formatDate(now.toLocalDate(), CalendarSystem.PERSIAN, AppLanguage.FA, withWeekday = true)
+        val prompt = """You are «یادار», a friendly reminder assistant inside an Android app. The user talks to you (usually in Persian).
+Current local time: $now (${now.dayOfWeek}), time zone $zone. Today in the Persian calendar: $today. Default calendar: $calendar.
+Reply language: ${if (lang == AppLanguage.FA) "Persian (Farsi), colloquial and short" else "English, short"}.
+
+${Assistant.context(context)}
+Decide what the user wants and return ONLY JSON, no prose:
+{"reply": "<what to say back, plain text, max 3 short sentences, no markdown or emojis>", "actions": [ ... ]}
+Action objects:
+- {"type":"create","reminder":{...}}  new reminder
+- {"type":"update","id":<id>,"changes":{...only the fields that change...}}
+- {"type":"delete","id":<id>}   when the user cancels/deletes/removes something
+- {"type":"complete","id":<id>} when the user says it is done
+- {"type":"postpone","id":<id>,"minutes":<n>} when the user says remind me later / postpone by some time
+Reminder and change fields (omit or null when not mentioned):
+title, note, first_at (ISO-8601 local date-time WITH offset), unit (NONE|HOURS|DAYS|WEEKS|MONTHS|YEARS|AFTER_DONE_DAYS), every,
+weekdays (ISO 1=Monday..7=Sunday), month_day (1..31, -1 = last day), calendar (PERSIAN|GREGORIAN), until (yyyy-MM-dd Gregorian or null to remove),
+category (GENERAL|PERSONAL|WORK|HEALTH|BILLS|BIRTHDAY|SHOPPING|STUDY), important (bool),
+alert_style ("ALARM" for alarm / ringing / full screen / wake me up / زنگ / آلارم / تمام صفحه; "NOTIFICATION" for a normal notification),
+lead_minutes (advance notice), nag_minutes (keep reminding every N minutes until done).
+Rules:
+- Find existing reminders by meaning, not exact words. Use their #id. Never invent ids.
+- If the request is ambiguous (several reminders could match) or unclear, do NOT act: return no actions and ask a short question in "reply".
+- For questions ("what do I have this week?", "what's tomorrow?") return no actions and answer from the agenda in "reply": group by day, mention times, be concise and natural for speech.
+- The user may ask for several things at once; return one action per thing.
+- Rescheduling ("move it to Friday 5pm") is an update with first_at. Changing to repeat is an update with unit/every/...
+- Default times: morning 09:00, noon 12:00, afternoon 16:00, evening 18:00, night 21:00; a date without time keeps the reminder's time (or 09:00 for new ones).
+- "every 20 days" = DAYS/every=20; "20th of every month" = MONTHS/month_day=20; "every 8 hours" = HOURS/every=8.
+- For actions, "reply" briefly says what you will do (e.g. «باشه، قرار دندانپزشکی رو برای جمعه ساعت ۵ گذاشتم»).
+User: $text"""
+        val raw = chat(prompt, history)
+        val start = raw.indexOf('{')
+        val json = JSONObject(raw.substring(start, raw.lastIndexOf('}') + 1))
+        val reply = json.optString("reply").trim()
+        val all = Repo.all(context).associateBy { it.id }
+        val actions = mutableListOf<AssistantAction>()
+        val list = json.optJSONArray("actions") ?: JSONArray()
+        for (i in 0 until list.length()) {
+            val a = list.optJSONObject(i) ?: continue
+            val target = all[a.optLong("id", -1)]
+            runCatching {
+                when (a.optString("type").lowercase()) {
+                    "create" -> actions += AssistantAction.Create(toReminder(a.optJSONObject("reminder") ?: a, text, zone, calendar))
+                    "update" -> if (target != null) {
+                        val after = Assistant.applyChanges(context, target, a.optJSONObject("changes") ?: JSONObject())
+                        if (after != target) actions += AssistantAction.Update(target, after)
+                    }
+                    "delete" -> if (target != null) actions += AssistantAction.Delete(target)
+                    "complete", "done" -> if (target != null && !target.done) actions += AssistantAction.Complete(target)
+                    "postpone", "snooze" -> if (target != null) actions += AssistantAction.Postpone(target, a.optInt("minutes", 60).coerceIn(1, 60 * 24 * 30))
+                }
+            }
+        }
+        AssistantResult(text, reply.ifBlank { if (actions.isEmpty()) (if (fa()) "متوجه نشدم؛ دوباره بگو." else "Sorry, I didn't get that.") else "" }, actions)
+    }
+
     suspend fun parse(text: String): Reminder = parseMany(text).first()
 
     private fun parseJson(raw: String): List<JSONObject> {

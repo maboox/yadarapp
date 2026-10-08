@@ -52,6 +52,9 @@ object Prefs {
     fun vibrate(context: Context): Boolean = prefs(context).getBoolean("vibrate", true)
     fun setVibrate(context: Context, value: Boolean) = prefs(context).edit().putBoolean("vibrate", value).apply()
 
+    fun speakReplies(context: Context): Boolean = prefs(context).getBoolean("speak_replies", true)
+    fun setSpeakReplies(context: Context, value: Boolean) = prefs(context).edit().putBoolean("speak_replies", value).apply()
+
     fun onboarded(context: Context): Boolean = prefs(context).getBoolean("onboarded", false)
     fun setOnboarded(context: Context) = prefs(context).edit().putBoolean("onboarded", true).apply()
 

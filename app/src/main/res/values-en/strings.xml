@@ -5,4 +5,8 @@
     <string name="widget_week_description">Your week with tasks per day</string>
     <string name="widget_next_description">Next five reminders</string>
     <string name="widget_focus_description">Nearest reminder with a Done button</string>
+    <string name="widget_voice_description">Yadar voice assistant (1×1)</string>
+    <string name="widget_add_description">New reminder (1×1)</string>
+    <string name="shortcut_assistant">Assistant</string>
+    <string name="shortcut_add">New reminder</string>
 </resources>

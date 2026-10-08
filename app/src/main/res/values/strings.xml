@@ -5,4 +5,8 @@
     <string name="widget_week_description">هفتهٔ من و تعداد کارهای هر روز</string>
     <string name="widget_next_description">پنج یادآوری بعدی</string>
     <string name="widget_focus_description">نزدیک‌ترین یادآوری با دکمهٔ انجام شد</string>
+    <string name="widget_voice_description">دستیار صوتی یادار (۱×۱)</string>
+    <string name="widget_add_description">یادآوری جدید (۱×۱)</string>
+    <string name="shortcut_assistant">دستیار</string>
+    <string name="shortcut_add">یادآوری جدید</string>
 </resources>

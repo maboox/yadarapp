@@ -148,13 +148,14 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { permissionTick++; vm.refresh() }
 
-    var voiceOpen by remember { mutableStateOf(false) }
+    // null = closed; "" = start listening; any other text = a typed request.
+    var assistant by remember { mutableStateOf<String?>(null) }
     val speech = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val text = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
         if (!text.isNullOrBlank()) { quickText = text; tab = Tab.HOME }
     }
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) voiceOpen = true
+        if (granted) assistant = ""
         else Toast.makeText(context, t("برای ضبط صدا، اجازهٔ میکروفون لازم است.", "Microphone permission is needed to record."), Toast.LENGTH_LONG).show()
     }
     fun startVoice() {
@@ -162,7 +163,7 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
         // otherwise use Google's dictation (avoiding vendor assistants such as Mi AI).
         if (AiSettings(context).hasKey()) {
             if (androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
-                android.content.pm.PackageManager.PERMISSION_GRANTED) voiceOpen = true
+                android.content.pm.PackageManager.PERMISSION_GRANTED) assistant = ""
             else micPermission.launch(Manifest.permission.RECORD_AUDIO)
             return
         }
@@ -184,6 +185,11 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                 calendarDay = LocalDate.ofEpochDay(c.getLongExtra(WidgetCommands.EXTRA_DAY, LocalDate.now().toEpochDay()))
                 tab = Tab.CALENDAR
             }
+            WidgetCommands.EDIT_DRAFT -> {
+                val draft = c.getStringExtra(WidgetCommands.EXTRA_DRAFT)?.let { runCatching { Backup.fromJson(org.json.JSONObject(it)) }.getOrNull() }
+                val original = c.getLongExtra(WidgetCommands.EXTRA_ID, 0).takeIf { it != 0L }?.let { withContext(Dispatchers.IO) { Repo.get(context, it) } }
+                if (draft != null) editor = EditorRequest(original, draft)
+            }
             WidgetCommands.EDIT, Notifier.ACTION_OPEN -> {
                 val id = c.getLongExtra(WidgetCommands.EXTRA_ID, 0).takeIf { it != 0L } ?: c.getLongExtra(Notifier.EXTRA_ID, 0)
                 val r = withContext(Dispatchers.IO) { Repo.get(context, id) }
@@ -193,14 +199,20 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
         consumed()
     }
 
-    var aiDrafts by remember { mutableStateOf<Pair<String?, List<Reminder>>?>(null) }
-    fun saveDrafts(list: List<Reminder>) {
+    fun applyAssistant(list: List<AssistantAction>) {
         if (list.isEmpty()) return
-        list.forEach { vm.save(it) }
         scope.launch {
+            withContext(Dispatchers.IO) { Assistant.apply(context, list) }
             snackbar.currentSnackbarData?.dismiss()
-            snackbar.showSnackbar(if (list.size == 1) t("ثبت شد: ${list[0].title}", "Saved: ${list[0].title}")
-                else t("${n(list.size)} یادآوری ثبت شد ✓", "${list.size} reminders saved ✓"), duration = SnackbarDuration.Short)
+            snackbar.showSnackbar(Assistant.summary(list), duration = SnackbarDuration.Short)
+        }
+    }
+    fun editAssistant(action: AssistantAction, others: List<AssistantAction>) {
+        applyAssistant(others)
+        editor = when (action) {
+            is AssistantAction.Update -> EditorRequest(action.before, action.after)
+            is AssistantAction.Create -> EditorRequest(null, action.draft)
+            else -> null
         }
     }
 
@@ -241,7 +253,7 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
             saved = showSaved,
             voice = ::startVoice,
             saveDirect = { r -> vm.save(r) { saved -> showSaved(saved) } },
-            confirmAi = { text, list -> aiDrafts = text to list },
+            assistant = { text -> assistant = text },
         )
     }
 
@@ -279,21 +291,17 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                 }
             }
         }
-        if (voiceOpen) VoiceDialog(onDismiss = { voiceOpen = false },
-            onSave = { list -> voiceOpen = false; saveDrafts(list) },
-            onEdit = { r, others -> voiceOpen = false; saveDrafts(others); editor = EditorRequest(null, r) },
-            onText = { text -> voiceOpen = false; quickText = text; tab = Tab.HOME },
-            onGoogle = {
-                voiceOpen = false
-                try { speech.launch(speechIntent(context)) } catch (_: ActivityNotFoundException) {
-                    Toast.makeText(context, t("تشخیص گفتار Google در دسترس نیست.", "Google dictation is not available."), Toast.LENGTH_LONG).show()
-                }
-            })
-        aiDrafts?.let { (text, list) ->
-            DraftConfirmDialog(text, list,
-                onSave = { saved -> aiDrafts = null; saveDrafts(saved) },
-                onEdit = { r, others -> aiDrafts = null; saveDrafts(others); editor = EditorRequest(null, r) },
-                onCancel = { aiDrafts = null })
+        assistant?.let { start ->
+            AssistantDialog(initialText = start.ifBlank { null }, onDismiss = { assistant = null },
+                onApply = { list -> assistant = null; applyAssistant(list) },
+                onEdit = { action, others -> assistant = null; editAssistant(action, others) },
+                onText = { text -> assistant = null; quickText = text; tab = Tab.HOME },
+                onGoogle = {
+                    assistant = null
+                    try { speech.launch(speechIntent(context)) } catch (_: ActivityNotFoundException) {
+                        Toast.makeText(context, t("تشخیص گفتار Google در دسترس نیست.", "Google dictation is not available."), Toast.LENGTH_LONG).show()
+                    }
+                })
         }
         var shown by remember { mutableStateOf<EditorRequest?>(null) }
         if (editor != null) shown = editor
@@ -325,7 +333,7 @@ class ReminderActions(
     val saved: (Reminder) -> Unit,
     val voice: () -> Unit,
     val saveDirect: (Reminder) -> Unit,
-    val confirmAi: (String?, List<Reminder>) -> Unit,
+    val assistant: (String) -> Unit,
 )
 
 /** A draft reminder at 09:00 on [day], used when adding from a calendar day. */

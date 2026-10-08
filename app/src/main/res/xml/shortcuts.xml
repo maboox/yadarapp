@@ -1,0 +1,12 @@
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="assistant" android:enabled="true" android:icon="@drawable/ic_shortcut_mic"
+        android:shortcutShortLabel="@string/shortcut_assistant" android:shortcutLongLabel="@string/widget_voice_description">
+        <intent android:action="android.intent.action.VIEW" android:targetPackage="com.yadavard.app"
+            android:targetClass="com.yadavard.app.AssistantActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="add" android:enabled="true" android:icon="@drawable/ic_shortcut_add"
+        android:shortcutShortLabel="@string/shortcut_add" android:shortcutLongLabel="@string/shortcut_add">
+        <intent android:action="com.yadavard.app.widget.ADD" android:targetPackage="com.yadavard.app"
+            android:targetClass="com.yadavard.app.MainActivity" />
+    </shortcut>
+</shortcuts>

@@ -11,6 +11,7 @@ import android.content.Intent
 import android.net.Uri
 import android.view.View
 import android.widget.RemoteViews
+import androidx.compose.ui.graphics.toArgb
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -31,6 +32,13 @@ class FocusWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = WidgetUpdater.update(context)
 }
 
+class VoiceWidgetProvider : AppWidgetProvider() {
+    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = WidgetUpdater.update(context)
+}
+class AddWidgetProvider : AppWidgetProvider() {
+    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = WidgetUpdater.update(context)
+}
+
 object WidgetCommands {
     const val ADD = "com.yadavard.app.widget.ADD"
     const val VOICE = "com.yadavard.app.widget.VOICE"
@@ -38,6 +46,8 @@ object WidgetCommands {
     const val DAY = "com.yadavard.app.widget.DAY"
     const val CALENDAR = "com.yadavard.app.widget.WEEK"
     const val EDIT = "com.yadavard.app.widget.EDIT"
+    const val EDIT_DRAFT = "com.yadavard.app.widget.EDIT_DRAFT"
+    const val EXTRA_DRAFT = "draft_json"
     const val EXTRA_ID = "reminder_id"
     const val EXTRA_DAY = "day_epoch"
 }
@@ -49,7 +59,8 @@ object WidgetUpdater {
     private val weekDays = intArrayOf(R.id.week_day_0, R.id.week_day_1, R.id.week_day_2, R.id.week_day_3,
         R.id.week_day_4, R.id.week_day_5, R.id.week_day_6)
     private val providers = listOf(QuickWidgetProvider::class.java, TodayWidgetProvider::class.java,
-        WeekWidgetProvider::class.java, NextWidgetProvider::class.java, FocusWidgetProvider::class.java)
+        WeekWidgetProvider::class.java, NextWidgetProvider::class.java, FocusWidgetProvider::class.java,
+        VoiceWidgetProvider::class.java, AddWidgetProvider::class.java)
 
     private fun activity(context: Context, widgetId: Int, slot: Int, action: String, reminderId: Long = 0, day: LocalDate? = null) =
         PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java).apply {
@@ -59,6 +70,22 @@ object WidgetUpdater {
             putExtra(WidgetCommands.EXTRA_ID, reminderId)
             if (day != null) putExtra(WidgetCommands.EXTRA_DAY, day.toEpochDay())
         }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
+    /** Opens the assistant on top of the home screen without the rest of the app. */
+    private fun assistant(context: Context, widgetId: Int) =
+        PendingIntent.getActivity(context, 0, Intent(context, AssistantActivity::class.java).apply {
+            data = Uri.parse("yadar://widget/$widgetId/assistant")
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
+    /** "●  09:30   title" with the dot in the reminder's category colour. */
+    private fun styledRow(r: Reminder, prefix: String, rest: String): CharSequence {
+        val text = "●  $prefix   $rest"
+        return android.text.SpannableString(text).apply {
+            setSpan(android.text.style.ForegroundColorSpan(r.category.color().toArgb()), 0, 1, 0)
+            setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 3, 3 + prefix.length, 0)
+        }
+    }
 
     private fun done(context: Context, widgetId: Int, id: Long) =
         PendingIntent.getBroadcast(context, 0, Intent(context, ActionReceiver::class.java).apply {
@@ -124,7 +151,7 @@ object WidgetUpdater {
             v.setTextViewText(R.id.quick_voice, l("🎙  با صدا", "🎙  Voice"))
             v.setTextViewText(R.id.quick_add, l("＋  جدید", "＋  New"))
             v.setOnClickPendingIntent(R.id.quick_root, activity(context, widgetId, 0, WidgetCommands.HOME))
-            v.setOnClickPendingIntent(R.id.quick_voice, activity(context, widgetId, 1, WidgetCommands.VOICE))
+            v.setOnClickPendingIntent(R.id.quick_voice, assistant(context, widgetId))
             v.setOnClickPendingIntent(R.id.quick_add, activity(context, widgetId, 2, WidgetCommands.ADD))
             manager.updateAppWidget(widgetId, v)
         }
@@ -139,10 +166,9 @@ object WidgetUpdater {
                 val item = todayList.getOrNull(index)
                 if (item == null && index > 0) { v.setViewVisibility(row, View.GONE); return@forEachIndexed }
                 v.setViewVisibility(row, View.VISIBLE)
-                val text = if (item == null) l("✨ امروز کاری نداری", "✨ All clear today") else {
+                val text: CharSequence = if (item == null) l("✨ امروز کاری نداری", "✨ All clear today") else {
                     val (r, at) = item
-                    val prefix = if (r.needsAttention(now)) "⚠ " else ""
-                    "$prefix${Dates.formatTime(at, zone, lang)}   ${r.title}"
+                    styledRow(r, (if (r.needsAttention(now)) "⚠ " else "") + Dates.formatTime(at, zone, lang), r.title)
                 }
                 v.setTextViewText(row, text)
                 v.setOnClickPendingIntent(row, activity(context, widgetId, index + 1,
@@ -189,10 +215,25 @@ object WidgetUpdater {
                 if (r == null && index > 0) { v.setViewVisibility(row, View.GONE); return@forEachIndexed }
                 v.setViewVisibility(row, View.VISIBLE)
                 v.setTextViewText(row, if (r == null) l("＋  یادآوری جدید", "＋  New reminder") else
-                    "${Dates.friendlyDay(Dates.localDate(r.nextAt, zone), today, cal, lang)} ${Dates.formatTime(r.nextAt, zone, lang)}   ${r.title}")
+                    styledRow(r, Dates.friendlyDay(Dates.localDate(r.nextAt, zone), today, cal, lang) + " " + Dates.formatTime(r.nextAt, zone, lang), r.title))
                 v.setOnClickPendingIntent(row, activity(context, widgetId, index + 1,
                     if (r == null) WidgetCommands.ADD else WidgetCommands.EDIT, r?.id ?: 0))
             }
+            manager.updateAppWidget(widgetId, v)
+        }
+
+        for (widgetId in all.getValue(VoiceWidgetProvider::class.java)) {
+            val v = RemoteViews(context.packageName, R.layout.widget_icon)
+            v.setImageViewResource(R.id.icon_image, R.drawable.ic_widget_mic)
+            v.setTextViewText(R.id.icon_label, l("دستیار", "Assistant"))
+            v.setOnClickPendingIntent(R.id.icon_root, assistant(context, widgetId))
+            manager.updateAppWidget(widgetId, v)
+        }
+        for (widgetId in all.getValue(AddWidgetProvider::class.java)) {
+            val v = RemoteViews(context.packageName, R.layout.widget_icon_light)
+            v.setImageViewResource(R.id.icon_image, R.drawable.ic_widget_add)
+            v.setTextViewText(R.id.icon_label, l("جدید", "New"))
+            v.setOnClickPendingIntent(R.id.icon_root, activity(context, widgetId, 0, WidgetCommands.ADD))
             manager.updateAppWidget(widgetId, v)
         }
 

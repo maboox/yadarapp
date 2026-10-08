@@ -226,8 +226,8 @@ private fun QuickAddCard(text: String, onText: (String) -> Unit, now: Long, acti
             busy = true
             scope.launch {
                 try {
-                    // AI results are shown for a few seconds and then saved unless the user edits them.
-                    actions.confirmAi(null, OpenRouter(context).parseMany(text))
+                    // The assistant handles typed requests too: create, edit, delete, questions…
+                    actions.assistant(text)
                     onText("")
                 } catch (e: Exception) {
                     Toast.makeText(context, e.message ?: t("تحلیل انجام نشد", "Could not understand"), Toast.LENGTH_LONG).show()

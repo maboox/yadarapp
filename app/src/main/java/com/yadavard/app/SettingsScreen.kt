@@ -230,13 +230,23 @@ private fun AiCard() {
     var search by remember { mutableStateOf("") }
     var freeOnly by remember { mutableStateOf(false) }
 
-    SettingsCard(t("هوش مصنوعی (اختیاری)", "AI (optional)"), Icons.Rounded.AutoAwesome) {
-        Text(t("ثبت سریع بدون اینترنت هم جمله‌های فارسی و انگلیسی را می‌فهمد. با کلید OpenRouter، دکمهٔ میکروفون صدا را داخل خود برنامه ضبط می‌کند و هوش مصنوعی آن را به متن و یادآوری تبدیل می‌کند.",
-            "Quick add understands Persian and English offline. With an OpenRouter key, the mic records inside the app and AI turns your voice into a reminder."),
+    SettingsCard(t("دستیار هوشمند (اختیاری)", "Smart assistant (optional)"), Icons.Rounded.AutoAwesome) {
+        Text(t("ثبت سریع بدون اینترنت هم جمله‌های فارسی و انگلیسی را می‌فهمد. با کلید OpenRouter، دستیار یادار فعال می‌شود: با صدا یا متن یادآوری بساز، ویرایش کن، حذف کن، «انجام شد» بزن یا بپرس «این هفته چی دارم؟».",
+            "Quick add works offline. With an OpenRouter key the Yadar assistant can create, edit, delete and complete reminders by voice or text, and answer questions like “what do I have this week?”."),
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(t("استفاده از هوش مصنوعی در ثبت سریع", "Use AI for quick add"), Modifier.weight(1f))
+            Text(t("دستیار هوشمند برای متن ثبت سریع", "Use the assistant for typed quick add"), Modifier.weight(1f))
             Switch(useAi, { useAi = it; Prefs.setUseAi(context, it) }, enabled = hasKey)
+        }
+        var speakReplies by remember { mutableStateOf(Prefs.speakReplies(context)) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(t("پاسخ صوتی دستیار", "Speak assistant replies"))
+                Text(t("با موتور «تبدیل متن به گفتار» گوشی؛ اگر فارسی نصب نباشد فقط متن نمایش داده می‌شود.",
+                    "Uses the phone's text-to-speech; if the language isn't installed, replies are shown as text."),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(speakReplies, { speakReplies = it; Prefs.setSpeakReplies(context, it) })
         }
         OutlinedTextField(keyText, { keyText = it }, Modifier.fillMaxWidth(), singleLine = true,
             label = { Text(if (hasKey) t("کلید ذخیره شده • برای تغییر وارد کن", "Key saved • type to replace") else t("کلید OpenRouter", "OpenRouter key")) },
