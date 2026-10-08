@@ -1,33 +1,34 @@
 package com.yadavard.app
 
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.provider.Settings
 import android.speech.RecognizerIntent
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.time.LocalDate
-import java.time.ZoneId
 
 /**
- * Transparent screen that shows only the assistant on top of the home screen. Opened by the 1×1 voice widget,
- * the quick widget's mic button and the app-icon shortcut, so the user never has to open the full app.
+ * Transparent screen opened by the voice widget, the quick widget's mic and the app shortcut. It shows only a
+ * small recording pill; after Send the request continues in floating bubbles over whatever app is open
+ * (or here, when "display over other apps" is not allowed).
  */
 class AssistantActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         AppDisplay.load(this)
         setContent {
             YadarTheme {
@@ -37,84 +38,54 @@ class AssistantActivity : ComponentActivity() {
         }
     }
 
-    private fun openEditor(original: Reminder?, draft: Reminder) {
-        startActivity(Intent(this, MainActivity::class.java).apply {
-            action = WidgetCommands.EDIT_DRAFT
-            putExtra(WidgetCommands.EXTRA_DRAFT, Backup.toJson(draft).toString())
-            putExtra(WidgetCommands.EXTRA_ID, original?.id ?: 0L)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        })
-        finish()
-    }
-
-    /** Offline path: understand the text locally, save it if clear, otherwise open the form. */
-    private fun handleText(text: String) {
-        val zone = ZoneId.systemDefault()
-        val now = System.currentTimeMillis()
-        val cal = Prefs.calendar(this)
-        val result = QuickParser.parse(text, now, zone, cal)
-        val r = result.toReminder(zone, cal, now)?.let {
-            it.copy(alertStyle = if (it.alertStyle == AlertStyle.ALARM) AlertStyle.ALARM else Prefs.defaultAlert(this),
-                leadMinutes = Prefs.defaultLead(this))
-        }
-        if (r != null && result.understood && r.nextAt > now && result.title.isNotBlank()) {
-            lifecycleScope.launch {
-                withContext(Dispatchers.IO) { Repo.save(this@AssistantActivity, r) }
-                Toast.makeText(this@AssistantActivity, t("ثبت شد: ", "Saved: ") + r.title + " • " +
-                    Dates.formatDateTime(r.nextAt, zone, cal, AppDisplay.language, withYear = false), Toast.LENGTH_LONG).show()
-                finish()
-            }
-        } else openEditor(null, r ?: Reminder(title = result.title, firstAt = Dates.at(LocalDate.now(zone).plusDays(1), 9, 0, zone),
-            zone = zone.id, calendar = cal, alertStyle = Prefs.defaultAlert(this)))
-    }
-
     @Composable
     private fun Host() {
         val hasKey = remember { AiSettings(this).hasKey() }
-        var open by remember { mutableStateOf(false) }
+        var recording by remember { mutableStateOf(false) }
+        var showingBubbles by remember { mutableStateOf(false) }
+        val session by AssistantSession.state.collectAsState()
+
         val speech = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
             val text = res.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
-            if (text.isNullOrBlank()) finish() else handleText(text)
-        }
-        fun google() {
-            try { speech.launch(speechIntent(this)) } catch (_: Exception) {
-                Toast.makeText(this, t("تشخیص گفتار در دسترس نیست. در تنظیمات یادار کلید OpenRouter را وارد کن.",
-                    "Speech recognition is unavailable. Add an OpenRouter key in Yadar settings."), Toast.LENGTH_LONG).show()
-                finish()
-            }
+            if (!text.isNullOrBlank()) AssistantSession.saveSimple(this, text)
+            finish()
         }
         val mic = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) open = true else { Toast.makeText(this, t("اجازهٔ میکروفون لازم است.", "Microphone permission is needed."), Toast.LENGTH_LONG).show(); finish() }
+            if (granted) recording = true
+            else { Toast.makeText(this, t("اجازهٔ میکروفون لازم است.", "Microphone permission is needed."), Toast.LENGTH_LONG).show(); finish() }
         }
         LaunchedEffect(Unit) {
             when {
-                !hasKey -> google()
-                ContextCompat.checkSelfPermission(this@AssistantActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED -> open = true
+                !hasKey -> runCatching { speech.launch(speechIntent(this@AssistantActivity)) }.onFailure {
+                    Toast.makeText(this@AssistantActivity, t("تشخیص گفتار در دسترس نیست. در تنظیمات یادار کلید OpenRouter را وارد کن.",
+                        "Speech recognition is unavailable. Add an OpenRouter key in Yadar settings."), Toast.LENGTH_LONG).show()
+                    finish()
+                }
+                ContextCompat.checkSelfPermission(this@AssistantActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED -> recording = true
                 else -> mic.launch(Manifest.permission.RECORD_AUDIO)
             }
         }
-        if (open) AssistantDialog(initialText = null,
-            onDismiss = { finish() },
-            onApply = { list ->
-                open = false
-                lifecycleScope.launch {
-                    withContext(Dispatchers.IO) { Assistant.apply(this@AssistantActivity, list) }
-                    Toast.makeText(this@AssistantActivity, Assistant.summary(list), Toast.LENGTH_SHORT).show()
-                    finish()
-                }
-            },
-            onEdit = { action, others ->
-                open = false
-                lifecycleScope.launch {
-                    withContext(Dispatchers.IO) { Assistant.apply(this@AssistantActivity, others) }
-                    when (action) {
-                        is AssistantAction.Update -> openEditor(action.before, action.after)
-                        is AssistantAction.Create -> openEditor(null, action.draft)
-                        else -> finish()
+        // When the bubbles are shown here (no overlay permission), close once the session ends.
+        LaunchedEffect(showingBubbles, session.stage) {
+            if (showingBubbles && session.stage == AssistantSession.Stage.IDLE) finish()
+        }
+
+        Box(Modifier.fillMaxSize()) {
+            if (showingBubbles) AssistantBubbles(session, Modifier.align(Alignment.TopCenter).statusBarsPadding())
+            if (recording) VoiceCapture(
+                onCancel = { finish() },
+                onSend = { file ->
+                    recording = false
+                    if (Settings.canDrawOverlays(this@AssistantActivity)) {
+                        AssistantSession.startAudio(this@AssistantActivity, file, BubbleHost.OVERLAY)
+                        AssistantBubbleService.start(this@AssistantActivity)
+                        finish()
+                    } else {
+                        AssistantSession.startAudio(this@AssistantActivity, file, BubbleHost.ACTIVITY)
+                        showingBubbles = true
                     }
-                }
-            },
-            onText = { text -> open = false; handleText(text) },
-            onGoogle = { open = false; google() })
+                },
+                modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 32.dp))
+        }
     }
 }

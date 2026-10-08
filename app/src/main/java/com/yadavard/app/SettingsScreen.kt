@@ -238,16 +238,6 @@ private fun AiCard() {
             Text(t("دستیار هوشمند برای متن ثبت سریع", "Use the assistant for typed quick add"), Modifier.weight(1f))
             Switch(useAi, { useAi = it; Prefs.setUseAi(context, it) }, enabled = hasKey)
         }
-        var speakReplies by remember { mutableStateOf(Prefs.speakReplies(context)) }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(t("پاسخ صوتی دستیار", "Speak assistant replies"))
-                Text(t("با موتور «تبدیل متن به گفتار» گوشی؛ اگر فارسی نصب نباشد فقط متن نمایش داده می‌شود.",
-                    "Uses the phone's text-to-speech; if the language isn't installed, replies are shown as text."),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Switch(speakReplies, { speakReplies = it; Prefs.setSpeakReplies(context, it) })
-        }
         OutlinedTextField(keyText, { keyText = it }, Modifier.fillMaxWidth(), singleLine = true,
             label = { Text(if (hasKey) t("کلید ذخیره شده • برای تغییر وارد کن", "Key saved • type to replace") else t("کلید OpenRouter", "OpenRouter key")) },
             visualTransformation = PasswordVisualTransformation(), shape = RoundedCornerShape(14.dp))

@@ -25,6 +25,7 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -148,14 +149,14 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { permissionTick++; vm.refresh() }
 
-    // null = closed; "" = start listening; any other text = a typed request.
-    var assistant by remember { mutableStateOf<String?>(null) }
+    var capturing by remember { mutableStateOf(false) }
+    val session by AssistantSession.state.collectAsState()
     val speech = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val text = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
         if (!text.isNullOrBlank()) { quickText = text; tab = Tab.HOME }
     }
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) assistant = ""
+        if (granted) capturing = true
         else Toast.makeText(context, t("برای ضبط صدا، اجازهٔ میکروفون لازم است.", "Microphone permission is needed to record."), Toast.LENGTH_LONG).show()
     }
     fun startVoice() {
@@ -163,7 +164,7 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
         // otherwise use Google's dictation (avoiding vendor assistants such as Mi AI).
         if (AiSettings(context).hasKey()) {
             if (androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
-                android.content.pm.PackageManager.PERMISSION_GRANTED) assistant = ""
+                android.content.pm.PackageManager.PERMISSION_GRANTED) capturing = true
             else micPermission.launch(Manifest.permission.RECORD_AUDIO)
             return
         }
@@ -197,23 +198,6 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
             }
         }
         consumed()
-    }
-
-    fun applyAssistant(list: List<AssistantAction>) {
-        if (list.isEmpty()) return
-        scope.launch {
-            withContext(Dispatchers.IO) { Assistant.apply(context, list) }
-            snackbar.currentSnackbarData?.dismiss()
-            snackbar.showSnackbar(Assistant.summary(list), duration = SnackbarDuration.Short)
-        }
-    }
-    fun editAssistant(action: AssistantAction, others: List<AssistantAction>) {
-        applyAssistant(others)
-        editor = when (action) {
-            is AssistantAction.Update -> EditorRequest(action.before, action.after)
-            is AssistantAction.Create -> EditorRequest(null, action.draft)
-            else -> null
-        }
     }
 
     val showSaved: (Reminder) -> Unit = { r ->
@@ -253,7 +237,7 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
             saved = showSaved,
             voice = ::startVoice,
             saveDirect = { r -> vm.save(r) { saved -> showSaved(saved) } },
-            assistant = { text -> assistant = text },
+            assistant = { text -> AssistantSession.startText(context, text, BubbleHost.APP) },
         )
     }
 
@@ -291,18 +275,12 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                 }
             }
         }
-        assistant?.let { start ->
-            AssistantDialog(initialText = start.ifBlank { null }, onDismiss = { assistant = null },
-                onApply = { list -> assistant = null; applyAssistant(list) },
-                onEdit = { action, others -> assistant = null; editAssistant(action, others) },
-                onText = { text -> assistant = null; quickText = text; tab = Tab.HOME },
-                onGoogle = {
-                    assistant = null
-                    try { speech.launch(speechIntent(context)) } catch (_: ActivityNotFoundException) {
-                        Toast.makeText(context, t("تشخیص گفتار Google در دسترس نیست.", "Google dictation is not available."), Toast.LENGTH_LONG).show()
-                    }
-                })
-        }
+        // Assistant: small recording pill at the bottom, floating bubbles at the top.
+        if (session.host == BubbleHost.APP) AssistantBubbles(session, Modifier.align(Alignment.TopCenter).statusBarsPadding())
+        if (capturing) VoiceCapture(
+            onCancel = { capturing = false },
+            onSend = { file -> capturing = false; AssistantSession.startAudio(context, file, BubbleHost.APP) },
+            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 96.dp))
         var shown by remember { mutableStateOf<EditorRequest?>(null) }
         if (editor != null) shown = editor
         BackHandler(enabled = editor != null) { editor = null }
