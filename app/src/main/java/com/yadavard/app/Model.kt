@@ -46,6 +46,9 @@ data class Reminder(
     val createdAt: Long = System.currentTimeMillis(),
 ) {
     val repeating: Boolean get() = unit != RepeatUnit.NONE && unit != RepeatUnit.AFTER_DONE_DAYS
+    /** Repeats at least once every day (hourly, daily or every weekday); such routines are not "events" on a calendar. */
+    val isDaily: Boolean get() = unit == RepeatUnit.HOURS || (unit == RepeatUnit.DAYS && every == 1) ||
+        (unit == RepeatUnit.WEEKS && every == 1 && (weekdays and 0x7F) == 0x7F)
     val zoneId: ZoneId get() = runCatching { ZoneId.of(zone) }.getOrDefault(ZoneId.systemDefault())
 
     /** True when the reminder has alerted (or should have) and still needs the user's attention. */

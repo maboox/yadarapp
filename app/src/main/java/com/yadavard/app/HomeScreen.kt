@@ -186,8 +186,9 @@ private fun buildSections(items: List<Reminder>, now: Long, zone: ZoneId): Secti
     val later = upcoming.filter { it.at >= weekEnd }
     // Hourly reminders occur many times a day; count every occurrence today for the summary.
     val dayStart = Dates.startOfDay(today, zone)
-    val todayCount = active.sumOf { Recurrence.occurrencesIn(it, dayStart, tomorrowStart, 48).size }
-    val weekCount = active.sumOf { Recurrence.occurrencesIn(it, now, weekEnd, 200).size }
+    // Each reminder counts once, however many times it repeats in the period.
+    val todayCount = active.count { it.needsAttention(now) || Recurrence.occurrencesIn(it, dayStart, tomorrowStart, 1).isNotEmpty() }
+    val weekCount = active.count { Recurrence.occurrencesIn(it, now, weekEnd, 1).isNotEmpty() }
     val done = items.filter { it.done }.sortedByDescending { it.completedAt }.take(50).map { Entry(it, it.nextAt, false) }
     return Sections(attention, todayList, tomorrow, week, later, done, todayCount, weekCount)
 }

@@ -117,6 +117,16 @@ class CoreLogicTest {
         assertFalse(c.done)
     }
 
+    @Test fun dailyDetection() {
+        val base = Reminder(title = "x", firstAt = at(2026, 10, 7, 9), zone = zone.id)
+        assertTrue(base.copy(unit = RepeatUnit.DAYS).isDaily)
+        assertTrue(base.copy(unit = RepeatUnit.HOURS, every = 8).isDaily)
+        assertTrue(base.copy(unit = RepeatUnit.WEEKS, weekdays = 0x7F).isDaily)
+        assertFalse(base.copy(unit = RepeatUnit.DAYS, every = 2).isDaily)
+        assertFalse(base.copy(unit = RepeatUnit.WEEKS, weekdays = 1).isDaily)
+        assertFalse(base.isDaily)
+    }
+
     // ---- Quick parser ----
     private val now = at(2026, 10, 7, 10, 30) // Wednesday
     private fun parse(s: String, cal: CalendarSystem = CalendarSystem.PERSIAN) = QuickParser.parse(s, now, zone, cal)

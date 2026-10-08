@@ -192,7 +192,8 @@ object WidgetUpdater {
                 val day = weekStart.plusDays(index.toLong())
                 val s = Dates.startOfDay(day, zone)
                 val e = Dates.startOfDay(day.plusDays(1), zone)
-                val count = active.sumOf { Recurrence.occurrencesIn(it, s, e, 24).size }
+                // Daily routines would make every day look the same; count the other reminders once each.
+                val count = active.count { !it.isDaily && Recurrence.occurrencesIn(it, s, e, 1).isNotEmpty() }
                 val dayNumber = Dates.parts(day, cal).day
                 v.setTextViewText(cell, "${Dates.weekdayName(day.dayOfWeek, lang, short = true)}\n${num(dayNumber)}\n" +
                     if (count == 0) "·" else "● ${num(count)}")

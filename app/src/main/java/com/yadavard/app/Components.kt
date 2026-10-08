@@ -3,6 +3,10 @@
 package com.yadavard.app
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.platform.LocalDensity
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -38,32 +42,69 @@ data class Entry(val reminder: Reminder, val at: Long, val attention: Boolean)
 @Composable
 fun ReminderCard(entry: Entry, now: Long, actions: ReminderActions, modifier: Modifier = Modifier, showDate: Boolean = true) {
     val r = entry.reminder
-    val dismiss = rememberSwipeToDismissBoxState(confirmValueChange = { it != SwipeToDismissBoxValue.Settled })
-    LaunchedEffect(dismiss.currentValue) {
-        when (dismiss.currentValue) {
-            SwipeToDismissBoxValue.StartToEnd -> { if (!r.done) actions.complete(r); dismiss.reset() }
-            SwipeToDismissBoxValue.EndToStart -> { actions.delete(r); dismiss.reset() }
-            SwipeToDismissBoxValue.Settled -> Unit
-        }
+    val current by rememberUpdatedState(r)
+    val currentActions by rememberUpdatedState(actions)
+    val density = LocalDensity.current
+    // Armed only after the card was held past the threshold for a moment, so quick accidental swipes do nothing.
+    var ready by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    // Plain (non-saveable) state: a restored item must not come back already "swiped".
+    val state = remember(r.id) {
+        SwipeToDismissBoxState(SwipeToDismissBoxValue.Settled, density,
+            confirmValueChange = { value ->
+                if (ready) when (value) {
+                    SwipeToDismissBoxValue.StartToEnd -> if (!current.done) currentActions.complete(current)
+                    SwipeToDismissBoxValue.EndToStart -> confirmDelete = true
+                    SwipeToDismissBoxValue.Settled -> Unit
+                }
+                false // always spring back; the list updates by itself
+            },
+            positionalThreshold = { distance -> distance * 0.45f })
     }
-    SwipeToDismissBox(dismiss, modifier = modifier, enableDismissFromStartToEnd = !r.done,
+    LaunchedEffect(state.targetValue) {
+        ready = false
+        if (state.targetValue != SwipeToDismissBoxValue.Settled) { delay(400); ready = true }
+    }
+    SwipeToDismissBox(state, modifier = modifier, enableDismissFromStartToEnd = !r.done,
         backgroundContent = {
-            val value = dismiss.targetValue
-            val color by animateColorAsState(when (value) {
-                SwipeToDismissBoxValue.StartToEnd -> MaterialTheme.colorScheme.secondary
-                SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.error
-                else -> Color.Transparent
+            val direction = state.dismissDirection
+            val past = state.targetValue != SwipeToDismissBoxValue.Settled
+            val done = direction == SwipeToDismissBoxValue.StartToEnd
+            val base = if (done) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error
+            val color by animateColorAsState(when {
+                direction == SwipeToDismissBoxValue.Settled -> Color.Transparent
+                ready -> base
+                past -> base.copy(alpha = 0.75f)
+                else -> base.copy(alpha = 0.35f)
             }, label = "swipe")
-            Box(Modifier.fillMaxSize().clip(RoundedCornerShape(22.dp)).background(color).padding(horizontal = 22.dp),
-                contentAlignment = if (dismiss.dismissDirection == SwipeToDismissBoxValue.EndToStart) Alignment.CenterEnd else Alignment.CenterStart) {
-                if (dismiss.dismissDirection == SwipeToDismissBoxValue.StartToEnd)
-                    Icon(Icons.Rounded.Check, t("انجام شد", "Done"), tint = Color.White)
-                else if (dismiss.dismissDirection == SwipeToDismissBoxValue.EndToStart)
-                    Icon(Icons.Rounded.DeleteOutline, t("حذف", "Delete"), tint = Color.White)
+            val scale by animateFloatAsState(if (ready) 1.25f else 1f, label = "icon")
+            Box(Modifier.fillMaxSize().clip(RoundedCornerShape(22.dp)).background(color).padding(horizontal = 20.dp),
+                contentAlignment = if (done) Alignment.CenterStart else Alignment.CenterEnd) {
+                if (direction != SwipeToDismissBoxValue.Settled) Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(if (done) Icons.Rounded.CheckCircle else Icons.Rounded.DeleteForever, null, tint = Color.White,
+                        modifier = Modifier.size(26.dp).scale(scale))
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text(if (done) t("انجام شد", "Mark done") else t("حذف", "Delete"), color = Color.White, fontWeight = FontWeight.Bold)
+                        Text(when {
+                            ready -> t("رها کن", "Release")
+                            past -> t("کمی نگه دار…", "Hold…")
+                            else -> t("بیشتر بکش", "Keep swiping")
+                        }, color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp)
+                    }
+                }
             }
         }) {
         ReminderCardBody(entry, now, actions, showDate)
     }
+    if (confirmDelete) AlertDialog(onDismissRequest = { confirmDelete = false },
+        icon = { Icon(Icons.Rounded.DeleteOutline, null) },
+        title = { Text(t("حذف شود؟", "Delete reminder?")) },
+        text = { Text(t("«${r.title}» حذف می‌شود. بعد از حذف هم تا چند ثانیه می‌توانی برش گردانی.",
+            "“${r.title}” will be deleted. You can still undo for a few seconds.")) },
+        confirmButton = { TextButton(onClick = { confirmDelete = false; actions.delete(r) }) {
+            Text(t("حذف", "Delete"), color = MaterialTheme.colorScheme.error) } },
+        dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(t("نگه دار", "Keep")) } })
 }
 
 @Composable
@@ -187,7 +228,8 @@ fun EmptyState(icon: ImageVector, title: String, subtitle: String, modifier: Mod
  */
 @Composable
 fun MonthGrid(month: LocalDate, selected: LocalDate?, onSelect: (LocalDate) -> Unit, onMonthChange: (LocalDate) -> Unit,
-              marks: Map<LocalDate, List<Color>> = emptyMap(), minDate: LocalDate? = null) {
+              marks: Map<LocalDate, List<Color>> = emptyMap(), minDate: LocalDate? = null,
+              importantDays: Set<LocalDate> = emptySet()) {
     val cal = AppDisplay.calendar
     val lang = AppDisplay.language
     val first = Dates.monthStart(month, cal)
@@ -227,8 +269,10 @@ fun MonthGrid(month: LocalDate, selected: LocalDate?, onSelect: (LocalDate) -> U
                     val isToday = date == today
                     val disabled = minDate != null && date.isBefore(minDate)
                     val holiday = cal == CalendarSystem.PERSIAN && date.dayOfWeek == DayOfWeek.FRIDAY
+                    val ring = date in importantDays
                     Column(Modifier.weight(1f).height(48.dp).padding(2.dp).clip(RoundedCornerShape(14.dp))
                         .background(when { isSelected -> scheme.primary; isToday -> scheme.primaryContainer; else -> Color.Transparent })
+                        .then(if (ring) Modifier.border(2.dp, scheme.error, RoundedCornerShape(14.dp)) else Modifier)
                         .clickable(enabled = !disabled) { onSelect(date) },
                         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                         Text(n(dayNumber), fontSize = 14.sp, fontWeight = if (isToday || isSelected) FontWeight.Bold else FontWeight.Normal,

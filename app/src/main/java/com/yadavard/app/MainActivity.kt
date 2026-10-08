@@ -37,6 +37,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -115,9 +116,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refresh() { viewModelScope.launch { reload() } }
 
-    private fun io(block: () -> Unit) { viewModelScope.launch(Dispatchers.IO) { block() } }
+    // One writer thread keeps user actions in order (for example "done" followed by "undo").
+    private val writer = java.util.concurrent.Executors.newSingleThreadExecutor().asCoroutineDispatcher()
+    private fun io(block: () -> Unit) { viewModelScope.launch(writer) { block() } }
     fun save(r: Reminder, done: (Reminder) -> Unit = {}) = viewModelScope.launch {
-        val saved = withContext(Dispatchers.IO) { Repo.save(context, r) }
+        val saved = withContext(writer) { Repo.save(context, r) }
         done(saved)
     }
     fun delete(r: Reminder) = io { Repo.delete(context, r) }
@@ -219,7 +222,7 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                 scope.launch {
                     snackbar.currentSnackbarData?.dismiss()
                     val res = snackbar.showSnackbar(t("«${r.title}» انجام شد ✓", "“${r.title}” done ✓"), t("برگرداندن", "Undo"),
-                        duration = SnackbarDuration.Short)
+                        duration = SnackbarDuration.Long)
                     if (res == SnackbarResult.ActionPerformed) vm.restore(r)
                 }
             },

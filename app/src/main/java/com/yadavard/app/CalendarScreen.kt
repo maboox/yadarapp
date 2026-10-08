@@ -22,20 +22,24 @@ fun CalendarScreen(items: List<Reminder>, now: Long, padding: PaddingValues, sel
     LaunchedEffect(selected) { month = selected }
     val cal = AppDisplay.calendar
 
-    // Dots per day for the visible month (and a little around it).
+    // Dots per day for the visible month (and a little around it). Daily/hourly routines add no dots;
+    // days with an important reminder get a red ring.
     val marks = remember(items, month, cal) {
         val start = Dates.monthStart(month, cal).minusDays(7)
         val end = start.plusDays(50)
         val s = Dates.startOfDay(start, zone)
         val e = Dates.startOfDay(end, zone)
         val map = HashMap<LocalDate, MutableList<Color>>()
-        items.forEach { r ->
+        val important = HashSet<LocalDate>()
+        items.filter { !it.isDaily }.forEach { r ->
             Recurrence.occurrencesIn(r, s, e, 400).forEach { at ->
-                map.getOrPut(Dates.localDate(at, zone)) { mutableListOf() }
+                val day = Dates.localDate(at, zone)
+                map.getOrPut(day) { mutableListOf() }
                     .let { list -> if (list.size < 3) list.add(if (r.done) Color.Gray else r.category.color()) }
+                if (r.important && !r.done) important += day
             }
         }
-        map.mapValues { it.value.toList() }
+        map.mapValues { it.value.toList() } to important.toSet()
     }
     val dayEntries = remember(items, selected, now) {
         val s = Dates.startOfDay(selected, zone)
@@ -57,7 +61,7 @@ fun CalendarScreen(items: List<Reminder>, now: Long, padding: PaddingValues, sel
         item(key = "grid") {
             Surface(shape = RoundedCornerShape(26.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, shadowElevation = 1.dp) {
                 Box(Modifier.padding(10.dp)) {
-                    MonthGrid(month, selected, onSelect, { month = it }, marks)
+                    MonthGrid(month, selected, onSelect, { month = it }, marks.first, importantDays = marks.second)
                 }
             }
         }
