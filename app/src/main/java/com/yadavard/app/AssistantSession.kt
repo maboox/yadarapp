@@ -153,7 +153,8 @@ object AssistantSession {
         val zone = ZoneId.systemDefault()
         val now = System.currentTimeMillis()
         val cal = Prefs.calendar(app)
-        val result = QuickParser.parse(text, now, zone, cal)
+        val result = runCatching { QuickParser.parse(text, now, zone, cal, Categories.customPairs(app)) }
+            .getOrElse { QuickResult(title = text.trim(), at = null) }
         val r = result.toReminder(zone, cal, now)?.let {
             it.copy(alertStyle = if (it.alertStyle == AlertStyle.ALARM) AlertStyle.ALARM else Prefs.defaultAlert(app),
                 leadMinutes = Prefs.defaultLead(app))
@@ -167,7 +168,7 @@ object AssistantSession {
             return true
         }
         openEditor(app, null, r ?: Reminder(title = result.title, firstAt = Dates.at(LocalDate.now(zone).plusDays(1), 9, 0, zone),
-            zone = zone.id, calendar = cal, alertStyle = Prefs.defaultAlert(app)))
+            zone = zone.id, calendar = cal, alertStyle = Prefs.defaultAlert(app), category = result.category))
         return false
     }
 }

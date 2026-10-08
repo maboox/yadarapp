@@ -141,10 +141,18 @@ class VoiceRecorder(private val context: Context) {
 
 /** Multimodal model that accepts audio input on OpenRouter; used by default for voice. */
 const val FALLBACK_AUDIO_MODEL = "google/gemini-2.5-flash"
+const val FALLBACK_TEXT_MODEL = "openai/gpt-4o-mini"
 
 /** Models known to understand Persian speech through audio input; shown first in the voice-model picker. */
-val RECOMMENDED_AUDIO_MODELS = listOf("google/gemini-2.5-flash", "google/gemini-2.5-flash-lite",
+val RECOMMENDED_AUDIO_MODELS = listOf("google/gemini-2.5-flash-lite", "google/gemini-2.5-flash",
     "google/gemini-2.5-pro", "openai/gpt-4o-audio-preview")
+
+/** Quick, inexpensive text models; reasoning and free models can take minutes. */
+val RECOMMENDED_TEXT_MODELS = listOf("google/gemini-2.5-flash-lite", "openai/gpt-4o-mini", "openai/gpt-4.1-mini", "google/gemini-2.5-flash")
+
+/** Models known to be slow for short requests (thinking models or free queues). */
+fun isSlowModel(id: String): Boolean = id.endsWith(":free") || listOf("-r1", "/r1", "thinking", "/o1", "/o3", "/o4", "qwq", "-pro")
+    .any { id.contains(it, ignoreCase = true) }
 
 class OpenRouter(private val context: Context) {
     private val settings = AiSettings(context)
@@ -257,22 +265,39 @@ class OpenRouter(private val context: Context) {
         val audio = Base64.encodeToString(file.readBytes(), Base64.NO_WRAP)
         val instruction = "Transcribe this voice note exactly as spoken, in its original language (usually Persian). " +
             "Reply with the transcript only, no quotes or explanations."
-        val body = JSONObject().put("model", model).put("temperature", 0)
+        val body = JSONObject().put("model", model).put("temperature", 0).put("max_tokens", 1000)
             .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", JSONArray()
                 .put(JSONObject().put("type", "text").put("text", instruction))
                 .put(JSONObject().put("type", "input_audio").put("input_audio", JSONObject().put("data", audio).put("format", "wav"))))))
-        val conn = (URL("https://openrouter.ai/api/v1/chat/completions").openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"; doOutput = true; connectTimeout = 20_000; readTimeout = 90_000
-            setRequestProperty("Authorization", "Bearer ${requireKey()}")
-            // A redirect would silently drop the Authorization header (and turn POST into GET).
-            instanceFollowRedirects = false
-            setRequestProperty("Content-Type", "application/json")
-            setRequestProperty("X-Title", "Yadar")
+        return complete(body, 60_000)
+    }
+
+    /**
+     * Sends a chat completion and returns the message text. Reasoning ("thinking") is switched off because it
+     * made simple requests take minutes; models that cannot turn it off are retried with their default.
+     */
+    private fun complete(body: JSONObject, timeout: Int): String {
+        fun send(payload: JSONObject): String {
+            val conn = (URL("https://openrouter.ai/api/v1/chat/completions").openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"; doOutput = true; connectTimeout = 15_000; readTimeout = timeout
+                setRequestProperty("Authorization", "Bearer ${requireKey()}")
+                // A redirect would silently drop the Authorization header (and turn POST into GET).
+                instanceFollowRedirects = false
+                setRequestProperty("Content-Type", "application/json")
+                setRequestProperty("X-Title", "Yadar")
+            }
+            try {
+                conn.outputStream.use { it.write(payload.toString().toByteArray(StandardCharsets.UTF_8)) }
+                return JSONObject(read(conn)).getJSONArray("choices").getJSONObject(0).getJSONObject("message").optString("content")
+            } finally { conn.disconnect() }
         }
-        try {
-            conn.outputStream.use { it.write(body.toString().toByteArray(StandardCharsets.UTF_8)) }
-            return JSONObject(read(conn)).getJSONArray("choices").getJSONObject(0).getJSONObject("message").optString("content")
-        } finally { conn.disconnect() }
+        val fast = JSONObject(body.toString())
+            .put("reasoning", JSONObject().put("enabled", false).put("exclude", true))
+            .put("provider", JSONObject().put("sort", "latency"))
+        return try { send(fast) } catch (e: IllegalStateException) {
+            // 400 = the model rejected an option (for example mandatory reasoning); try once more without them.
+            if (e.message?.contains("(400)") == true) send(body) else throw e
+        }
     }
 
     /**
@@ -298,7 +323,7 @@ Fields of each reminder (use null for anything the user did not mention):
 - month_day: 1..31 for a fixed day of month, -1 for the last day, 0 otherwise
 - calendar: PERSIAN | GREGORIAN for monthly/yearly rules
 - until: ISO date (yyyy-MM-dd, Gregorian) when the repetition ends, or null
-- category: GENERAL | PERSONAL | WORK | HEALTH | BILLS | BIRTHDAY | SHOPPING | STUDY (pick the best fit)
+- category: one key from this list, the best fit for the task (medicine/pills → MEDICINE, doctor/dentist/clinic → DOCTOR, gym/running → SPORT…); GENERAL if nothing fits: ${Categories.promptList(context)}
 - important: true only if the user says it is important/urgent/مهم/فوری
 - alert_style: "ALARM" if the user asks for an alarm, ringing, loud sound, full screen, wake me up, زنگ, آلارم, تمام صفحه, با صدا, بیدارم کن; "NOTIFICATION" if they explicitly ask for a normal/silent notification; otherwise null
 - lead_minutes: advance notice in minutes if the user asks to be told earlier (e.g. "۱۰ دقیقه قبلش خبرم کن" = 10, "یه روز قبل" = 1440), else null
@@ -307,23 +332,13 @@ Rules: "every 20 days" = DAYS/every=20; "20th of every month" = MONTHS/month_day
 Default times: morning 09:00, noon 12:00, afternoon 16:00, evening 18:00, night 21:00; a date without a time = 09:00.
 No date: today if the time is still ahead, otherwise tomorrow.
 User said: $text"""
-        val body = JSONObject().put("model", settings.model).put("temperature", 0)
+        val body = JSONObject().put("model", settings.model).put("temperature", 0).put("max_tokens", 1500)
             .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", prompt)))
-        val conn = (URL("https://openrouter.ai/api/v1/chat/completions").openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"; doOutput = true; connectTimeout = 20_000; readTimeout = 60_000
-            setRequestProperty("Authorization", "Bearer ${requireKey()}")
-            instanceFollowRedirects = false
-            setRequestProperty("Content-Type", "application/json")
-            setRequestProperty("X-Title", "Yadar")
-        }
-        try {
-            conn.outputStream.use { it.write(body.toString().toByteArray(StandardCharsets.UTF_8)) }
-            val raw = JSONObject(read(conn)).getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content")
-            val items = parseJson(raw)
-            val result = items.mapNotNull { runCatching { toReminder(it, text, zone, calendar) }.getOrNull() }
-            if (result.isEmpty()) error(if (fa()) "یادآوری‌ای از این جمله پیدا نشد" else "No reminder found in that sentence")
-            result
-        } finally { conn.disconnect() }
+        val raw = complete(body, 60_000)
+        val items = parseJson(raw)
+        val result = items.mapNotNull { runCatching { toReminder(it, text, zone, calendar) }.getOrNull() }
+        if (result.isEmpty()) error(if (fa()) "یادآوری‌ای از این جمله پیدا نشد" else "No reminder found in that sentence")
+        result
     }
 
     private fun chat(prompt: String, history: List<Pair<String, String>> = emptyList()): String {
@@ -333,18 +348,13 @@ User said: $text"""
             messages.put(JSONObject().put("role", "assistant").put("content", a))
         }
         messages.put(JSONObject().put("role", "user").put("content", prompt))
-        val body = JSONObject().put("model", settings.model).put("temperature", 0).put("messages", messages)
-        val conn = (URL("https://openrouter.ai/api/v1/chat/completions").openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"; doOutput = true; connectTimeout = 20_000; readTimeout = 60_000
-            setRequestProperty("Authorization", "Bearer ${requireKey()}")
-            instanceFollowRedirects = false
-            setRequestProperty("Content-Type", "application/json")
-            setRequestProperty("X-Title", "Yadar")
+        val body = JSONObject().put("model", settings.model).put("temperature", 0).put("max_tokens", 1500).put("messages", messages)
+        return try { complete(body, 45_000) } catch (e: Exception) {
+            // A busy or slow model (timeouts, 429, 5xx) gets one retry on a quick default model.
+            val retry = e is java.io.IOException || Regex("\\((429|5\\d\\d)\\)").containsMatchIn(e.message.orEmpty())
+            if (!retry || settings.model == FALLBACK_TEXT_MODEL) throw e
+            complete(JSONObject(body.toString()).put("model", FALLBACK_TEXT_MODEL), 45_000)
         }
-        try {
-            conn.outputStream.use { it.write(body.toString().toByteArray(StandardCharsets.UTF_8)) }
-            return JSONObject(read(conn)).getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content")
-        } finally { conn.disconnect() }
     }
 
     /**
@@ -373,7 +383,7 @@ Action objects:
 Reminder and change fields (omit or null when not mentioned):
 title, note, first_at (ISO-8601 local date-time WITH offset), unit (NONE|HOURS|DAYS|WEEKS|MONTHS|YEARS|AFTER_DONE_DAYS), every,
 weekdays (ISO 1=Monday..7=Sunday), month_day (1..31, -1 = last day), calendar (PERSIAN|GREGORIAN), until (yyyy-MM-dd Gregorian or null to remove),
-category (GENERAL|PERSONAL|WORK|HEALTH|BILLS|BIRTHDAY|SHOPPING|STUDY), important (bool),
+category (one key from: ${Categories.promptList(context)}; pick the best fit for new reminders, GENERAL if none fits), important (bool),
 alert_style ("ALARM" for alarm / ringing / full screen / wake me up / زنگ / آلارم / تمام صفحه; "NOTIFICATION" for a normal notification),
 lead_minutes (advance notice), nag_minutes (keep reminding every N minutes until done).
 Rules:
@@ -445,7 +455,7 @@ User: $text"""
             runCatching { java.time.LocalDate.parse(v.take(10)).atTime(23, 59).atZone(zone).toInstant().toEpochMilli() }.getOrNull()
         }
         var r = Recurrence.align(Reminder(title = title, note = json.str("note").orEmpty(),
-            category = runCatching { Category.valueOf(json.str("category")?.uppercase() ?: "GENERAL") }.getOrDefault(Category.GENERAL),
+            category = Categories.resolve(context, json.str("category")),
             important = json.optBoolean("important", false),
             firstAt = due, unit = unit, every = (json.int("every") ?: 1).coerceIn(1, 10_000),
             weekdays = mask, monthDay = (json.int("month_day") ?: 0).coerceIn(-1, 31),

@@ -231,7 +231,7 @@ object Notifier {
             .setContentTitle((if (r.important) "❗ " else "") + r.title)
             .setContentText(if (r.note.isBlank()) subtitle else r.note)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-            .setSubText(categoryLabel(r.category, lang))
+            .setSubText(Categories.of(context, r.category).name(lang))
             .setWhen(occurrence).setShowWhen(true)
             .setContentIntent(if (ring && !quiet) fullScreen(context, r.id) else open(context, r.id))
             .setCategory(if (ring) NotificationCompat.CATEGORY_ALARM else NotificationCompat.CATEGORY_REMINDER)
@@ -299,20 +299,6 @@ object Notifier {
         AlertService.stop(id, remove = true)
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.cancel(mainId(id)); manager.cancel(leadId(id))
-    }
-
-    fun categoryLabel(c: Category, lang: AppLanguage): String {
-        val fa = lang == AppLanguage.FA
-        return when (c) {
-            Category.GENERAL -> if (fa) "عمومی" else "General"
-            Category.PERSONAL -> if (fa) "شخصی" else "Personal"
-            Category.WORK -> if (fa) "کار" else "Work"
-            Category.HEALTH -> if (fa) "سلامت" else "Health"
-            Category.BILLS -> if (fa) "قبض و قسط" else "Bills"
-            Category.BIRTHDAY -> if (fa) "تولد و مناسبت" else "Occasions"
-            Category.SHOPPING -> if (fa) "خرید" else "Shopping"
-            Category.STUDY -> if (fa) "درس" else "Study"
-        }
     }
 }
 

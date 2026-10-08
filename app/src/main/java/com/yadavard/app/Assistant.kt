@@ -25,14 +25,17 @@ sealed class AssistantAction {
 data class AssistantResult(val heard: String, val reply: String, val actions: List<AssistantAction>)
 
 object Assistant {
-    /** Describes the user's reminders and the next two weeks so the model can find, change and summarise them. */
+    /**
+     * Describes the user's reminders and the coming week so the model can find, change and summarise them.
+     * Kept short on purpose: a long context made answers slow. Daily routines are listed once, not every day.
+     */
     fun context(context: Context): String {
         val zone = ZoneId.systemDefault()
         val now = System.currentTimeMillis()
         val cal = Prefs.calendar(context)
         val all = Repo.all(context)
-        val active = all.filter { !it.done }.sortedBy { it.displayAt(now) }.take(150)
-        val done = all.filter { it.done }.sortedByDescending { it.completedAt }.take(15)
+        val active = all.filter { !it.done }.sortedBy { it.displayAt(now) }.take(80)
+        val done = all.filter { it.done }.sortedByDescending { it.completedAt }.take(8)
         fun line(r: Reminder): String {
             val at = r.displayAt(now)
             val whenText = if (at > 0) ZonedDateTime.ofInstant(java.time.Instant.ofEpochMilli(at), zone).toLocalDateTime().toString().take(16) +
@@ -41,20 +44,20 @@ object Assistant {
                 add(r.unit.name + if (r.every > 1) "x${r.every}" else "")
                 if (r.alertStyle == AlertStyle.ALARM) add("ALARM")
                 if (r.important) add("important")
-                if (r.category != Category.GENERAL) add(r.category.name)
+                if (r.category != CategoryGuess.GENERAL) add("cat=" + r.category)
                 if (r.needsAttention(now)) add("OVERDUE")
                 if (r.leadMinutes > 0) add("lead=${r.leadMinutes}m")
                 if (r.nagMinutes > 0) add("nag=${r.nagMinutes}m")
             }.joinToString(",")
-            return "#${r.id} | ${r.title} | next: $whenText | $flags" + if (r.note.isNotBlank()) " | note: ${r.note.take(80)}" else ""
+            return "#${r.id} | ${r.title} | next: $whenText | $flags" + if (r.note.isNotBlank()) " | note: ${r.note.take(60)}" else ""
         }
         val today = LocalDate.now(zone)
         val agenda = buildString {
-            for (d in 0 until 14) {
+            for (d in 0 until 8) {
                 val day = today.plusDays(d.toLong())
                 val s = Dates.startOfDay(day, zone)
                 val e = Dates.startOfDay(day.plusDays(1), zone)
-                val items = active.flatMap { r -> Recurrence.occurrencesIn(r, s, e, 12).map { r to it } }.sortedBy { it.second }
+                val items = active.filter { !it.isDaily }.flatMap { r -> Recurrence.occurrencesIn(r, s, e, 6).map { r to it } }.sortedBy { it.second }
                 if (items.isEmpty()) continue
                 append(day).append(" ").append(Dates.formatDate(day, cal, AppLanguage.FA, withWeekday = true)).append(": ")
                 append(items.joinToString("; ") { (r, at) -> Dates.formatTime(at, zone, AppLanguage.EN) + " " + r.title + " #" + r.id })
@@ -65,7 +68,7 @@ object Assistant {
             append("ACTIVE REMINDERS (id | title | next due | flags):\n")
             if (active.isEmpty()) append("(none)\n") else active.forEach { append(line(it)).append('\n') }
             if (done.isNotEmpty()) { append("RECENTLY COMPLETED:\n"); done.forEach { append(line(it)).append('\n') } }
-            append("AGENDA FOR THE NEXT 14 DAYS:\n").append(agenda.ifBlank { "(empty)\n" })
+            append("AGENDA FOR THE NEXT 8 DAYS (daily/hourly routines are omitted here; they happen every day at their time):\n").append(agenda.ifBlank { "(empty)\n" })
         }
     }
 
@@ -77,7 +80,7 @@ object Assistant {
         var out = r
         str("title")?.let { out = out.copy(title = it.take(200)) }
         if (c.has("note")) out = out.copy(note = str("note").orEmpty())
-        str("category")?.let { v -> runCatching { Category.valueOf(v.uppercase()) }.getOrNull()?.let { out = out.copy(category = it) } }
+        str("category")?.let { v -> out = out.copy(category = Categories.resolve(context, v)) }
         if (c.has("important") && !c.isNull("important")) out = out.copy(important = c.optBoolean("important"))
         when (str("alert_style")?.uppercase()) {
             "ALARM" -> out = out.copy(alertStyle = AlertStyle.ALARM)
@@ -127,7 +130,7 @@ object Assistant {
         if (a.important != b.important) add(if (b.important) t("مهم شد", "Marked important") else t("دیگر مهم نیست", "No longer important"))
         if (a.leadMinutes != b.leadMinutes) add(t("یادآوری زودتر: ", "Advance notice: ") + leadLabel(b.leadMinutes))
         if (a.nagMinutes != b.nagMinutes) add(t("تکرار تا انجام: ", "Repeat until done: ") + if (b.nagMinutes == 0) t("خاموش", "off") else leadLabel(b.nagMinutes))
-        if (a.category != b.category) add(t("دسته: ", "Category: ") + b.category.label())
+        if (a.category != b.category) add(t("دسته: ", "Category: ") + b.category.catLabel())
         if (a.note != b.note) add(t("توضیحات: ", "Notes: ") + b.note.ifBlank { "-" })
     }
 

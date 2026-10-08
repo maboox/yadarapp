@@ -28,6 +28,7 @@ object AppDisplay {
         language = Prefs.language(context)
         calendar = Prefs.calendar(context)
         theme = Prefs.theme(context)
+        Categories.ensure(context)
     }
 }
 
@@ -105,30 +106,6 @@ fun YadarTheme(darkOverride: Boolean? = null, content: @Composable () -> Unit) {
             medium = RoundedCornerShape(18.dp), large = RoundedCornerShape(24.dp), extraLarge = RoundedCornerShape(30.dp)),
         content = content)
 }
-
-fun Category.color(): Color = when (this) {
-    Category.GENERAL -> Color(0xFF6C5CE7)
-    Category.PERSONAL -> Color(0xFF3D8BFD)
-    Category.WORK -> Color(0xFF0F9D8A)
-    Category.HEALTH -> Color(0xFFE5484D)
-    Category.BILLS -> Color(0xFFE07A2E)
-    Category.BIRTHDAY -> Color(0xFFD6409F)
-    Category.SHOPPING -> Color(0xFF2EAD5B)
-    Category.STUDY -> Color(0xFF8E5BD8)
-}
-
-fun Category.icon(): ImageVector = when (this) {
-    Category.GENERAL -> Icons.Rounded.NotificationsActive
-    Category.PERSONAL -> Icons.Rounded.Person
-    Category.WORK -> Icons.Rounded.Work
-    Category.HEALTH -> Icons.Rounded.Favorite
-    Category.BILLS -> Icons.Rounded.Payments
-    Category.BIRTHDAY -> Icons.Rounded.Cake
-    Category.SHOPPING -> Icons.Rounded.ShoppingCart
-    Category.STUDY -> Icons.Rounded.School
-}
-
-fun Category.label(): String = Notifier.categoryLabel(this, AppDisplay.language)
 
 /** Human description of a repeat rule, e.g. "Every 2 weeks · Sat, Tue". */
 fun repeatLabel(r: Reminder): String {

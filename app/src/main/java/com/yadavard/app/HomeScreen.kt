@@ -49,7 +49,7 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
     val today = LocalDate.now(zone)
     var query by rememberSaveable { mutableStateOf("") }
     var searching by rememberSaveable { mutableStateOf(false) }
-    var filter by rememberSaveable { mutableStateOf<Category?>(null) }
+    var filter by rememberSaveable { mutableStateOf<String?>(null) }
     var showDone by rememberSaveable { mutableStateOf(false) }
 
     val visible = remember(items, query, filter) {
@@ -124,9 +124,9 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
         if (used.size > 1 || filter != null) item(key = "filters") {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 item { FilterChip(filter == null, { filter = null }, { Text(t("همه", "All")) }) }
-                items(Category.entries.filter { it in used || it == filter }) { c ->
-                    FilterChip(filter == c, { filter = if (filter == c) null else c }, { Text(c.label()) },
-                        leadingIcon = { Icon(c.icon(), null, Modifier.size(16.dp), tint = c.color()) })
+                items(Categories.all.map { it.key }.filter { it in used || it == filter }) { c ->
+                    FilterChip(filter == c, { filter = if (filter == c) null else c }, { Text(c.catLabel()) },
+                        leadingIcon = { Icon(c.catIcon(), null, Modifier.size(16.dp), tint = c.catColor()) })
                 }
             }
         }
@@ -214,8 +214,11 @@ private fun QuickAddCard(text: String, onText: (String) -> Unit, now: Long, acti
     val zone = ZoneId.systemDefault()
     var busy by remember { mutableStateOf(false) }
     val useAi = remember { Prefs.useAi(context) && AiSettings(context).hasKey() }
-    val parsed = remember(text, now / 60_000) {
-        if (text.isBlank()) null else QuickParser.parse(text, System.currentTimeMillis(), zone, AppDisplay.calendar)
+    val custom = remember(Categories.all.size) { Categories.customPairs(context) }
+    // Typing must never crash the app, whatever the parser thinks of a half-written sentence.
+    val parsed = remember(text, now / 60_000, custom) {
+        if (text.isBlank() || useAi) null
+        else runCatching { QuickParser.parse(text, System.currentTimeMillis(), zone, AppDisplay.calendar, custom) }.getOrNull()
     }
     fun withDefaults(r: Reminder) = r.copy(alertStyle = if (r.alertStyle == AlertStyle.ALARM) AlertStyle.ALARM else Prefs.defaultAlert(context),
         leadMinutes = if (r.leadMinutes > 0) r.leadMinutes else Prefs.defaultLead(context))
@@ -236,7 +239,8 @@ private fun QuickAddCard(text: String, onText: (String) -> Unit, now: Long, acti
             }
             return
         }
-        val result = QuickParser.parse(text, System.currentTimeMillis(), zone, AppDisplay.calendar)
+        val result = runCatching { QuickParser.parse(text, System.currentTimeMillis(), zone, AppDisplay.calendar, custom) }
+            .getOrElse { QuickResult(title = text.trim(), at = null) }
         val reminder = result.toReminder(zone, AppDisplay.calendar, System.currentTimeMillis())?.let(::withDefaults)
         when {
             reminder != null && result.understood && reminder.nextAt > System.currentTimeMillis() && result.title.isNotBlank() -> {
@@ -245,7 +249,7 @@ private fun QuickAddCard(text: String, onText: (String) -> Unit, now: Long, acti
                 onText("")
             }
             else -> {
-                val draft = reminder ?: withDefaults(draftOn(LocalDate.now()).copy(title = result.title))
+                val draft = reminder ?: withDefaults(draftOn(LocalDate.now()).copy(title = result.title, category = result.category))
                 actions.create(draft.copy(title = result.title))
                 onText("")
             }
@@ -303,11 +307,12 @@ private fun ParsePreview(p: QuickResult, zone: ZoneId) {
     val white = Color.White
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
         if (p.at != null && p.understood) {
-            val draft = p.toReminder(zone, AppDisplay.calendar, System.currentTimeMillis())
+            val draft = runCatching { p.toReminder(zone, AppDisplay.calendar, System.currentTimeMillis()) }.getOrNull()
             val at = draft?.nextAt ?: p.at
             PreviewChip(Icons.Rounded.Event, Dates.friendlyDay(Dates.localDate(at, zone), LocalDate.now(zone), AppDisplay.calendar, AppDisplay.language) +
                 " " + Dates.formatTime(at, zone, AppDisplay.language), white)
             if (p.unit != RepeatUnit.NONE && draft != null) PreviewChip(Icons.Rounded.Repeat, repeatLabel(draft), white)
+            if (p.category != CategoryGuess.GENERAL) PreviewChip(p.category.catIcon(), p.category.catLabel(), white)
         } else {
             Icon(Icons.Rounded.EditCalendar, null, tint = white.copy(alpha = 0.8f), modifier = Modifier.size(16.dp))
             Text(t("زمانی پیدا نشد؛ با ثبت، فرم کامل باز می‌شود", "No time found; the full form will open"),

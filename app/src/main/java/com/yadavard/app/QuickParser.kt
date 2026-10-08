@@ -20,13 +20,14 @@ data class QuickResult(
     val understood: Boolean = false,
     val alarm: Boolean = false,
     val important: Boolean = false,
+    val category: String = CategoryGuess.GENERAL,
 ) {
     fun toReminder(zone: ZoneId, calendar: CalendarSystem, now: Long): Reminder? {
         val time = at ?: return null
         var r = Recurrence.align(Reminder(title = title, firstAt = time, unit = unit, every = every,
             weekdays = if (unit == RepeatUnit.WEEKS) weekdays else 0,
             monthDay = if (unit == RepeatUnit.MONTHS || unit == RepeatUnit.YEARS) monthDay else 0,
-            zone = zone.id, calendar = calendar, important = important,
+            zone = zone.id, calendar = calendar, important = important, category = category,
             alertStyle = if (alarm) AlertStyle.ALARM else AlertStyle.NOTIFICATION))
         if (r.repeating && r.nextAt <= now) {
             val next = Recurrence.nextAfter(r, now) ?: return null
@@ -42,7 +43,10 @@ data class QuickResult(
  */
 object QuickParser {
     private const val FLAGS = Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE or Pattern.UNICODE_CHARACTER_CLASS
-    private fun rx(source: String): Pattern = Pattern.compile(source, FLAGS)
+    // Android's ICU regex engine rejects UNICODE_CHARACTER_CLASS (it already treats \w and \b as Unicode),
+    // while the JVM needs it for Persian word boundaries. Try with it and fall back without.
+    private fun rx(source: String): Pattern = try { Pattern.compile(source, FLAGS) }
+        catch (_: IllegalArgumentException) { Pattern.compile(source, Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE) }
     private const val S = "[\\s\\u200c]*"
 
     private const val WEEKDAY_FA = "(یک${S}شنبه|دو${S}شنبه|سه${S}شنبه|چهار${S}شنبه|پنج${S}شنبه|جمعه|شنبه)"
@@ -189,7 +193,8 @@ object QuickParser {
 
     private fun bit(day: DayOfWeek) = 1 shl (day.value - 1)
 
-    fun parse(input: String, now: Long, zone: ZoneId, calendar: CalendarSystem): QuickResult {
+    fun parse(input: String, now: Long, zone: ZoneId, calendar: CalendarSystem,
+              custom: List<Pair<String, String>> = emptyList()): QuickResult {
         var text = " " + normalize(input) + " "
         fun take(p: Pattern): MatchResult? {
             val m = p.matcher(text)
@@ -438,7 +443,8 @@ object QuickParser {
                 }
             }
         }
-        return QuickResult(title, at, unit, every, weekdays, monthDay, understood, alarm, important)
+        return QuickResult(title, at, unit, every, weekdays, monthDay, understood, alarm, important,
+            CategoryGuess.guess(input, custom))
     }
 
     private fun enUnit(word: String): RepeatUnit {
@@ -468,5 +474,31 @@ object QuickParser {
         while (tokens.isNotEmpty() && edge(tokens.first())) tokens = tokens.drop(1)
         while (tokens.isNotEmpty() && edge(tokens.last())) tokens = tokens.dropLast(1)
         return tokens.joinToString(" ").trim('،', ',', '.', ':', '-', '؛', ' ')
+    }
+}
+
+/** Guesses a reminder's category from its words; user-made categories win when their name appears. */
+object CategoryGuess {
+    const val GENERAL = "GENERAL"
+    private val rules: List<Pair<String, Regex>> = listOf(
+        "MEDICINE" to "قرص|دارو|کپسول|شربت|آمپول|انسولین|ویتامین|\\bpills?\\b|medicine|medication|tablet|vitamin",
+        "DOCTOR" to "دکتر|پزشک|دندان|بیمارستان|درمانگاه|کلینیک|آزمایش|سونو|عکس\\s*رنگی|نوبت|فیزیوتراپی|doctor|dentist|clinic|hospital|appointment",
+        "SPORT" to "باشگاه|ورزش|بدنسازی|تمرین|دویدن|پیاده[\\s\\u200c]*روی|یوگا|استخر|شنا|فوتبال|والیبال|\\bgym\\b|workout|running|\\brun\\b|yoga|swim",
+        "BILLS" to "قسط|قبض|اجاره|بدهی|پرداخت|وام|شارژ|بیمه|مالیات|\\bbills?\\b|\\brent\\b|\\bpay\\b|loan|insurance|tax",
+        "BIRTHDAY" to "تولد|سالگرد|عروسی|مناسبت|birthday|anniversary|wedding",
+        "SHOPPING" to "خرید|بخرم|بخر|سوپر|میوه|نان|shop|buy|grocer",
+        "STUDY" to "درس|امتحان|کلاس|کنکور|تکلیف|دانشگاه|مدرسه|مطالعه|study|exam|homework|class",
+        "WORK" to "جلسه|کار|پروژه|ایمیل|گزارش|مشتری|اداره|meeting|project|email|report|client|office|deadline",
+        "PERSONAL" to "مامان|بابا|مادر|پدر|خانواده|زنگ[\\s\\u200c]*بزنم|تماس|call|mom|dad|family",
+    ).map { (key, source) -> key to Regex(source, RegexOption.IGNORE_CASE) }
+
+    fun guess(text: String, custom: List<Pair<String, String>> = emptyList()): String {
+        val lower = text.lowercase()
+        // The user's own categories win: first by full name, then by any meaningful word of the name.
+        custom.firstOrNull { (_, name) -> name.isNotBlank() && lower.contains(name.trim().lowercase()) }?.let { return it.first }
+        custom.firstOrNull { (_, name) ->
+            name.lowercase().split(' ', '\u200c', '،', ',', '-', '/').map { it.trim() }.filter { it.length >= 3 }.any { lower.contains(it) }
+        }?.let { return it.first }
+        return rules.firstOrNull { (_, re) -> re.containsMatchIn(text) }?.first ?: GENERAL
     }
 }

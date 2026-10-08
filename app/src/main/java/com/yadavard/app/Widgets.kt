@@ -82,7 +82,7 @@ object WidgetUpdater {
     private fun styledRow(r: Reminder, prefix: String, rest: String): CharSequence {
         val text = "●  $prefix   $rest"
         return android.text.SpannableString(text).apply {
-            setSpan(android.text.style.ForegroundColorSpan(r.category.color().toArgb()), 0, 1, 0)
+            setSpan(android.text.style.ForegroundColorSpan(r.category.catColor().toArgb()), 0, 1, 0)
             setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 3, 3 + prefix.length, 0)
         }
     }

@@ -172,6 +172,17 @@ class CoreLogicTest {
         parse("امشب فیلم").let { assertEquals(at(2026, 10, 7, 21), it.at); assertEquals("فیلم", it.title) }
     }
 
+    @Test fun categoryGuess() {
+        assertEquals("MEDICINE", parse("فردا ساعت ۸ قرص فشار").category)
+        assertEquals("DOCTOR", parse("پنجشنبه ساعت ۵ دندانپزشکی").category)
+        assertEquals("SPORT", parse("هر شنبه ساعت ۱۸ باشگاه").category)
+        assertEquals("BILLS", parse("۲۰ هر ماه قسط وام").category)
+        assertEquals("GENERAL", parse("فردا ساعت ۹ یه چیزی").category)
+        val custom = listOf("c_1" to "گلدان‌ها")
+        assertEquals("c_1", CategoryGuess.guess("آب دادن به گلدان‌ها", custom))
+        assertEquals("c_2", CategoryGuess.guess("go to the gym", listOf("c_2" to "Gym time")))
+    }
+
     @Test fun parserEnglish() {
         parse("remind me to call mom tomorrow at 5pm", CalendarSystem.GREGORIAN).let {
             assertEquals("call mom", it.title); assertEquals(at(2026, 10, 8, 17), it.at)

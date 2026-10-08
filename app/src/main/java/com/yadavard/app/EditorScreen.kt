@@ -59,7 +59,7 @@ fun EditorScreen(request: EditorRequest, onClose: () -> Unit, onSave: (Reminder)
     var weekdays by remember { mutableIntStateOf(source?.weekdays?.takeIf { it != 0 } ?: (1 shl (initialLocal.dayOfWeek.value - 1))) }
     var monthDay by remember { mutableIntStateOf(source?.monthDay ?: 0) }
     var until by remember { mutableStateOf(source?.untilAt?.let { Dates.localDate(it, zone) }) }
-    var category by remember { mutableStateOf(source?.category ?: Category.GENERAL) }
+    var category by remember { mutableStateOf(source?.category ?: CategoryGuess.GENERAL) }
     var important by remember { mutableStateOf(source?.important ?: false) }
     var alert by remember { mutableStateOf(source?.alertStyle ?: Prefs.defaultAlert(context)) }
     var lead by remember { mutableIntStateOf(source?.leadMinutes ?: if (original == null) Prefs.defaultLead(context) else 0) }
@@ -79,7 +79,7 @@ fun EditorScreen(request: EditorRequest, onClose: () -> Unit, onSave: (Reminder)
     var pickUntil by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    var showMore by remember { mutableStateOf(original != null && (note.isNotBlank() || lead > 0 || nag > 0 || important)) }
+    var showMore by remember { mutableStateOf(original != null && (note.isNotBlank() || lead > 0 || nag > 0 || important || category != CategoryGuess.GENERAL)) }
     val titleFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) { if (original == null && title.isBlank()) runCatching { titleFocus.requestFocus() } }
 
@@ -297,7 +297,7 @@ fun EditorScreen(request: EditorRequest, onClose: () -> Unit, onSave: (Reminder)
                 AnimatedVisibility(showMore) {
                     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         Block(t("دسته‌بندی", "Category"), Icons.AutoMirrored.Rounded.Label) {
-                            ChoiceChips(Category.entries, category, { it.label() }, { category = it }, icon = { it.icon() })
+                            CategoryPicker(category) { category = it }
                         }
                         Block(t("جزئیات", "Details"), Icons.AutoMirrored.Rounded.Notes) {
                             OutlinedTextField(note, { note = it }, Modifier.fillMaxWidth(), minLines = 2, maxLines = 6,

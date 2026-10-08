@@ -35,7 +35,7 @@ fun CalendarScreen(items: List<Reminder>, now: Long, padding: PaddingValues, sel
             Recurrence.occurrencesIn(r, s, e, 400).forEach { at ->
                 val day = Dates.localDate(at, zone)
                 map.getOrPut(day) { mutableListOf() }
-                    .let { list -> if (list.size < 3) list.add(if (r.done) Color.Gray else r.category.color()) }
+                    .let { list -> if (list.size < 3) list.add(if (r.done) Color.Gray else r.category.catColor()) }
                 if (r.important && !r.done) important += day
             }
         }

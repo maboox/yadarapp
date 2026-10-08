@@ -83,7 +83,7 @@ class AlarmActivity : ComponentActivity() {
 private fun AlarmScreen(r: Reminder, defaultSnooze: Int, onDone: () -> Unit, onSnooze: (Int) -> Unit, onClose: () -> Unit) {
     val transition = rememberInfiniteTransition(label = "pulse")
     val pulse by transition.animateFloat(1f, 1.12f, infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "scale")
-    val color = r.category.color()
+    val color = r.category.catColor()
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF1B1446), Color(0xFF3B2DB0), Color(0xFF5B4BDB))))) {
         Column(Modifier.fillMaxSize().systemBarsPadding().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Spacer(Modifier.weight(0.6f))
@@ -99,9 +99,9 @@ private fun AlarmScreen(r: Reminder, defaultSnooze: Int, onDone: () -> Unit, onS
             Spacer(Modifier.height(30.dp))
             Surface(shape = RoundedCornerShape(50), color = color.copy(alpha = 0.25f)) {
                 Row(Modifier.padding(horizontal = 14.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(r.category.icon(), null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    Icon(r.category.catIcon(), null, tint = Color.White, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text(r.category.label(), color = Color.White, fontSize = 13.sp)
+                    Text(r.category.catLabel(), color = Color.White, fontSize = 13.sp)
                 }
             }
             Spacer(Modifier.height(14.dp))

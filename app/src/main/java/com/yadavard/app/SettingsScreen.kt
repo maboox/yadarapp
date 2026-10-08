@@ -186,6 +186,8 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
             }
         }
 
+        item { CategoriesCard() }
+
         item { AiCard() }
 
         item {
@@ -277,6 +279,9 @@ private fun AiCard() {
                 Text(model, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
+        if (hasKey && isSlowModel(model)) Text(t("این مدل کند است (مدل‌های رایگان یا «فکرکننده» ممکن است تا چند دقیقه طول بکشند). برای پاسخ سریع یکی از مدل‌های پیشنهادی را انتخاب کن.",
+            "This model is slow (free or “thinking” models can take minutes). Pick a recommended model for quick answers."),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         OutlinedButton(onClick = { load(true) }, enabled = hasKey, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.fillMaxWidth()) {
                 Text(t("مدل تبدیل صدا", "Voice model"))
@@ -295,6 +300,12 @@ private fun AiCard() {
                     Text(t("پیشنهادی برای فارسی:", "Recommended:"), style = MaterialTheme.typography.labelLarge)
                     RECOMMENDED_AUDIO_MODELS.forEach { id ->
                         FilterChip(audioModel == id, { audioModel = id; ai.audioModel = id; picking = false }, { Text(id) })
+                    }
+                    HorizontalDivider()
+                } else {
+                    Text(t("پیشنهادی (سریع):", "Recommended (fast):"), style = MaterialTheme.typography.labelLarge)
+                    RECOMMENDED_TEXT_MODELS.forEach { id ->
+                        FilterChip(model == id, { model = id; ai.model = id; picking = false }, { Text(id) })
                     }
                     HorizontalDivider()
                 }

@@ -10,13 +10,13 @@ enum class CalendarSystem { PERSIAN, GREGORIAN }
 enum class AppLanguage { FA, EN }
 enum class AlertStyle { NOTIFICATION, ALARM }
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
-enum class Category { GENERAL, PERSONAL, WORK, HEALTH, BILLS, BIRTHDAY, SHOPPING, STUDY }
 
 data class Reminder(
     val id: Long = 0,
     val title: String,
     val note: String = "",
-    val category: Category = Category.GENERAL,
+    /** Category key: a built-in name such as "WORK" or the id of a user-made category. */
+    val category: String = CategoryGuess.GENERAL,
     val important: Boolean = false,
     val alertStyle: AlertStyle = AlertStyle.NOTIFICATION,
     /** Anchor of the repeat rule: the first occurrence. */

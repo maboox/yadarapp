@@ -71,7 +71,7 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
     }
 
     private fun values(r: Reminder) = ContentValues().apply {
-        put("title", r.title); put("note", r.note); put("category", r.category.name)
+        put("title", r.title); put("note", r.note); put("category", r.category)
         put("important", if (r.important) 1 else 0); put("alert_style", r.alertStyle.name)
         put("first_at", r.firstAt); put("next_at", r.nextAt); put("unit", r.unit.name)
         put("every_n", r.every); put("weekdays", r.weekdays); put("month_day", r.monthDay)
@@ -109,7 +109,7 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
         val until = c.getColumnIndexOrThrow("until_at")
         return Reminder(
             id = long("id"), title = str("title"), note = str("note"),
-            category = runCatching { Category.valueOf(str("category")) }.getOrDefault(Category.GENERAL),
+            category = str("category")?.takeIf { it.isNotBlank() } ?: CategoryGuess.GENERAL,
             important = int("important") == 1,
             alertStyle = runCatching { AlertStyle.valueOf(str("alert_style")) }.getOrDefault(AlertStyle.NOTIFICATION),
             firstAt = long("first_at"), nextAt = long("next_at"),
@@ -134,7 +134,7 @@ object Repo {
     @Volatile private var instance: ReminderStore? = null
 
     fun store(context: Context): ReminderStore = instance ?: synchronized(this) {
-        instance ?: ReminderStore(context.applicationContext).also { instance = it }
+        instance ?: ReminderStore(context.applicationContext).also { instance = it; Categories.ensure(context) }
     }
 
     fun all(context: Context): List<Reminder> = store(context).all()
@@ -190,7 +190,7 @@ object Backup {
 
     /** Full single-reminder JSON (including id and alarm state), used to pass drafts between screens. */
     fun toJson(r: Reminder): JSONObject = JSONObject().apply {
-        put("id", r.id); put("title", r.title); put("note", r.note); put("category", r.category.name)
+        put("id", r.id); put("title", r.title); put("note", r.note); put("category", r.category)
         put("important", r.important); put("alertStyle", r.alertStyle.name); put("firstAt", r.firstAt); put("nextAt", r.nextAt)
         put("unit", r.unit.name); put("every", r.every); put("weekdays", r.weekdays); put("monthDay", r.monthDay)
         put("untilAt", r.untilAt ?: JSONObject.NULL); put("leadMinutes", r.leadMinutes); put("nagMinutes", r.nagMinutes)
@@ -200,7 +200,7 @@ object Backup {
     }
 
     fun fromJson(v: JSONObject): Reminder = Reminder(id = v.optLong("id"), title = v.getString("title"), note = v.optString("note"),
-        category = runCatching { Category.valueOf(v.optString("category")) }.getOrDefault(Category.GENERAL),
+        category = v.optString("category").takeIf { it.isNotBlank() } ?: CategoryGuess.GENERAL,
         important = v.optBoolean("important"),
         alertStyle = runCatching { AlertStyle.valueOf(v.optString("alertStyle")) }.getOrDefault(AlertStyle.NOTIFICATION),
         firstAt = v.getLong("firstAt"), nextAt = v.optLong("nextAt"),
@@ -244,9 +244,10 @@ object Backup {
 
     fun export(items: List<Reminder>): String = JSONObject().put("app", "yadar").put("schema", 2)
         .put("exportedAt", System.currentTimeMillis())
+        .put("categories", Categories.exportJson())
         .put("reminders", JSONArray().apply {
             items.forEach { r -> put(JSONObject().apply {
-                put("title", r.title); put("note", r.note); put("category", r.category.name)
+                put("title", r.title); put("note", r.note); put("category", r.category)
                 put("important", r.important); put("alertStyle", r.alertStyle.name)
                 put("firstAt", r.firstAt); put("nextAt", r.nextAt); put("unit", r.unit.name)
                 put("every", r.every); put("weekdays", r.weekdays); put("monthDay", r.monthDay)
@@ -264,6 +265,7 @@ object Backup {
         require(schema == 1 || schema == 2) { if (fa) "نسخهٔ فایل پشتیبان پشتیبانی نمی‌شود" else "Unsupported backup version" }
         val array = root.getJSONArray("reminders")
         require(array.length() <= 20_000) { if (fa) "فایل بیش از حد بزرگ است" else "Backup is too large" }
+        root.optJSONArray("categories")?.let { Categories.importJson(context, it) }
         val store = Repo.store(context)
         val existing = store.all().map { it.title to it.firstAt }.toMutableSet()
         val now = System.currentTimeMillis()
@@ -276,7 +278,7 @@ object Backup {
             val zone = v.optString("zone", ZoneId.systemDefault().id).takeIf { runCatching { ZoneId.of(it) }.isSuccess }
                 ?: ZoneId.systemDefault().id
             var r = Reminder(title = title, note = v.optString("note").take(4000),
-                category = runCatching { Category.valueOf(v.optString("category", "GENERAL")) }.getOrDefault(Category.GENERAL),
+                category = v.optString("category").takeIf { it.isNotBlank() } ?: CategoryGuess.GENERAL,
                 important = v.optBoolean("important"),
                 alertStyle = runCatching { AlertStyle.valueOf(v.optString("alertStyle", "NOTIFICATION")) }.getOrDefault(AlertStyle.NOTIFICATION),
                 firstAt = first, nextAt = v.optLong("nextAt", first),

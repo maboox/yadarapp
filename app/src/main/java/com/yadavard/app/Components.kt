@@ -110,7 +110,7 @@ fun ReminderCard(entry: Entry, now: Long, actions: ReminderActions, modifier: Mo
 @Composable
 private fun ReminderCardBody(entry: Entry, now: Long, actions: ReminderActions, showDate: Boolean) {
     val r = entry.reminder
-    val color = r.category.color()
+    val color = r.category.catColor()
     val zone = r.zoneId
     var menu by remember { mutableStateOf(false) }
     val scheme = MaterialTheme.colorScheme
@@ -119,7 +119,7 @@ private fun ReminderCardBody(entry: Entry, now: Long, actions: ReminderActions, 
         Row(Modifier.combinedClickable(onClick = { actions.open(r) }, onLongClick = { menu = true })
             .padding(start = 14.dp, end = 6.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(44.dp).clip(RoundedCornerShape(15.dp)).background(color.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
-                Icon(r.category.icon(), null, tint = color, modifier = Modifier.size(22.dp))
+                Icon(r.category.catIcon(), null, tint = color, modifier = Modifier.size(22.dp))
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
