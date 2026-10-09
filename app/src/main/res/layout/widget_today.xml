@@ -1,25 +1,25 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/today_root" android:layout_width="match_parent" android:layout_height="match_parent"
-    android:layoutDirection="rtl" android:orientation="vertical" android:padding="15dp"
-    android:background="@drawable/widget_surface">
-    <TextView android:id="@+id/today_header" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="امروزِ یادار" android:textColor="#2C2386" android:textSize="17sp"
-        android:textStyle="bold" android:singleLine="true" />
-    <TextView android:id="@+id/today_date" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:layout_marginTop="2dp" android:text="تاریخ شمسی" android:textColor="#77768E" android:textSize="11sp" />
-    <TextView android:id="@+id/today_row_0" android:layout_width="match_parent" android:layout_height="35dp"
-        android:layout_marginTop="10dp" android:background="@drawable/widget_chip" android:gravity="center_vertical"
-        android:paddingStart="10dp" android:paddingEnd="10dp" android:text="یادآوری اول" android:textColor="#242341"
-        android:textSize="12sp" android:singleLine="true" android:ellipsize="end" />
-    <TextView android:id="@+id/today_row_1" android:layout_width="match_parent" android:layout_height="35dp"
-        android:layout_marginTop="5dp" android:background="@drawable/widget_chip" android:gravity="center_vertical"
-        android:paddingStart="10dp" android:paddingEnd="10dp" android:text="یادآوری دوم" android:textColor="#242341"
-        android:textSize="12sp" android:singleLine="true" android:ellipsize="end" />
-    <TextView android:id="@+id/today_row_2" android:layout_width="match_parent" android:layout_height="35dp"
-        android:layout_marginTop="5dp" android:background="@drawable/widget_chip" android:gravity="center_vertical"
-        android:paddingStart="10dp" android:paddingEnd="10dp" android:text="یادآوری سوم" android:textColor="#242341"
-        android:textSize="12sp" android:singleLine="true" android:ellipsize="end" />
+    android:orientation="vertical" android:layoutDirection="rtl" android:padding="14dp" android:background="@drawable/widget_bg">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical">
+        <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+            android:orientation="vertical">
+            <TextView android:id="@+id/today_header" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="امروز" android:textColor="@color/widget_text" android:textSize="15sp" android:textStyle="bold"
+                android:textAlignment="viewStart" />
+            <TextView android:id="@+id/today_date" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:textColor="@color/widget_muted" android:textSize="11sp" android:textAlignment="viewStart" />
+        </LinearLayout>
+        <TextView android:id="@+id/today_add" android:layout_width="34dp" android:layout_height="34dp"
+            android:background="@drawable/widget_today_chip" android:gravity="center" android:text="＋"
+            android:textColor="#FFFFFF" android:textSize="18sp" android:textStyle="bold" />
+    </LinearLayout>
+    <TextView android:id="@+id/today_row_0" style="@style/WidgetRow" android:layout_marginTop="8dp" />
+    <TextView android:id="@+id/today_row_1" style="@style/WidgetRow" />
+    <TextView android:id="@+id/today_row_2" style="@style/WidgetRow" />
+    <TextView android:id="@+id/today_row_3" style="@style/WidgetRow" />
     <TextView android:id="@+id/today_footer" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:layout_marginTop="10dp" android:text="دیدن همه  ←" android:textColor="#644EE9"
-        android:textSize="11sp" android:textStyle="bold" />
+        android:layout_marginTop="6dp" android:textColor="@color/widget_accent" android:textSize="11sp"
+        android:textStyle="bold" android:textAlignment="viewStart" />
 </LinearLayout>

@@ -1,20 +1,19 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/week_root" android:layout_width="match_parent" android:layout_height="match_parent"
-    android:layoutDirection="rtl" android:orientation="vertical" android:padding="14dp"
-    android:background="@drawable/widget_surface">
+    android:orientation="vertical" android:layoutDirection="rtl" android:padding="12dp" android:background="@drawable/widget_bg">
     <TextView android:id="@+id/week_header" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="هفتهٔ من  ✦" android:textColor="#2C2386" android:textSize="17sp"
-        android:textStyle="bold" />
+        android:text="هفتهٔ من" android:textColor="@color/widget_text" android:textSize="14sp" android:textStyle="bold"
+        android:textAlignment="viewStart" />
     <TextView android:id="@+id/week_dates" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:layout_marginTop="3dp" android:text="تقویم شمسی" android:textColor="#77768E" android:textSize="11sp" />
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:orientation="horizontal" android:layout_marginTop="13dp">
-        <TextView android:id="@+id/week_day_0" style="@style/WidgetWeekDay" />
-        <TextView android:id="@+id/week_day_1" style="@style/WidgetWeekDay" />
-        <TextView android:id="@+id/week_day_2" style="@style/WidgetWeekDay" />
-        <TextView android:id="@+id/week_day_3" style="@style/WidgetWeekDay" />
-        <TextView android:id="@+id/week_day_4" style="@style/WidgetWeekDay" />
-        <TextView android:id="@+id/week_day_5" style="@style/WidgetWeekDay" />
-        <TextView android:id="@+id/week_day_6" style="@style/WidgetWeekDay" />
+        android:textColor="@color/widget_muted" android:textSize="11sp" android:textAlignment="viewStart" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+        android:minHeight="56dp" android:layout_marginTop="8dp" android:orientation="horizontal">
+        <TextView android:id="@+id/week_day_0" style="@style/WidgetDay" />
+        <TextView android:id="@+id/week_day_1" style="@style/WidgetDay" />
+        <TextView android:id="@+id/week_day_2" style="@style/WidgetDay" />
+        <TextView android:id="@+id/week_day_3" style="@style/WidgetDay" />
+        <TextView android:id="@+id/week_day_4" style="@style/WidgetDay" />
+        <TextView android:id="@+id/week_day_5" style="@style/WidgetDay" />
+        <TextView android:id="@+id/week_day_6" style="@style/WidgetDay" />
     </LinearLayout>
 </LinearLayout>
