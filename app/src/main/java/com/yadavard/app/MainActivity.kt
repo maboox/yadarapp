@@ -152,6 +152,8 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
     var calendarDay by remember { mutableStateOf(LocalDate.now()) }
     var quickText by rememberSaveable { mutableStateOf("") }
     var permissionTick by remember { mutableIntStateOf(0) }
+    var packExport by remember { mutableStateOf<Set<Long>?>(null) }
+    var packImport by remember { mutableStateOf<Packs.Pack?>(null) }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { permissionTick++; vm.refresh() }
 
@@ -184,6 +186,14 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
     LaunchedEffect(command) {
         val c = command ?: return@LaunchedEffect
         when (c.action) {
+            Intent.ACTION_VIEW, Intent.ACTION_SEND -> {
+                // A reminder pack opened from a messenger or file manager.
+                @Suppress("DEPRECATION")
+                val uri = c.data ?: c.getParcelableExtra<android.net.Uri>(Intent.EXTRA_STREAM)
+                if (uri != null) runCatching { withContext(Dispatchers.IO) { Packs.parse(Packs.read(context, uri)) } }
+                    .onSuccess { packImport = it }
+                    .onFailure { Toast.makeText(context, it.message ?: t("فایل نامعتبر است", "Invalid file"), Toast.LENGTH_LONG).show() }
+            }
             WidgetCommands.ADD -> { tab = Tab.HOME; editor = EditorRequest(null, null) }
             WidgetCommands.VOICE -> { tab = Tab.HOME; startVoice() }
             WidgetCommands.HOME -> tab = Tab.HOME
@@ -247,6 +257,7 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                     if (res == SnackbarResult.ActionPerformed) vm.restore(r)
                 }
             },
+            share = { r -> packExport = setOf(r.id) },
             snooze = { r, m -> vm.snooze(r, m) },
             skip = { r -> vm.skip(r) },
             saved = showSaved,
@@ -289,7 +300,8 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                         onFixPermissions = { tab = Tab.SETTINGS })
                     Tab.CALENDAR -> CalendarScreen(items, now, padding, calendarDay, { calendarDay = it }, actions)
                     Tab.STATS -> StatsScreen(items, now, padding)
-                    Tab.SETTINGS -> SettingsScreen(padding, items.size, permissionTick, onPermissionChanged = { permissionTick++ })
+                    Tab.SETTINGS -> SettingsScreen(padding, items.size, permissionTick, onPermissionChanged = { permissionTick++ },
+                        onPackExport = { packExport = emptySet() }, onPackImport = { packImport = it })
                 }
             }
         }
@@ -299,6 +311,8 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
             onCancel = { capturing = false },
             onSend = { file -> capturing = false; AssistantSession.startAudio(context, file, BubbleHost.APP) },
             modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 96.dp))
+        packExport?.let { pre -> PackExportDialog(items, pre) { packExport = null } }
+        packImport?.let { pack -> PackImportDialog(pack) { packImport = null } }
         var shown by remember { mutableStateOf<EditorRequest?>(null) }
         if (editor != null) shown = editor
         BackHandler(enabled = editor != null) { editor = null }
@@ -327,6 +341,7 @@ class ReminderActions(
     val snooze: (Reminder, Int) -> Unit,
     val skip: (Reminder) -> Unit,
     val miss: (Reminder) -> Unit,
+    val share: (Reminder) -> Unit,
     val saved: (Reminder) -> Unit,
     val voice: () -> Unit,
     val saveDirect: (Reminder) -> Unit,

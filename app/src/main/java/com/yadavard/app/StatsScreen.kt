@@ -85,19 +85,23 @@ fun StatsScreen(items: List<Reminder>, now: Long, padding: PaddingValues) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp,
         top = padding.calculateTopPadding() + 12.dp, bottom = padding.calculateBottomPadding() + 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Items of a lazy list are boxes, so each multi-part item needs its own Column (otherwise parts overlap).
         item {
+            Column {
             Text(t("آمار", "Statistics"), style = MaterialTheme.typography.headlineSmall)
             Spacer(Modifier.height(8.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(Period.entries) { p ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Period.entries.forEach { p ->
                     FilterChip(period == p, { period = p }, { Text(when (p) {
                         Period.WEEK -> t("۷ روز", "7 days"); Period.MONTH -> t("۳۰ روز", "30 days")
                         Period.QUARTER -> t("۳ ماه", "3 months"); Period.ALL -> t("همه", "All time")
-                    }) })
+                    }, maxLines = 1) })
                 }
+            }
             }
         }
         item {
+            Column {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Tile(t("انجام‌شده", "Done"), n(total.done), Icons.Rounded.CheckCircle, doneColor, Modifier.weight(1f))
                 Tile(t("انجام‌نشده", "Not done"), n(total.missed), Icons.Rounded.EventBusy, missedColor, Modifier.weight(1f))
@@ -108,6 +112,7 @@ fun StatsScreen(items: List<Reminder>, now: Long, padding: PaddingValues) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Tile(t("یادآوری فعال", "Active"), n(active), Icons.Rounded.NotificationsActive, MaterialTheme.colorScheme.tertiary, Modifier.weight(1f))
                 Tile(t("در انتظار انجام", "Waiting"), n(waiting), Icons.Rounded.ErrorOutline, MaterialTheme.colorScheme.onSurfaceVariant, Modifier.weight(1f))
+            }
             }
         }
         item { Legend(doneColor, missedColor) }

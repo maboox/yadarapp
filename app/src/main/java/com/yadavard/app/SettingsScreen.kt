@@ -32,7 +32,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPermissionChanged: () -> Unit) {
+fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPermissionChanged: () -> Unit,
+                   onPackExport: () -> Unit = {}, onPackImport: (Packs.Pack) -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     @Suppress("UNUSED_VARIABLE") val tick = permissionTick
@@ -75,6 +76,13 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
             }
             Toast.makeText(context, if (ok.isSuccess) t("فایل پشتیبان ذخیره شد ✓", "Backup saved ✓")
                 else t("ذخیره نشد: ", "Save failed: ") + ok.exceptionOrNull()?.message, Toast.LENGTH_LONG).show()
+        }
+    }
+    val packPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            runCatching { withContext(Dispatchers.IO) { Packs.parse(Packs.read(context, uri)) } }
+                .onSuccess(onPackImport)
+                .onFailure { Toast.makeText(context, it.message ?: t("فایل نامعتبر است", "Invalid file"), Toast.LENGTH_LONG).show() }
         }
     }
     val importPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -187,6 +195,22 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
         }
 
         item { CategoriesCard() }
+
+        item {
+            SettingsCard(t("اشتراک‌گذاری یادآوری‌ها", "Share reminders"), Icons.Rounded.Inventory2) {
+                Text(t("چند یادآوری (مثلاً تولدهای خانواده) را در یک «پک» بفرست تا دیگران با یک لمس به یادار خودشان اضافه کنند.",
+                    "Send a few reminders (e.g. family birthdays) as a pack others can add to their Yadar with one tap."),
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilledTonalButton(onClick = onPackExport, Modifier.weight(1f)) {
+                        Icon(Icons.Rounded.Share, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(t("ساخت پک", "Make pack"))
+                    }
+                    OutlinedButton(onClick = { packPicker.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }, Modifier.weight(1f)) {
+                        Icon(Icons.Rounded.Download, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(t("وارد کردن پک", "Import pack"))
+                    }
+                }
+            }
+        }
 
         item { AiCard() }
 

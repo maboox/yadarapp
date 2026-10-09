@@ -53,7 +53,7 @@ fun ReminderCard(entry: Entry, now: Long, actions: ReminderActions, modifier: Mo
         SwipeToDismissBoxState(SwipeToDismissBoxValue.Settled, density,
             confirmValueChange = { value ->
                 if (ready) when (value) {
-                    SwipeToDismissBoxValue.StartToEnd -> if (!current.done) currentActions.complete(current)
+                    SwipeToDismissBoxValue.StartToEnd -> if (!current.done) currentActions.miss(current)
                     SwipeToDismissBoxValue.EndToStart -> confirmDelete = true
                     SwipeToDismissBoxValue.Settled -> Unit
                 }
@@ -70,7 +70,8 @@ fun ReminderCard(entry: Entry, now: Long, actions: ReminderActions, modifier: Mo
             val direction = state.dismissDirection
             val past = state.targetValue != SwipeToDismissBoxValue.Settled
             val done = direction == SwipeToDismissBoxValue.StartToEnd
-            val base = if (done) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error
+            // "done" here is the swipe toward "not done" (the tick button already marks done).
+            val base = if (done) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error
             val color by animateColorAsState(when {
                 direction == SwipeToDismissBoxValue.Settled -> Color.Transparent
                 ready -> base
@@ -84,11 +85,11 @@ fun ReminderCard(entry: Entry, now: Long, actions: ReminderActions, modifier: Mo
             Box(Modifier.fillMaxSize().clip(RoundedCornerShape(22.dp)).background(color).padding(horizontal = 20.dp),
                 contentAlignment = if (done != rtl) Alignment.CenterStart else Alignment.CenterEnd) {
                 if (direction != SwipeToDismissBoxValue.Settled) Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(if (done) Icons.Rounded.CheckCircle else Icons.Rounded.DeleteForever, null, tint = Color.White,
+                    Icon(if (done) Icons.Rounded.EventBusy else Icons.Rounded.DeleteForever, null, tint = Color.White,
                         modifier = Modifier.size(26.dp).scale(scale))
                     Spacer(Modifier.width(10.dp))
                     Column {
-                        Text(if (done) t("انجام شد", "Mark done") else t("حذف", "Delete"), color = Color.White, fontWeight = FontWeight.Bold)
+                        Text(if (done) t("انجام نشد", "Not done") else t("حذف", "Delete"), color = Color.White, fontWeight = FontWeight.Bold)
                         Text(when {
                             ready -> t("رها کن", "Release")
                             past -> t("کمی نگه دار…", "Hold…")
@@ -195,6 +196,8 @@ private fun ReminderCardBody(entry: Entry, now: Long, actions: ReminderActions, 
                 }
                 if (!r.done && r.repeating) DropdownMenuItem(text = { Text(t("رد کردن این نوبت", "Skip this one")) },
                     leadingIcon = { Icon(Icons.Rounded.SkipNext, null) }, onClick = { menu = false; actions.skip(r) })
+                DropdownMenuItem(text = { Text(t("اشتراک‌گذاری (پک)", "Share as pack")) }, leadingIcon = { Icon(Icons.Rounded.Share, null) },
+                    onClick = { menu = false; actions.share(r) })
                 DropdownMenuItem(text = { Text(t("ویرایش", "Edit")) }, leadingIcon = { Icon(Icons.Rounded.Edit, null) },
                     onClick = { menu = false; actions.open(r) })
                 DropdownMenuItem(text = { Text(t("حذف", "Delete")) }, leadingIcon = { Icon(Icons.Rounded.DeleteOutline, null) },
