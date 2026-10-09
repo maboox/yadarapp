@@ -4,6 +4,8 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -179,7 +181,19 @@ private fun ActionBubbles(actions: List<AssistantAction>) {
         while (remaining > 0) { delay(50); remaining -= 50 }
         AssistantSession.apply(context, actions)
     }
-    actions.forEach { a -> ActionBubble(a, now, onTouched = { paused = true }) }
+    if (actions.size <= 3) actions.forEach { a -> ActionBubble(a, now, onTouched = { paused = true }) }
+    else {
+        // Many items (e.g. a list of birthdays): a scrollable stack plus one button for all of them.
+        Column(Modifier.fillMaxWidth().heightIn(max = 380.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            actions.forEach { a -> ActionBubble(a, now, onTouched = { paused = true }) }
+        }
+        val ready = actions.filter { !it.needsFix(now) }
+        Button(onClick = { AssistantSession.apply(context, ready) }, enabled = ready.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Rounded.DoneAll, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
+            Text(t("تأیید همه (${n(ready.size)})", "Confirm all (${ready.size})"))
+        }
+    }
     if (canAuto) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 8.dp)) {
         LinearProgressIndicator(progress = { 1f - remaining.toFloat() / total }, modifier = Modifier.weight(1f).clip(RoundedCornerShape(4.dp)))
         Spacer(Modifier.width(8.dp))

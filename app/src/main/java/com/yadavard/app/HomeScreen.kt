@@ -51,6 +51,7 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
     var searching by rememberSaveable { mutableStateOf(false) }
     var filter by rememberSaveable { mutableStateOf<String?>(null) }
     var showDone by rememberSaveable { mutableStateOf(false) }
+    var showFar by rememberSaveable { mutableStateOf(false) }
 
     val visible = remember(items, query, filter) {
         items.filter { r ->
@@ -148,7 +149,19 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
         section("today", t("امروز", "Today"), sections.today, showDate = false)
         section("tomorrow", t("فردا", "Tomorrow"), sections.tomorrow, showDate = false)
         section("week", t("این هفته", "This week"), sections.week)
-        section("later", t("بعدتر", "Later"), sections.later)
+        section("later", t("تا ۲ ماه آینده", "Next 2 months"), sections.later)
+        if (sections.far.isNotEmpty()) {
+            // Far-away reminders (e.g. yearly birthdays) stay folded unless searching or filtering.
+            val open = showFar || query.isNotBlank() || filter != null
+            item(key = "h_far") {
+                SectionHeader(t("دورتر", "Further ahead"), sections.far.size, MaterialTheme.colorScheme.onSurfaceVariant) {
+                    TextButton(onClick = { showFar = !showFar }) { Text(if (open) t("پنهان", "Hide") else t("نمایش", "Show")) }
+                }
+            }
+            if (open) items(sections.far, key = { "far_${it.reminder.id}_${it.at}" }) { e ->
+                ReminderCard(e, now, actions, Modifier.animateItem())
+            }
+        }
         if (sections.done.isNotEmpty()) {
             item(key = "h_done") {
                 SectionHeader(t("انجام‌شده", "Completed"), sections.done.size, MaterialTheme.colorScheme.onSurfaceVariant) {
@@ -162,9 +175,10 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
 
 private class Sections(
     val attention: List<Entry>, val today: List<Entry>, val tomorrow: List<Entry>,
-    val week: List<Entry>, val later: List<Entry>, val done: List<Entry>, val todayCount: Int, val weekCount: Int,
+    val week: List<Entry>, val later: List<Entry>, val far: List<Entry>, val done: List<Entry>, val todayCount: Int, val weekCount: Int,
 ) {
-    val isEmpty get() = attention.isEmpty() && today.isEmpty() && tomorrow.isEmpty() && week.isEmpty() && later.isEmpty() && done.isEmpty()
+    val isEmpty get() = attention.isEmpty() && today.isEmpty() && tomorrow.isEmpty() && week.isEmpty() && later.isEmpty() &&
+        far.isEmpty() && done.isEmpty()
 }
 
 private fun buildSections(items: List<Reminder>, now: Long, zone: ZoneId): Sections {
@@ -183,14 +197,16 @@ private fun buildSections(items: List<Reminder>, now: Long, zone: ZoneId): Secti
     val todayList = upcoming.filter { it.at < tomorrowStart }
     val tomorrow = upcoming.filter { it.at in tomorrowStart until dayAfterStart }
     val week = upcoming.filter { it.at in dayAfterStart until weekEnd }
-    val later = upcoming.filter { it.at >= weekEnd }
+    val horizon = Dates.startOfDay(today.plusMonths(2), zone)
+    val later = upcoming.filter { it.at in weekEnd until horizon }
+    val far = upcoming.filter { it.at >= horizon }
     // Hourly reminders occur many times a day; count every occurrence today for the summary.
     val dayStart = Dates.startOfDay(today, zone)
     // Each reminder counts once, however many times it repeats in the period.
     val todayCount = active.count { it.needsAttention(now) || Recurrence.occurrencesIn(it, dayStart, tomorrowStart, 1).isNotEmpty() }
     val weekCount = active.count { Recurrence.occurrencesIn(it, now, weekEnd, 1).isNotEmpty() }
     val done = items.filter { it.done }.sortedByDescending { it.completedAt }.take(50).map { Entry(it, it.nextAt, false) }
-    return Sections(attention, todayList, tomorrow, week, later, done, todayCount, weekCount)
+    return Sections(attention, todayList, tomorrow, week, later, far, done, todayCount, weekCount)
 }
 
 @Composable

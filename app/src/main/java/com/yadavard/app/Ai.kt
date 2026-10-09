@@ -310,7 +310,7 @@ class OpenRouter(private val context: Context) {
         val calendar = Prefs.calendar(context)
         val today = Dates.formatDate(now.toLocalDate(), CalendarSystem.PERSIAN, AppLanguage.EN)
         val prompt = """You turn what the user said into reminders. The user may mention SEVERAL separate tasks; create one reminder per task.
-Return ONLY JSON: {"reminders":[ ... ]} with no prose.
+Return ONLY compact JSON: {"reminders":[ ... ]} with no prose. Leave out fields that are null, empty or default to keep it short.
 Current local time: $now (time zone $zone, ${now.dayOfWeek}). Today in the Persian calendar: $today. Default calendar: $calendar.
 The user usually speaks Persian (or English). Interpret dates with the default calendar; 14xx years are Persian, 20xx Gregorian.
 Fields of each reminder (use null for anything the user did not mention):
@@ -332,7 +332,7 @@ Rules: "every 20 days" = DAYS/every=20; "20th of every month" = MONTHS/month_day
 Default times: morning 09:00, noon 12:00, afternoon 16:00, evening 18:00, night 21:00; a date without a time = 09:00.
 No date: today if the time is still ahead, otherwise tomorrow.
 User said: $text"""
-        val body = JSONObject().put("model", settings.model).put("temperature", 0).put("max_tokens", 1500)
+        val body = JSONObject().put("model", settings.model).put("temperature", 0).put("max_tokens", 12_000)
             .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", prompt)))
         val raw = complete(body, 60_000)
         val items = parseJson(raw)
@@ -348,7 +348,7 @@ User said: $text"""
             messages.put(JSONObject().put("role", "assistant").put("content", a))
         }
         messages.put(JSONObject().put("role", "user").put("content", prompt))
-        val body = JSONObject().put("model", settings.model).put("temperature", 0).put("max_tokens", 1500).put("messages", messages)
+        val body = JSONObject().put("model", settings.model).put("temperature", 0).put("max_tokens", 12_000).put("messages", messages)
         return try { complete(body, 45_000) } catch (e: Exception) {
             // A busy or slow model (timeouts, 429, 5xx) gets one retry on a quick default model.
             val retry = e is java.io.IOException || Regex("\\((429|5\\d\\d)\\)").containsMatchIn(e.message.orEmpty())
@@ -380,7 +380,8 @@ Action objects:
 - {"type":"delete","id":<id>}   when the user cancels/deletes/removes something
 - {"type":"complete","id":<id>} when the user says it is done
 - {"type":"postpone","id":<id>,"minutes":<n>} when the user says remind me later / postpone by some time
-Reminder and change fields (omit or null when not mentioned):
+Keep the JSON compact: leave out every field that is null, empty or not mentioned.
+Reminder and change fields (omit when not mentioned):
 title, note, first_at (ISO-8601 local date-time WITH offset), unit (NONE|HOURS|DAYS|WEEKS|MONTHS|YEARS|AFTER_DONE_DAYS), every,
 weekdays (ISO 1=Monday..7=Sunday), month_day (1..31, -1 = last day), calendar (PERSIAN|GREGORIAN), until (yyyy-MM-dd Gregorian or null to remove),
 category (one key from: ${Categories.promptList(context)}; pick the best fit for new reminders, GENERAL if none fits), important (bool),
@@ -397,8 +398,14 @@ Rules:
 - For actions, "reply" briefly says what you will do (e.g. «باشه، قرار دندانپزشکی رو برای جمعه ساعت ۵ گذاشتم»).
 User: $text"""
         val raw = chat(prompt, history)
-        val start = raw.indexOf('{')
-        val json = JSONObject(raw.substring(start, raw.lastIndexOf('}') + 1))
+        // A very long answer can be cut off; keep every action that arrived complete instead of failing.
+        val json = runCatching { JSONObject(raw.substring(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) }.getOrElse {
+            val salvaged = salvageArray(raw, "actions")
+            if (salvaged.isEmpty()) throw IllegalStateException(if (fa()) "پاسخ دستیار ناقص بود؛ درخواست را کوتاه‌تر یا در چند بخش بگو." else "The answer was cut off; try a shorter request.")
+            val reply = Regex("\"reply\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").find(raw)?.groupValues?.get(1)
+                ?.let { runCatching { JSONObject("{\"r\":\"$it\"}").getString("r") }.getOrNull() }.orEmpty()
+            JSONObject().put("reply", reply).put("actions", JSONArray(salvaged))
+        }
         val reply = json.optString("reply").trim()
         val all = Repo.all(context).associateBy { it.id }
         val actions = mutableListOf<AssistantAction>()
@@ -424,6 +431,28 @@ User: $text"""
 
     suspend fun parse(text: String): Reminder = parseMany(text).first()
 
+    /** Complete objects inside the array [key] of a possibly truncated JSON text. */
+    private fun salvageArray(raw: String, key: String): List<JSONObject> {
+        val keyAt = raw.indexOf("\"$key\"").takeIf { it >= 0 } ?: return emptyList()
+        var i = raw.indexOf('[', keyAt).takeIf { it >= 0 } ?: return emptyList()
+        val out = mutableListOf<JSONObject>()
+        var depth = 0; var start = -1; var inString = false; var escaped = false
+        while (++i < raw.length) {
+            val c = raw[i]
+            if (inString) {
+                if (escaped) escaped = false else if (c == '\\') escaped = true else if (c == '"') inString = false
+                continue
+            }
+            when (c) {
+                '"' -> inString = true
+                '{' -> { if (depth == 0) start = i; depth++ }
+                '}' -> { depth--; if (depth == 0 && start >= 0) { runCatching { out += JSONObject(raw.substring(start, i + 1)) }; start = -1 } }
+                ']' -> if (depth == 0) break
+            }
+        }
+        return out
+    }
+
     private fun parseJson(raw: String): List<JSONObject> {
         val start = raw.indexOfFirst { it == '{' || it == '[' }
         require(start >= 0) { "no JSON" }
@@ -432,7 +461,9 @@ User: $text"""
             val array = JSONArray(trimmed.substring(0, trimmed.lastIndexOf(']') + 1))
             return (0 until array.length()).mapNotNull { array.optJSONObject(it) }
         }
-        val obj = JSONObject(trimmed.substring(0, trimmed.lastIndexOf('}') + 1))
+        val obj = runCatching { JSONObject(trimmed.substring(0, trimmed.lastIndexOf('}') + 1)) }.getOrElse {
+            return salvageArray(trimmed, "reminders").ifEmpty { throw it }
+        }
         val list = obj.optJSONArray("reminders") ?: return listOf(obj)
         return (0 until list.length()).mapNotNull { list.optJSONObject(it) }
     }
