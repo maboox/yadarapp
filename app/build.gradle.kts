@@ -11,8 +11,8 @@ android {
         applicationId = "com.yadavard.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 28
-        versionName = "2.6.1"
+        versionCode = 29
+        versionName = "2.7.0"
     }
     // One fixed key for every build so each new APK installs over the previous one without losing data.
     // It is intentionally public: this app is distributed as a personal sideloaded APK, not via a store.

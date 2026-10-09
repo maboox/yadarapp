@@ -12,6 +12,7 @@ sealed class AssistantAction {
     data class Update(val before: Reminder, val after: Reminder) : AssistantAction()
     data class Delete(val target: Reminder) : AssistantAction()
     data class Complete(val target: Reminder) : AssistantAction()
+    data class Miss(val target: Reminder) : AssistantAction()
     data class Postpone(val target: Reminder, val minutes: Int) : AssistantAction()
 
     /** A one-time reminder whose time already passed cannot be saved as is. */
@@ -48,6 +49,8 @@ object Assistant {
                 if (r.needsAttention(now)) add("OVERDUE")
                 if (r.leadMinutes > 0) add("lead=${r.leadMinutes}m")
                 if (r.nagMinutes > 0) add("nag=${r.nagMinutes}m")
+                if (r.missed) add("ENDED_NOT_DONE")
+                if (r.completedCount > 0 || r.missedCount > 0) add("done_count=${r.completedCount},missed_count=${r.missedCount}")
             }.joinToString(",")
             return "#${r.id} | ${r.title} | next: $whenText | $flags" + if (r.note.isNotBlank()) " | note: ${r.note.take(60)}" else ""
         }
@@ -143,6 +146,7 @@ object Assistant {
                 is AssistantAction.Update -> Repo.save(context, a.after)
                 is AssistantAction.Delete -> Repo.delete(context, a.target)
                 is AssistantAction.Complete -> Repo.complete(context, a.target.id)
+                is AssistantAction.Miss -> Repo.miss(context, a.target.id)
                 is AssistantAction.Postpone -> {
                     val r = Repo.get(context, a.target.id) ?: return@forEach
                     if (r.pendingAt > 0) Repo.snooze(context, r.id, a.minutes)

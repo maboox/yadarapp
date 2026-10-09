@@ -52,6 +52,7 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
     var filter by rememberSaveable { mutableStateOf<String?>(null) }
     var showDone by rememberSaveable { mutableStateOf(false) }
     var showFar by rememberSaveable { mutableStateOf(false) }
+    var showMissed by rememberSaveable { mutableStateOf(false) }
 
     val visible = remember(items, query, filter) {
         items.filter { r ->
@@ -170,15 +171,24 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
             }
             if (showDone) items(sections.done, key = { "done_${it.reminder.id}" }) { e -> ReminderCard(e, now, actions, Modifier.animateItem()) }
         }
+        if (sections.missed.isNotEmpty()) {
+            item(key = "h_missed") {
+                SectionHeader(t("انجام‌نشده", "Not done"), sections.missed.size, MaterialTheme.colorScheme.error.copy(alpha = 0.8f)) {
+                    TextButton(onClick = { showMissed = !showMissed }) { Text(if (showMissed) t("پنهان", "Hide") else t("نمایش", "Show")) }
+                }
+            }
+            if (showMissed) items(sections.missed, key = { "missed_${it.reminder.id}" }) { e -> ReminderCard(e, now, actions, Modifier.animateItem()) }
+        }
     }
 }
 
 private class Sections(
     val attention: List<Entry>, val today: List<Entry>, val tomorrow: List<Entry>,
-    val week: List<Entry>, val later: List<Entry>, val far: List<Entry>, val done: List<Entry>, val todayCount: Int, val weekCount: Int,
+    val week: List<Entry>, val later: List<Entry>, val far: List<Entry>, val done: List<Entry>, val missed: List<Entry>,
+    val todayCount: Int, val weekCount: Int,
 ) {
     val isEmpty get() = attention.isEmpty() && today.isEmpty() && tomorrow.isEmpty() && week.isEmpty() && later.isEmpty() &&
-        far.isEmpty() && done.isEmpty()
+        far.isEmpty() && done.isEmpty() && missed.isEmpty()
 }
 
 private fun buildSections(items: List<Reminder>, now: Long, zone: ZoneId): Sections {
@@ -205,8 +215,9 @@ private fun buildSections(items: List<Reminder>, now: Long, zone: ZoneId): Secti
     // Each reminder counts once, however many times it repeats in the period.
     val todayCount = active.count { it.needsAttention(now) || Recurrence.occurrencesIn(it, dayStart, tomorrowStart, 1).isNotEmpty() }
     val weekCount = active.count { Recurrence.occurrencesIn(it, now, weekEnd, 1).isNotEmpty() }
-    val done = items.filter { it.done }.sortedByDescending { it.completedAt }.take(50).map { Entry(it, it.nextAt, false) }
-    return Sections(attention, todayList, tomorrow, week, later, far, done, todayCount, weekCount)
+    val done = items.filter { it.done && !it.missed }.sortedByDescending { it.completedAt }.take(50).map { Entry(it, it.nextAt, false) }
+    val missed = items.filter { it.done && it.missed }.sortedByDescending { it.completedAt }.take(50).map { Entry(it, it.nextAt, false) }
+    return Sections(attention, todayList, tomorrow, week, later, far, done, missed, todayCount, weekCount)
 }
 
 @Composable

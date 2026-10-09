@@ -127,11 +127,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun complete(r: Reminder) = io { Repo.complete(context, r.id) }
     fun snooze(r: Reminder, minutes: Int) = io { Repo.snooze(context, r.id, minutes) }
     fun skip(r: Reminder) = io { Repo.skip(context, r.id) }
+    fun miss(r: Reminder) = io { Repo.miss(context, r.id) }
+    /** Undo of "done" / "not done": the earlier state comes back and the recorded outcome is forgotten. */
+    fun undoOutcome(r: Reminder) = io { Repo.undoOutcome(context, r) }
     /** Restores an exact earlier state, used by "Undo". */
     fun restore(r: Reminder) = io { Repo.save(context, r) }
 }
 
-enum class Tab { HOME, CALENDAR, SETTINGS }
+enum class Tab { HOME, CALENDAR, STATS, SETTINGS }
 
 /** What the editor is opened with: an existing reminder or a pre-filled draft for a new one. */
 data class EditorRequest(val original: Reminder?, val draft: Reminder?, val key: Long = System.nanoTime())
@@ -223,7 +226,16 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                     snackbar.currentSnackbarData?.dismiss()
                     val res = snackbar.showSnackbar(t("«${r.title}» انجام شد ✓", "“${r.title}” done ✓"), t("برگرداندن", "Undo"),
                         duration = SnackbarDuration.Long)
-                    if (res == SnackbarResult.ActionPerformed) vm.restore(r)
+                    if (res == SnackbarResult.ActionPerformed) vm.undoOutcome(r)
+                }
+            },
+            miss = { r ->
+                vm.miss(r)
+                scope.launch {
+                    snackbar.currentSnackbarData?.dismiss()
+                    val res = snackbar.showSnackbar(t("«${r.title}» انجام نشد (در آمار ثبت شد)", "“${r.title}” marked not done"), t("برگرداندن", "Undo"),
+                        duration = SnackbarDuration.Long)
+                    if (res == SnackbarResult.ActionPerformed) vm.undoOutcome(r)
                 }
             },
             delete = { r ->
@@ -255,12 +267,14 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                         icon = { Icon(if (tab == Tab.HOME) Icons.Rounded.Home else Icons.Outlined.OutlinedHome, null) }, label = { Text(t("خانه", "Home")) })
                     NavigationBarItem(selected = tab == Tab.CALENDAR, onClick = { tab = Tab.CALENDAR },
                         icon = { Icon(Icons.Rounded.CalendarMonth, null) }, label = { Text(t("تقویم", "Calendar")) })
+                    NavigationBarItem(selected = tab == Tab.STATS, onClick = { tab = Tab.STATS },
+                        icon = { Icon(Icons.Rounded.Insights, null) }, label = { Text(t("آمار", "Stats")) })
                     NavigationBarItem(selected = tab == Tab.SETTINGS, onClick = { tab = Tab.SETTINGS },
                         icon = { Icon(Icons.Rounded.Settings, null) }, label = { Text(t("تنظیمات", "Settings")) })
                 }
             },
             floatingActionButton = {
-                if (tab != Tab.SETTINGS) ExtendedFloatingActionButton(
+                if (tab == Tab.HOME || tab == Tab.CALENDAR) ExtendedFloatingActionButton(
                     onClick = {
                         val draft = if (tab == Tab.CALENDAR && calendarDay != LocalDate.now()) draftOn(calendarDay) else null
                         editor = EditorRequest(null, draft)
@@ -274,6 +288,7 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                     Tab.HOME -> HomeScreen(items, now, padding, actions, quickText, { quickText = it }, permissionTick,
                         onFixPermissions = { tab = Tab.SETTINGS })
                     Tab.CALENDAR -> CalendarScreen(items, now, padding, calendarDay, { calendarDay = it }, actions)
+                    Tab.STATS -> StatsScreen(items, now, padding)
                     Tab.SETTINGS -> SettingsScreen(padding, items.size, permissionTick, onPermissionChanged = { permissionTick++ })
                 }
             }
@@ -311,6 +326,7 @@ class ReminderActions(
     val delete: (Reminder) -> Unit,
     val snooze: (Reminder, Int) -> Unit,
     val skip: (Reminder) -> Unit,
+    val miss: (Reminder) -> Unit,
     val saved: (Reminder) -> Unit,
     val voice: () -> Unit,
     val saveDirect: (Reminder) -> Unit,

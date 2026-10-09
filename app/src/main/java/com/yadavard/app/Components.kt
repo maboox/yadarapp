@@ -78,8 +78,11 @@ fun ReminderCard(entry: Entry, now: Long, actions: ReminderActions, modifier: Mo
                 else -> base.copy(alpha = 0.35f)
             }, label = "swipe")
             val scale by animateFloatAsState(if (ready) 1.25f else 1f, label = "icon")
+            // The label sits on the side the card uncovers. Swipe directions follow the physical drag, so in
+            // right-to-left layouts the uncovered side is the opposite of the layout's start/end.
+            val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
             Box(Modifier.fillMaxSize().clip(RoundedCornerShape(22.dp)).background(color).padding(horizontal = 20.dp),
-                contentAlignment = if (done) Alignment.CenterStart else Alignment.CenterEnd) {
+                contentAlignment = if (done != rtl) Alignment.CenterStart else Alignment.CenterEnd) {
                 if (direction != SwipeToDismissBoxValue.Settled) Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(if (done) Icons.Rounded.CheckCircle else Icons.Rounded.DeleteForever, null, tint = Color.White,
                         modifier = Modifier.size(26.dp).scale(scale))
@@ -139,7 +142,10 @@ private fun ReminderCardBody(entry: Entry, now: Long, actions: ReminderActions, 
                     val today = LocalDate.now(zone)
                     val date = Dates.localDate(entry.at, zone)
                     val text = buildString {
-                        if (r.done) {
+                        if (r.missed) {
+                            append(t("انجام نشد ", "Not done "))
+                            if (r.completedAt > 0) append(Dates.relative(r.completedAt, now, AppDisplay.language))
+                        } else if (r.done) {
                             append(t("انجام شد ", "Done "))
                             if (r.completedAt > 0) append(Dates.relative(r.completedAt, now, AppDisplay.language))
                         } else {
@@ -149,6 +155,16 @@ private fun ReminderCardBody(entry: Entry, now: Long, actions: ReminderActions, 
                         }
                     }
                     Text(text, style = MaterialTheme.typography.bodySmall, color = timeColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                if (entry.attention && !r.done) {
+                    Spacer(Modifier.height(6.dp))
+                    // Quick way to record that this one passed without being done (kept for statistics).
+                    Row(Modifier.clip(RoundedCornerShape(10.dp)).border(1.dp, scheme.error.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                        .clickable { actions.miss(r) }.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.EventBusy, null, tint = scheme.error, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(t("انجام نشد", "Not done"), color = scheme.error, fontSize = 12.sp)
+                    }
                 }
                 if (r.unit != RepeatUnit.NONE || r.alertStyle == AlertStyle.ALARM || r.snoozeAt > 0) {
                     Spacer(Modifier.height(5.dp))
@@ -163,12 +179,16 @@ private fun ReminderCardBody(entry: Entry, now: Long, actions: ReminderActions, 
                 IconButton(onClick = { actions.complete(r) }) {
                     Box(Modifier.size(26.dp).clip(CircleShape).border(2.dp, color.copy(alpha = 0.7f), CircleShape))
                 }
+            } else if (r.missed) {
+                IconButton(onClick = { actions.open(r) }) { Icon(Icons.Rounded.EventBusy, null, tint = scheme.error) }
             } else {
                 IconButton(onClick = { actions.open(r) }) { Icon(Icons.Rounded.CheckCircle, null, tint = scheme.secondary) }
             }
             DropdownMenu(menu, onDismissRequest = { menu = false }) {
                 if (!r.done) DropdownMenuItem(text = { Text(t("انجام شد", "Mark done")) }, leadingIcon = { Icon(Icons.Rounded.Check, null) },
                     onClick = { menu = false; actions.complete(r) })
+                if (!r.done) DropdownMenuItem(text = { Text(t("انجام نشد (ثبت در آمار)", "Not done (keep in stats)")) },
+                    leadingIcon = { Icon(Icons.Rounded.EventBusy, null) }, onClick = { menu = false; actions.miss(r) })
                 if (!r.done && entry.attention) listOf(10, 60).forEach { m ->
                     DropdownMenuItem(text = { Text(if (m == 60) t("یک ساعت بعد یادم بنداز", "Remind in 1 hour") else t("${n(m)} دقیقه بعد", "Remind in $m min")) },
                         leadingIcon = { Icon(Icons.Rounded.Snooze, null) }, onClick = { menu = false; actions.snooze(r, m) })

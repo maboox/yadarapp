@@ -212,6 +212,7 @@ private fun ActionBubble(a: AssistantAction, now: Long, onTouched: () -> Unit) {
         is AssistantAction.Update -> Triple(t("ویرایش", "Edit"), scheme.tertiary, Icons.Rounded.Edit)
         is AssistantAction.Delete -> Triple(t("حذف", "Delete"), scheme.error, Icons.Rounded.DeleteOutline)
         is AssistantAction.Complete -> Triple(t("انجام شد", "Done"), scheme.secondary, Icons.Rounded.CheckCircle)
+        is AssistantAction.Miss -> Triple(t("انجام نشد", "Not done"), scheme.error, Icons.Rounded.EventBusy)
         is AssistantAction.Postpone -> Triple(t("تعویق", "Postpone"), scheme.tertiary, Icons.Rounded.Snooze)
     }
     val r = when (a) {
@@ -219,6 +220,7 @@ private fun ActionBubble(a: AssistantAction, now: Long, onTouched: () -> Unit) {
         is AssistantAction.Update -> a.after
         is AssistantAction.Delete -> a.target
         is AssistantAction.Complete -> a.target
+        is AssistantAction.Miss -> a.target
         is AssistantAction.Postpone -> a.target
     }
     val zone = r.zoneId

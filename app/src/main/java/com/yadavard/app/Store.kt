@@ -11,9 +11,24 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.time.ZoneId
 
-/** Local SQLite storage. Version 5 replaces the older schema and migrates its rows in place. */
-class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db", null, 5) {
-    override fun onCreate(db: SQLiteDatabase) = createTable(db)
+/** One recorded outcome of an occurrence, used for statistics. */
+data class HistoryEntry(val reminderId: Long, val title: String, val category: String, val repeating: Boolean,
+                        val occurrenceAt: Long, val done: Boolean, val recordedAt: Long)
+
+/**
+ * Local SQLite storage. Version 5 replaced the older schema; version 6 adds "missed" counters and the
+ * outcome history in place, keeping every row.
+ */
+class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db", null, 6) {
+    override fun onCreate(db: SQLiteDatabase) { createTable(db); createHistory(db) }
+
+    private fun createHistory(db: SQLiteDatabase) {
+        db.execSQL("""CREATE TABLE IF NOT EXISTS history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, reminder_id INTEGER NOT NULL, title TEXT NOT NULL,
+            category TEXT NOT NULL, repeating INTEGER NOT NULL DEFAULT 0, occurrence_at INTEGER NOT NULL,
+            outcome TEXT NOT NULL, recorded_at INTEGER NOT NULL)""")
+        db.execSQL("CREATE INDEX IF NOT EXISTS history_time ON history(recorded_at)")
+    }
 
     private fun createTable(db: SQLiteDatabase) {
         db.execSQL("""CREATE TABLE reminders (
@@ -29,10 +44,18 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
             done INTEGER NOT NULL DEFAULT 0, completed_at INTEGER NOT NULL DEFAULT 0,
             completed_count INTEGER NOT NULL DEFAULT 0,
             pending_at INTEGER NOT NULL DEFAULT 0, alerted_at INTEGER NOT NULL DEFAULT 0,
-            snooze_at INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL DEFAULT 0)""")
+            snooze_at INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL DEFAULT 0,
+            missed_count INTEGER NOT NULL DEFAULT 0, missed INTEGER NOT NULL DEFAULT 0)""")
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        if (oldVersion >= 5) {
+            // 5 → 6: new columns and the history table; existing rows stay untouched.
+            runCatching { db.execSQL("ALTER TABLE reminders ADD COLUMN missed_count INTEGER NOT NULL DEFAULT 0") }
+            runCatching { db.execSQL("ALTER TABLE reminders ADD COLUMN missed INTEGER NOT NULL DEFAULT 0") }
+            createHistory(db)
+            return
+        }
         // Older versions (1-4) all used a "reminders" table with a subset of these columns.
         val migrated = mutableListOf<Reminder>()
         runCatching {
@@ -68,6 +91,7 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
         db.execSQL("DROP TABLE IF EXISTS reminders_local")
         createTable(db)
         migrated.forEach { db.insertOrThrow("reminders", null, values(it).apply { put("id", it.id) }) }
+        createHistory(db)
     }
 
     private fun values(r: Reminder) = ContentValues().apply {
@@ -80,7 +104,7 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
         put("zone", r.zone); put("calendar_type", r.calendar.name)
         put("done", if (r.done) 1 else 0); put("completed_at", r.completedAt); put("completed_count", r.completedCount)
         put("pending_at", r.pendingAt); put("alerted_at", r.alertedAt); put("snooze_at", r.snoozeAt)
-        put("created_at", r.createdAt)
+        put("created_at", r.createdAt); put("missed_count", r.missedCount); put("missed", if (r.missed) 1 else 0)
     }
 
     @Synchronized
@@ -120,7 +144,32 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
             calendar = runCatching { CalendarSystem.valueOf(str("calendar_type")) }.getOrDefault(CalendarSystem.PERSIAN),
             done = int("done") == 1, completedAt = long("completed_at"), completedCount = int("completed_count"),
             pendingAt = long("pending_at"), alertedAt = long("alerted_at"), snoozeAt = long("snooze_at"),
-            createdAt = long("created_at"))
+            createdAt = long("created_at"), missedCount = int("missed_count"), missed = int("missed") == 1)
+    }
+
+    @Synchronized
+    fun record(r: Reminder, occurrenceAt: Long, done: Boolean, now: Long) {
+        writableDatabase.insert("history", null, ContentValues().apply {
+            put("reminder_id", r.id); put("title", r.title); put("category", r.category)
+            put("repeating", if (r.unit != RepeatUnit.NONE) 1 else 0); put("occurrence_at", occurrenceAt)
+            put("outcome", if (done) "DONE" else "MISSED"); put("recorded_at", now)
+        })
+    }
+
+    /** Removes the newest outcome of a reminder (used by "Undo"). */
+    @Synchronized
+    fun unrecordLast(reminderId: Long) {
+        writableDatabase.execSQL("DELETE FROM history WHERE id = (SELECT MAX(id) FROM history WHERE reminder_id = ?)", arrayOf<Any>(reminderId))
+    }
+
+    fun history(since: Long = 0): List<HistoryEntry> = readableDatabase.query("history", null, "recorded_at >= ?",
+        arrayOf(since.toString()), null, null, "recorded_at ASC").use { c ->
+        buildList {
+            while (c.moveToNext()) add(HistoryEntry(c.getLong(c.getColumnIndexOrThrow("reminder_id")), c.getString(c.getColumnIndexOrThrow("title")),
+                c.getString(c.getColumnIndexOrThrow("category")), c.getInt(c.getColumnIndexOrThrow("repeating")) == 1,
+                c.getLong(c.getColumnIndexOrThrow("occurrence_at")), c.getString(c.getColumnIndexOrThrow("outcome")) == "DONE",
+                c.getLong(c.getColumnIndexOrThrow("recorded_at"))))
+        }
     }
 }
 
@@ -159,8 +208,34 @@ object Repo {
         val r = get(context, id) ?: return null
         if (r.done) return r
         Notifier.cancel(context, id)
-        return save(context, ReminderLogic.complete(r, System.currentTimeMillis()))
+        val now = System.currentTimeMillis()
+        runCatching { store(context).record(r, ReminderLogic.occurrence(r).takeIf { it > 0 } ?: now, true, now) }
+        return save(context, ReminderLogic.complete(r, now))
     }
+
+    /** "Not done": the occurrence passed without being done. Recorded for statistics, unlike delete. */
+    fun miss(context: Context, id: Long): Reminder? {
+        val r = get(context, id) ?: return null
+        if (r.done) return r
+        Notifier.cancel(context, id)
+        val now = System.currentTimeMillis()
+        runCatching { store(context).record(r, ReminderLogic.occurrence(r).takeIf { it > 0 } ?: now, false, now) }
+        return save(context, ReminderLogic.miss(r, now))
+    }
+
+    /** Records an earlier pending occurrence that a new one replaced without being done. */
+    fun recordSuperseded(context: Context, r: Reminder, at: Long) {
+        if (r.repeating && r.pendingAt > 0 && r.pendingAt != at)
+            runCatching { store(context).record(r, r.pendingAt, false, System.currentTimeMillis()) }
+    }
+
+    /** Undo of "done" / "not done": restores the earlier state and forgets the recorded outcome. */
+    fun undoOutcome(context: Context, previous: Reminder) {
+        runCatching { store(context).unrecordLast(previous.id) }
+        save(context, previous)
+    }
+
+    fun history(context: Context, since: Long = 0): List<HistoryEntry> = runCatching { store(context).history(since) }.getOrDefault(emptyList())
 
     fun snooze(context: Context, id: Long, minutes: Int): Reminder? {
         val r = get(context, id) ?: return null
@@ -196,7 +271,7 @@ object Backup {
         put("untilAt", r.untilAt ?: JSONObject.NULL); put("leadMinutes", r.leadMinutes); put("nagMinutes", r.nagMinutes)
         put("zone", r.zone); put("calendar", r.calendar.name); put("done", r.done); put("completedAt", r.completedAt)
         put("completedCount", r.completedCount); put("pendingAt", r.pendingAt); put("alertedAt", r.alertedAt)
-        put("snoozeAt", r.snoozeAt); put("createdAt", r.createdAt)
+        put("snoozeAt", r.snoozeAt); put("createdAt", r.createdAt); put("missedCount", r.missedCount); put("missed", r.missed)
     }
 
     fun fromJson(v: JSONObject): Reminder = Reminder(id = v.optLong("id"), title = v.getString("title"), note = v.optString("note"),
@@ -211,7 +286,7 @@ object Backup {
         calendar = runCatching { CalendarSystem.valueOf(v.optString("calendar")) }.getOrDefault(CalendarSystem.PERSIAN),
         done = v.optBoolean("done"), completedAt = v.optLong("completedAt"), completedCount = v.optInt("completedCount"),
         pendingAt = v.optLong("pendingAt"), alertedAt = v.optLong("alertedAt"), snoozeAt = v.optLong("snoozeAt"),
-        createdAt = v.optLong("createdAt", System.currentTimeMillis()))
+        createdAt = v.optLong("createdAt", System.currentTimeMillis()), missedCount = v.optInt("missedCount"), missed = v.optBoolean("missed"))
 
     /** Debounced automatic backup to Download/Yadar, which survives uninstalling the app. */
     fun scheduleAuto(context: Context) {
@@ -254,7 +329,7 @@ object Backup {
                 put("untilAt", r.untilAt ?: JSONObject.NULL); put("leadMinutes", r.leadMinutes)
                 put("nagMinutes", r.nagMinutes); put("zone", r.zone); put("calendar", r.calendar.name)
                 put("done", r.done); put("lastCompletedAt", r.completedAt); put("completedCount", r.completedCount)
-                put("createdAt", r.createdAt)
+                put("createdAt", r.createdAt); put("missedCount", r.missedCount); put("missed", r.missed)
             }) }
         }).toString(2)
 
@@ -289,7 +364,8 @@ object Backup {
                 leadMinutes = v.optInt("leadMinutes").coerceIn(0, 525_600), nagMinutes = v.optInt("nagMinutes").coerceIn(0, 1440),
                 zone = zone, calendar = runCatching { CalendarSystem.valueOf(v.optString("calendar", "PERSIAN")) }.getOrDefault(CalendarSystem.PERSIAN),
                 done = v.optBoolean("done"), completedAt = v.optLong("lastCompletedAt"),
-                completedCount = v.optInt("completedCount"), createdAt = v.optLong("createdAt", now))
+                completedCount = v.optInt("completedCount"), createdAt = v.optLong("createdAt", now),
+                missedCount = v.optInt("missedCount"), missed = v.optBoolean("missed"))
             // A restored repeating series continues from its next future occurrence instead of replaying the past.
             if (!r.done && r.repeating && r.nextAt in 1 until now) r = r.copy(nextAt = Recurrence.nextAfter(r, now) ?: 0L,
                 done = Recurrence.nextAfter(r, now) == null)

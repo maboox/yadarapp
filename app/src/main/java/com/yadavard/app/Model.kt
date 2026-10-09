@@ -38,6 +38,10 @@ data class Reminder(
     val done: Boolean = false,
     val completedAt: Long = 0,
     val completedCount: Int = 0,
+    /** Occurrences that passed without being done (marked "not done" or superseded by the next one). */
+    val missedCount: Int = 0,
+    /** A finished one-time reminder that was not done; shown apart from completed ones and not counted. */
+    val missed: Boolean = false,
     /** Occurrence that has alerted and waits for "done"; 0 = nothing pending. */
     val pendingAt: Long = 0,
     /** When the last alert for [pendingAt] was shown. */
@@ -66,7 +70,7 @@ data class Reminder(
 object ReminderLogic {
     fun complete(r: Reminder, now: Long): Reminder {
         val base = r.copy(completedAt = now, completedCount = r.completedCount + 1,
-            snoozeAt = 0, pendingAt = 0, alertedAt = 0)
+            snoozeAt = 0, pendingAt = 0, alertedAt = 0, missed = false)
         return when {
             r.unit == RepeatUnit.NONE -> base.copy(done = true)
             r.unit == RepeatUnit.AFTER_DONE_DAYS -> base.copy(nextAt = afterDone(r, now))
@@ -74,6 +78,27 @@ object ReminderLogic {
             r.pendingAt > 0 -> base
             else -> {
                 // Completing an upcoming occurrence early (for example a bill paid ahead of time).
+                val next = Recurrence.nextAfter(r, r.nextAt)
+                if (next == null) base.copy(done = true) else base.copy(nextAt = next)
+            }
+        }
+    }
+
+    /** The occurrence a "done" or "not done" applies to: the pending one, otherwise the upcoming one. */
+    fun occurrence(r: Reminder): Long = if (r.pendingAt > 0) r.pendingAt else r.nextAt
+
+    /**
+     * Marks the current occurrence as not done ("missed"). It is recorded, unlike deleting: a one-time
+     * reminder ends as missed; a repeating one moves on to its next occurrence.
+     */
+    fun miss(r: Reminder, now: Long): Reminder {
+        val base = r.copy(missedCount = r.missedCount + 1, snoozeAt = 0, pendingAt = 0, alertedAt = 0)
+        return when {
+            r.unit == RepeatUnit.NONE -> base.copy(done = true, missed = true, completedAt = now)
+            r.unit == RepeatUnit.AFTER_DONE_DAYS -> base.copy(nextAt = afterDone(r, now))
+            r.nextAt == 0L -> base.copy(done = true)
+            r.pendingAt > 0 -> base
+            else -> {
                 val next = Recurrence.nextAfter(r, r.nextAt)
                 if (next == null) base.copy(done = true) else base.copy(nextAt = next)
             }
@@ -96,7 +121,10 @@ object ReminderLogic {
     /** Called when the occurrence at [at] fires. Repeating series move straight to their next occurrence. */
     fun onDue(r: Reminder, at: Long, now: Long): Reminder {
         val next = if (r.repeating) Recurrence.nextAfter(r, maxOf(now, at)) ?: 0L else r.nextAt
-        return r.copy(nextAt = next, pendingAt = at, alertedAt = now, snoozeAt = 0)
+        // A still-pending earlier occurrence is replaced by this one, so it counts as missed.
+        val superseded = r.repeating && r.pendingAt > 0 && r.pendingAt != at
+        return r.copy(nextAt = next, pendingAt = at, alertedAt = now, snoozeAt = 0,
+            missedCount = r.missedCount + if (superseded) 1 else 0)
     }
 
     fun afterDone(r: Reminder, now: Long): Long {

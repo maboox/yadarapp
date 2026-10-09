@@ -326,7 +326,7 @@ Fields of each reminder (use null for anything the user did not mention):
 - category: one key from this list, the best fit for the task (medicine/pills → MEDICINE, doctor/dentist/clinic → DOCTOR, gym/running → SPORT…); GENERAL if nothing fits: ${Categories.promptList(context)}
 - important: true only if the user says it is important/urgent/مهم/فوری
 - alert_style: "ALARM" if the user asks for an alarm, ringing, loud sound, full screen, wake me up, زنگ, آلارم, تمام صفحه, با صدا, بیدارم کن; "NOTIFICATION" if they explicitly ask for a normal/silent notification; otherwise null
-- lead_minutes: advance notice in minutes if the user asks to be told earlier (e.g. "۱۰ دقیقه قبلش خبرم کن" = 10, "یه روز قبل" = 1440), else null
+- lead_minutes: advance notice in minutes if the user asks to be told earlier (e.g. "۱۰ دقیقه قبلش خبرم کن" = 10, "یه روز قبل" = 1440, "یک هفته قبل" = 10080), else null
 - nag_minutes: if the user asks to keep reminding until done ("تا انجامش ندادم هر ۵ دقیقه یادم بنداز"), the interval in minutes (default 10), else null
 Rules: "every 20 days" = DAYS/every=20; "20th of every month" = MONTHS/month_day=20; "every 8 hours" = HOURS/every=8; "10 days after I do it" = AFTER_DONE_DAYS/every=10.
 Default times: morning 09:00, noon 12:00, afternoon 16:00, evening 18:00, night 21:00; a date without a time = 09:00.
@@ -379,6 +379,7 @@ Action objects:
 - {"type":"update","id":<id>,"changes":{...only the fields that change...}}
 - {"type":"delete","id":<id>}   when the user cancels/deletes/removes something
 - {"type":"complete","id":<id>} when the user says it is done
+- {"type":"missed","id":<id>} when the user says they did NOT do it / missed it / it passed (انجام ندادم، قضا شد، از دستم رفت); this is recorded, unlike delete
 - {"type":"postpone","id":<id>,"minutes":<n>} when the user says remind me later / postpone by some time
 Keep the JSON compact: leave out every field that is null, empty or not mentioned.
 Reminder and change fields (omit when not mentioned):
@@ -422,6 +423,7 @@ User: $text"""
                     }
                     "delete" -> if (target != null) actions += AssistantAction.Delete(target)
                     "complete", "done" -> if (target != null && !target.done) actions += AssistantAction.Complete(target)
+                    "missed", "miss", "not_done" -> if (target != null && !target.done) actions += AssistantAction.Miss(target)
                     "postpone", "snooze" -> if (target != null) actions += AssistantAction.Postpone(target, a.optInt("minutes", 60).coerceIn(1, 60 * 24 * 30))
                 }
             }

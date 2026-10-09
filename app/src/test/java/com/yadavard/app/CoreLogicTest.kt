@@ -117,6 +117,24 @@ class CoreLogicTest {
         assertFalse(c.done)
     }
 
+    @Test fun missed() {
+        val now = at(2026, 10, 7, 9)
+        val once = ReminderLogic.onDue(Reminder(title = "x", firstAt = now, zone = zone.id), now, now)
+        val m = ReminderLogic.miss(once, now + 5)
+        assertTrue(m.done); assertTrue(m.missed); assertEquals(1, m.missedCount); assertEquals(0, m.completedCount)
+
+        val daily = Reminder(title = "x", firstAt = now, unit = RepeatUnit.DAYS, zone = zone.id)
+        val fired = ReminderLogic.onDue(daily, now, now)
+        val skipped = ReminderLogic.miss(fired, now + 1)
+        assertFalse(skipped.done); assertEquals(0L, skipped.pendingAt); assertEquals(at(2026, 10, 8, 9), skipped.nextAt)
+        assertEquals(1, skipped.missedCount)
+        // The next day fires while yesterday's is still pending: yesterday counts as missed.
+        val next = at(2026, 10, 8, 9)
+        val superseded = ReminderLogic.onDue(fired, next, next)
+        assertEquals(1, superseded.missedCount); assertEquals(next, superseded.pendingAt)
+        assertFalse(ReminderLogic.complete(m.copy(done = false), now).missed)
+    }
+
     @Test fun dailyDetection() {
         val base = Reminder(title = "x", firstAt = at(2026, 10, 7, 9), zone = zone.id)
         assertTrue(base.copy(unit = RepeatUnit.DAYS).isDaily)

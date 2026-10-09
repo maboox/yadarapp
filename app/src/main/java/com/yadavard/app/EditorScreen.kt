@@ -287,7 +287,7 @@ fun EditorScreen(request: EditorRequest, onClose: () -> Unit, onSave: (Reminder)
                     Hint(if (alert == AlertStyle.ALARM) t("مثل ساعت زنگ‌دار، با صدا و صفحهٔ کامل حتی روی صفحهٔ قفل.", "Rings like an alarm clock, full screen even on the lock screen.")
                         else t("اعلان معمولی با صدا و لرزش.", "A regular notification with sound and vibration."))
                     Text(t("یادآوری زودتر", "Advance notice"), style = MaterialTheme.typography.labelLarge)
-                    ChoiceChips(listOf(0, 5, 15, 30, 60, 1440), lead, ::leadLabel, { lead = it })
+                    ChoiceChips((listOf(0, 5, 15, 30, 60, 1440, 2880, 4320, 10080) + lead).distinct().sorted(), lead, ::leadLabel, { lead = it })
                 }
 
                 TextButton(onClick = { showMore = !showMore }) {

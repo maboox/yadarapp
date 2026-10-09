@@ -322,6 +322,7 @@ class AlarmReceiver : BroadcastReceiver() {
         when (kind) {
             AlarmKind.DUE -> {
                 if (r.nextAt != at || r.pendingAt == at) return
+                Repo.recordSuperseded(context, r, at)
                 val updated = Repo.save(context, ReminderLogic.onDue(r, at, now))
                 // An alarm that was missed long ago (phone off) does not start ringing.
                 val ring = r.alertStyle == AlertStyle.ALARM && now - at < 30 * 60_000L

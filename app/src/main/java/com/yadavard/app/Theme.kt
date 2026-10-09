@@ -140,5 +140,6 @@ fun leadLabel(minutes: Int): String = when {
     minutes <= 0 -> t("بدون", "None")
     minutes < 60 -> t("${n(minutes)} دقیقه", "$minutes min")
     minutes < 1440 -> t("${n(minutes / 60)} ساعت", "${minutes / 60} h")
+    minutes % 10080 == 0 -> t("${n(minutes / 10080)} هفته", "${minutes / 10080} wk")
     else -> t("${n(minutes / 1440)} روز", "${minutes / 1440} d")
 }
