@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -103,6 +104,7 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
             bottom = padding.calculateBottomPadding() + 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { Text(t("تنظیمات", "Settings"), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 4.dp)) }
+        item { AccountCard() }
 
         item {
             SettingsCard(t("سلامت اعلان‌ها", "Notification health"), Icons.Rounded.HealthAndSafety) {
@@ -256,23 +258,57 @@ private fun AiCard() {
     var search by remember { mutableStateOf("") }
     var freeOnly by remember { mutableStateOf(false) }
 
-    SettingsCard(t("دستیار هوشمند (اختیاری)", "Smart assistant (optional)"), Icons.Rounded.AutoAwesome) {
-        Text(t("ثبت سریع بدون اینترنت هم جمله‌های فارسی و انگلیسی را می‌فهمد. با کلید OpenRouter، دستیار یادار فعال می‌شود: با صدا یا متن یادآوری بساز، ویرایش کن، حذف کن، «انجام شد» بزن یا بپرس «این هفته چی دارم؟».",
-            "Quick add works offline. With an OpenRouter key the Yadar assistant can create, edit, delete and complete reminders by voice or text, and answer questions like “what do I have this week?”."),
+    val account by Account.profile.collectAsState()
+    var personal by remember { mutableStateOf(ai.personal) }
+    var advanced by rememberSaveable { mutableStateOf(ai.personal) }
+    var baseUrl by remember { mutableStateOf(ai.baseUrl) }
+    var server by remember { mutableStateOf(Account.server(context)) }
+
+    SettingsCard(t("دستیار هوشمند", "Smart assistant"), Icons.Rounded.AutoAwesome) {
+        Text(t("ثبت سریع بدون اینترنت هم جمله‌های فارسی و انگلیسی را می‌فهمد. با ورود به حساب، دستیار یادار فعال می‌شود: با صدا یا متن یادآوری بساز، ویرایش کن، حذف کن، «انجام شد» بزن یا بپرس «این هفته چی دارم؟».",
+            "Quick add works offline. Sign in to use the Yadar assistant: create, edit, delete and complete reminders by voice or text, and ask “what do I have this week?”."),
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(t("دستیار هوشمند برای متن ثبت سریع", "Use the assistant for typed quick add"), Modifier.weight(1f))
-            Switch(useAi, { useAi = it; Prefs.setUseAi(context, it) }, enabled = hasKey)
+            Switch(useAi && account != null, { useAi = it; Prefs.setUseAi(context, it) }, enabled = account != null)
         }
+        TextButton(onClick = { advanced = !advanced }) {
+            Icon(if (advanced) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null)
+            Spacer(Modifier.width(4.dp)); Text(t("پیشرفته", "Advanced"))
+        }
+        if (advanced) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(t("از هوش مصنوعی خودم استفاده کن", "Use my own AI"))
+                    Text(t("با کلید خودت (OpenRouter، اول‌ای‌آی، لیارا…) مستقیم وصل می‌شود و توکن یادار مصرف نمی‌کند. ورود به حساب همچنان لازم است.",
+                        "Connects directly with your own key (OpenRouter, AvalAI, Liara…) and uses no Yadar tokens. You still need to sign in."),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Spacer(Modifier.width(8.dp))
+                Switch(personal, { personal = it; ai.personal = it })
+            }
+        }
+        if (advanced && personal) {
+            Text(t("سرویس", "Provider"), style = MaterialTheme.typography.labelLarge)
+            val presets = listOf(OPENROUTER_URL to "OpenRouter", AVALAI_URL to t("اول‌ای‌آی", "AvalAI"))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                presets.forEach { (url, label) ->
+                    FilterChip(baseUrl == url, { baseUrl = url; ai.baseUrl = url }, { Text(label) })
+                }
+                FilterChip(presets.none { it.first == baseUrl }, { if (presets.any { it.first == baseUrl }) baseUrl = "" }, { Text(t("سفارشی", "Custom")) })
+            }
+            if (presets.none { it.first == baseUrl }) OutlinedTextField(baseUrl, { baseUrl = it; ai.baseUrl = it }, Modifier.fillMaxWidth(), singleLine = true,
+                label = { Text(t("آدرس API (سازگار با OpenAI)", "API address (OpenAI-compatible)")) },
+                placeholder = { Text("https://…/v1") }, shape = RoundedCornerShape(14.dp))
         OutlinedTextField(keyText, { keyText = it }, Modifier.fillMaxWidth(), singleLine = true,
-            label = { Text(if (hasKey) t("کلید ذخیره شده • برای تغییر وارد کن", "Key saved • type to replace") else t("کلید OpenRouter", "OpenRouter key")) },
+            label = { Text(if (hasKey) t("کلید ذخیره شده • برای تغییر وارد کن", "Key saved • type to replace") else t("کلید API", "API key")) },
             visualTransformation = PasswordVisualTransformation(), shape = RoundedCornerShape(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = {
-                if (keyText.isNotBlank()) { ai.saveKey(keyText); keyText = ""; hasKey = true; useAi = true; Prefs.setUseAi(context, true) }
+                if (keyText.isNotBlank()) { ai.saveKey(keyText); keyText = ""; hasKey = true }
                 Toast.makeText(context, t("ذخیره شد", "Saved"), Toast.LENGTH_SHORT).show()
             }) { Text(t("ذخیرهٔ کلید", "Save key")) }
-            if (hasKey) TextButton(onClick = { ai.saveKey(""); hasKey = false; useAi = false; Prefs.setUseAi(context, false) }) { Text(t("حذف کلید", "Remove key")) }
+            if (hasKey) TextButton(onClick = { ai.saveKey(""); hasKey = false }) { Text(t("حذف کلید", "Remove key")) }
         }
         if (hasKey) {
             var testing by remember { mutableStateOf(false) }
@@ -311,6 +347,15 @@ private fun AiCard() {
                 Text(t("مدل تبدیل صدا", "Voice model"))
                 Text(audioModel, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+        }
+        }
+        if (advanced) {
+            HorizontalDivider()
+            // Mainly for testing a new server before the app ships with its final address.
+            OutlinedTextField(server, { server = it }, Modifier.fillMaxWidth(), singleLine = true,
+                label = { Text(t("آدرس سرور یادار", "Yadar server address")) }, shape = RoundedCornerShape(14.dp),
+                trailingIcon = { TextButton(onClick = { Account.setServer(context, server); server = Account.server(context)
+                    Toast.makeText(context, t("ذخیره شد", "Saved"), Toast.LENGTH_SHORT).show() }) { Text(t("ذخیره", "Save")) } })
         }
     }
     if (picking) AlertDialog(onDismissRequest = { picking = false }, title = { Text(t("انتخاب مدل", "Choose model")) },

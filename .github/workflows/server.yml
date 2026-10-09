@@ -1,0 +1,43 @@
+name: Build server
+on:
+  push:
+    paths:
+      - 'server/**'
+      - '.github/workflows/server.yml'
+  workflow_dispatch:
+concurrency:
+  group: server-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - name: Test
+        run: go vet ./... && go test ./...
+      - name: Build static Linux binary
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o deploy/yadar-server .
+      - name: Package deploy folder
+        run: |
+          mkdir -p ../out
+          cd deploy && zip -r "../../out/yadar-server-${GITHUB_SHA::7}.zip" Dockerfile liara.json yadar-server
+      # Same approach as the APK: a per-branch release holds the ready-to-deploy zip.
+      - name: Publish as a GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BRANCH="${GITHUB_REF_NAME//\//-}"
+          TAG="server-${BRANCH}"
+          gh release delete "$TAG" --yes --cleanup-tag || true
+          gh release create "$TAG" ../out/yadar-server-*.zip --prerelease --target "$GITHUB_SHA" \
+            --title "Yadar server (${GITHUB_REF_NAME} @ ${GITHUB_SHA::7})" \
+            --notes "Unzip, then run 'liara deploy' inside the folder. See server/README.md."

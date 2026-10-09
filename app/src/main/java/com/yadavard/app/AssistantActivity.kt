@@ -40,7 +40,7 @@ class AssistantActivity : ComponentActivity() {
 
     @Composable
     private fun Host() {
-        val hasKey = remember { AiSettings(this).hasKey() }
+        val hasKey = remember { Ai.ready(this) }
         var recording by remember { mutableStateOf(false) }
         var showingBubbles by remember { mutableStateOf(false) }
         val session by AssistantSession.state.collectAsState()
@@ -57,8 +57,8 @@ class AssistantActivity : ComponentActivity() {
         LaunchedEffect(Unit) {
             when {
                 !hasKey -> runCatching { speech.launch(speechIntent(this@AssistantActivity)) }.onFailure {
-                    Toast.makeText(this@AssistantActivity, t("تشخیص گفتار در دسترس نیست. در تنظیمات یادار کلید OpenRouter را وارد کن.",
-                        "Speech recognition is unavailable. Add an OpenRouter key in Yadar settings."), Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@AssistantActivity, t("تشخیص گفتار در دسترس نیست. برای دستیار هوشمند در تنظیمات یادار وارد حسابت شو.",
+                        "Speech recognition is unavailable. Sign in in Yadar settings to use the smart assistant."), Toast.LENGTH_LONG).show()
                     finish()
                 }
                 ContextCompat.checkSelfPermission(this@AssistantActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED -> recording = true

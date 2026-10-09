@@ -58,12 +58,12 @@ object AssistantSession {
                 val keep = runCatching { File(app.cacheDir, "assistant-last.wav").also { file.copyTo(it, overwrite = true) } }.getOrNull()
                 lastAudio = keep
                 try { ai.transcribe(file) } catch (e: Exception) {
-                    fail(t("تبدیل صدا انجام نشد. ", "Could not transcribe. ") + (e.message ?: "")); return@launch
+                    fail(accountProblem(e) ?: (t("تبدیل صدا انجام نشد. ", "Could not transcribe. ") + (e.message ?: ""))); return@launch
                 }
             } else text.orEmpty()
             _state.value = _state.value.copy(stage = Stage.THINKING, heard = heard)
             val result = try { ai.assist(heard, history.toList()) } catch (e: Exception) {
-                fail(t("دستیار پاسخ نداد. ", "The assistant did not answer. ") + (e.message ?: "")); return@launch
+                fail(accountProblem(e) ?: (t("دستیار پاسخ نداد. ", "The assistant did not answer. ") + (e.message ?: ""))); return@launch
             }
             history.add(heard to result.reply)
             _state.value = _state.value.copy(stage = Stage.RESULT, reply = result.reply, actions = result.actions)
@@ -73,6 +73,14 @@ object AssistantSession {
                 if (_state.value.stage == Stage.RESULT && _state.value.actions.isEmpty()) dismiss()
             }
         }
+    }
+
+    /** Out of tokens or signed out: say so plainly instead of as a technical failure. */
+    private fun accountProblem(e: Exception): String? = when (e) {
+        is NoBalanceException -> t("توکن‌هایت تمام شده. از «تنظیمات ← حساب کاربری» موجودی را ببین و شارژ کن.",
+            "You are out of tokens. See Settings → Account to top up.")
+        is LoggedOutException -> e.message
+        else -> null
     }
 
     private fun fail(message: String) { _state.value = _state.value.copy(stage = Stage.ERROR, message = message) }

@@ -1,0 +1,8 @@
+{
+  "platform": "docker",
+  "app": "yadar-api",
+  "port": 8080,
+  "disks": [
+    { "name": "data", "mountTo": "/pb_data" }
+  ]
+}

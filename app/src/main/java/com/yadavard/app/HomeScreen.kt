@@ -240,7 +240,8 @@ private fun QuickAddCard(text: String, onText: (String) -> Unit, now: Long, acti
     val focus = LocalFocusManager.current
     val zone = ZoneId.systemDefault()
     var busy by remember { mutableStateOf(false) }
-    val useAi = remember { Prefs.useAi(context) && AiSettings(context).hasKey() }
+    val account by Account.profile.collectAsState()
+    val useAi = remember(account != null) { Prefs.useAi(context) && Ai.ready(context) }
     val custom = remember(Categories.all.size) { Categories.customPairs(context) }
     // Typing must never crash the app, whatever the parser thinks of a half-written sentence.
     val parsed = remember(text, now / 60_000, custom) {
@@ -291,7 +292,9 @@ private fun QuickAddCard(text: String, onText: (String) -> Unit, now: Long, acti
                     Spacer(Modifier.width(8.dp))
                     Text(t("یادآوری سریع", "Quick add"), color = Color.White, style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.weight(1f))
-                    if (useAi) Text("AI", color = Color.White.copy(alpha = 0.8f), fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                    // With Yadar tokens the badge shows the balance, so people see what is left.
+                    val badge = account?.takeIf { !AiSettings(context).personal }?.let { if (it.unlimited) "AI ∞" else "AI · " + tokensLabel(it.balance) } ?: "AI"
+                    if (useAi) Text(badge, color = Color.White.copy(alpha = 0.8f), fontSize = 11.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color.White.copy(alpha = 0.18f)).padding(horizontal = 6.dp, vertical = 1.dp))
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {

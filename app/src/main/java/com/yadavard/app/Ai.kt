@@ -68,7 +68,25 @@ class AiSettings(context: Context) {
     var audioModel: String
         get() = prefs.getString("audio_model", null)?.takeIf { it.isNotBlank() } ?: FALLBACK_AUDIO_MODEL
         set(value) { prefs.edit().putString("audio_model", value.trim()).apply() }
+
+    /**
+     * "Use my own AI": requests go straight from the phone to the user's own provider with their key and use no
+     * Yadar tokens. Off by default; people who already saved a key before accounts existed keep using it.
+     */
+    var personal: Boolean
+        get() = prefs.getBoolean("personal", hasKey())
+        set(value) { prefs.edit().putBoolean("personal", value).apply() }
+
+    /** OpenAI-compatible endpoint for the own key: OpenRouter, AvalAI, Liara… */
+    var baseUrl: String
+        get() = prefs.getString("base_url", null)?.takeIf { it.isNotBlank() }?.trimEnd('/') ?: OPENROUTER_URL
+        set(value) { prefs.edit().putString("base_url", value.trim().trimEnd('/')).apply() }
+
+    val isOpenRouter: Boolean get() = baseUrl.contains("openrouter.ai")
 }
+
+const val OPENROUTER_URL = "https://openrouter.ai/api/v1"
+const val AVALAI_URL = "https://api.avalai.ir/v1"
 
 /**
  * Records the user's voice as 16 kHz mono WAV inside the app, so no system assistant (such as Mi AI) is involved.
@@ -160,19 +178,19 @@ class OpenRouter(private val context: Context) {
 
     private fun fa() = Prefs.language(context) == AppLanguage.FA
     private fun requireKey(): String = settings.key()?.takeIf { it.isNotBlank() }
-        ?: error(if (fa()) "ابتدا کلید OpenRouter را در تنظیمات وارد کنید" else "Enter an OpenRouter key in settings first")
+        ?: error(if (fa()) "ابتدا کلید هوش مصنوعی خودت را در تنظیمات وارد کن" else "Enter your AI key in settings first")
 
     private fun read(conn: HttpURLConnection): String {
         val code = conn.responseCode
-        if (code in 300..399) error((if (fa()) "OpenRouter درخواست را جای دیگری فرستاد" else "OpenRouter redirected the request") +
+        if (code in 300..399) error((if (fa()) "سرویس هوش مصنوعی درخواست را جای دیگری فرستاد" else "The AI service redirected the request") +
             " ($code → ${conn.getHeaderField("Location")}). " + (if (fa()) "اگر VPN یا پروکسی روشن است، یک‌بار بدون آن امتحان کن." else "If a VPN or proxy is on, try without it."))
         val body = (if (code in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.use { it.readText() }.orEmpty()
-        if (code !in 200..299) error((if (fa()) "خطای OpenRouter" else "OpenRouter error") + " ($code): " + body.take(200))
+        if (code !in 200..299) error((if (fa()) "خطای سرویس هوش مصنوعی" else "AI service error") + " ($code): " + body.take(200))
         return body
     }
 
     suspend fun models(transcription: Boolean = false): List<Model> = withContext(Dispatchers.IO) {
-        val url = "https://openrouter.ai/api/v1/models" + if (transcription) "?output_modalities=all" else ""
+        val url = settings.baseUrl + "/models" + if (transcription && settings.isOpenRouter) "?output_modalities=all" else ""
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 15_000; readTimeout = 30_000
             setRequestProperty("Authorization", "Bearer ${requireKey()}")
@@ -189,7 +207,8 @@ class OpenRouter(private val context: Context) {
                     val inputs = item.optJSONObject("architecture")?.optJSONArray("input_modalities")
                     fun has(a: JSONArray?, v: String) = a != null && (0 until a.length()).any { a.optString(it) == v }
                     // Voice models must take audio in and give text out (excludes video/music generators).
-                    if (transcription) { if (!(has(inputs, "audio") && (outputs == null || has(outputs, "text"))) && !has(outputs, "transcription")) continue }
+                    // Providers other than OpenRouter may not describe modalities; then every model is listed.
+                    if (transcription && inputs != null) { if (!(has(inputs, "audio") && (outputs == null || has(outputs, "text"))) && !has(outputs, "transcription")) continue }
                     else if (outputs != null && !has(outputs, "text")) continue
                     val pricing = item.optJSONObject("pricing")
                     val free = id.endsWith(":free") || (pricing != null && pricing.length() > 0 &&
@@ -205,6 +224,11 @@ class OpenRouter(private val context: Context) {
      * (for example Whisper) use the transcription endpoint, falling back to a multimodal model if that fails.
      */
     suspend fun transcribe(file: java.io.File): String = withContext(Dispatchers.IO) {
+        // Signed-in users without their own key: the Yadar server transcribes and deducts tokens.
+        if (!settings.personal) return@withContext try { Account.transcribe(context, file).trim()
+            .ifBlank { error(if (fa()) "صدایی تشخیص داده نشد" else "No speech recognized") } } finally { file.delete() }
+        if (!Account.isLoggedIn(context)) { Account.loginRequested.value = true; file.delete()
+            throw LoggedOutException(if (fa()) "برای استفاده از هوش مصنوعی وارد حسابت شو" else "Sign in to use the assistant") }
         try {
             val model = settings.audioModel
             val speechOnly = listOf("whisper", "transcribe").any { model.contains(it, ignoreCase = true) }
@@ -223,7 +247,12 @@ class OpenRouter(private val context: Context) {
 
     /** Checks the saved key against OpenRouter and returns a short description of the account. */
     suspend fun testKey(): String = withContext(Dispatchers.IO) {
-        val conn = (URL("https://openrouter.ai/api/v1/key").openConnection() as HttpURLConnection).apply {
+        if (!settings.isOpenRouter) {
+            // Other providers have no key-info endpoint; listing models proves the key works.
+            val count = models().size
+            return@withContext (if (fa()) "کلید معتبر است ✓ • $count مدل" else "Key is valid ✓ • $count models")
+        }
+        val conn = (URL(settings.baseUrl + "/key").openConnection() as HttpURLConnection).apply {
             connectTimeout = 15_000; readTimeout = 20_000
             setRequestProperty("Authorization", "Bearer ${requireKey()}")
             instanceFollowRedirects = false
@@ -239,7 +268,7 @@ class OpenRouter(private val context: Context) {
 
     private fun transcriptionEndpoint(file: java.io.File, model: String): String {
         val boundary = "Yadar${System.currentTimeMillis()}"
-        val conn = (URL("https://openrouter.ai/api/v1/audio/transcriptions").openConnection() as HttpURLConnection).apply {
+        val conn = (URL(settings.baseUrl + "/audio/transcriptions").openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"; doOutput = true; connectTimeout = 20_000; readTimeout = 90_000
             setRequestProperty("Authorization", "Bearer ${requireKey()}")
             // A redirect would silently drop the Authorization header (and turn POST into GET).
@@ -277,8 +306,12 @@ class OpenRouter(private val context: Context) {
      * made simple requests take minutes; models that cannot turn it off are retried with their default.
      */
     private fun complete(body: JSONObject, timeout: Int): String {
+        // Without an own key, the Yadar server answers (it picks the model and deducts tokens).
+        if (!settings.personal) return Account.chat(context, body)
+        if (!Account.isLoggedIn(context)) { Account.loginRequested.value = true
+            throw LoggedOutException(if (fa()) "برای استفاده از هوش مصنوعی وارد حسابت شو" else "Sign in to use the assistant") }
         fun send(payload: JSONObject): String {
-            val conn = (URL("https://openrouter.ai/api/v1/chat/completions").openConnection() as HttpURLConnection).apply {
+            val conn = (URL(settings.baseUrl + "/chat/completions").openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"; doOutput = true; connectTimeout = 15_000; readTimeout = timeout
                 setRequestProperty("Authorization", "Bearer ${requireKey()}")
                 // A redirect would silently drop the Authorization header (and turn POST into GET).
@@ -291,6 +324,7 @@ class OpenRouter(private val context: Context) {
                 return JSONObject(read(conn)).getJSONArray("choices").getJSONObject(0).getJSONObject("message").optString("content")
             } finally { conn.disconnect() }
         }
+        if (!settings.isOpenRouter) return send(body)
         val fast = JSONObject(body.toString())
             .put("reasoning", JSONObject().put("enabled", false).put("exclude", true))
             .put("provider", JSONObject().put("sort", "latency"))
@@ -352,7 +386,7 @@ User said: $text"""
         return try { complete(body, 45_000) } catch (e: Exception) {
             // A busy or slow model (timeouts, 429, 5xx) gets one retry on a quick default model.
             val retry = e is java.io.IOException || Regex("\\((429|5\\d\\d)\\)").containsMatchIn(e.message.orEmpty())
-            if (!retry || settings.model == FALLBACK_TEXT_MODEL) throw e
+            if (!retry || !settings.personal || settings.model == FALLBACK_TEXT_MODEL) throw e
             complete(JSONObject(body.toString()).put("model", FALLBACK_TEXT_MODEL), 45_000)
         }
     }

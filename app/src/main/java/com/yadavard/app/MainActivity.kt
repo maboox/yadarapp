@@ -102,6 +102,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 _now.value = System.currentTimeMillis()
             }
         }
+        Account.load(context)
+        viewModelScope.launch { Account.refresh(context) }
         viewModelScope.launch(Dispatchers.IO) {
             Scheduler.rescheduleAll(context)
             WidgetUpdater.update(context)
@@ -167,19 +169,25 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
         if (granted) capturing = true
         else Toast.makeText(context, t("برای ضبط صدا، اجازهٔ میکروفون لازم است.", "Microphone permission is needed to record."), Toast.LENGTH_LONG).show()
     }
+    var voiceChoice by remember { mutableStateOf(false) }
+    val loginRequested by Account.loginRequested.collectAsState()
+    fun dictate() {
+        try { speech.launch(speechIntent(context)) } catch (_: ActivityNotFoundException) {
+            Toast.makeText(context, t("تشخیص گفتار در دسترس نیست. اپ Google را نصب کن یا برای دستیار هوشمند وارد حسابت شو.",
+                "Speech recognition is not available. Install the Google app or sign in to use the smart assistant."), Toast.LENGTH_LONG).show()
+        }
+    }
     fun startVoice() {
-        // With an OpenRouter key, record inside the app and let AI transcribe and understand it;
-        // otherwise use Google's dictation (avoiding vendor assistants such as Mi AI).
-        if (AiSettings(context).hasKey()) {
+        // Signed in: record inside the app and let the AI transcribe and understand it. Signed out: offer to
+        // sign in, or plain dictation through Google (avoiding vendor assistants such as Mi AI).
+        if (!Account.isLoggedIn(context)) { voiceChoice = true; return }
+        if (Ai.ready(context)) {
             if (androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
                 android.content.pm.PackageManager.PERMISSION_GRANTED) capturing = true
             else micPermission.launch(Manifest.permission.RECORD_AUDIO)
             return
         }
-        try { speech.launch(speechIntent(context)) } catch (_: ActivityNotFoundException) {
-            Toast.makeText(context, t("تشخیص گفتار در دسترس نیست. اپ Google را نصب کن یا در تنظیمات کلید OpenRouter را وارد کن تا صدا با هوش مصنوعی تبدیل شود.",
-                "Speech recognition is not available. Install the Google app or add an OpenRouter key in settings for AI voice."), Toast.LENGTH_LONG).show()
-        }
+        dictate()
     }
 
     // Commands from notifications and widgets.
@@ -312,6 +320,14 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
             onSend = { file -> capturing = false; AssistantSession.startAudio(context, file, BubbleHost.APP) },
             modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 96.dp))
         packExport?.let { pre -> PackExportDialog(items, pre) { packExport = null } }
+        if (loginRequested) LoginDialog { Account.loginRequested.value = false }
+        if (voiceChoice) AlertDialog(onDismissRequest = { voiceChoice = false },
+            icon = { Icon(Icons.Rounded.AutoAwesome, null) },
+            title = { Text(t("دستیار هوشمند", "Smart assistant")) },
+            text = { Text(t("برای اینکه هوش مصنوعی صدایت را بفهمد و خودش یادآوری بسازد، با شمارهٔ موبایل وارد شو (توکن هدیه داری). یا فقط با تایپ صوتی گوگل متن را بنویس.",
+                "Sign in with your phone so the AI understands your voice and creates reminders (free tokens included), or just dictate with Google.")) },
+            confirmButton = { Button(onClick = { voiceChoice = false; Account.loginRequested.value = true }) { Text(t("ورود", "Sign in")) } },
+            dismissButton = { TextButton(onClick = { voiceChoice = false; dictate() }) { Text(t("تایپ صوتی ساده", "Plain dictation")) } })
         packImport?.let { pack -> PackImportDialog(pack) { packImport = null } }
         var shown by remember { mutableStateOf<EditorRequest?>(null) }
         if (editor != null) shown = editor
