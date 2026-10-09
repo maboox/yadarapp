@@ -22,6 +22,12 @@ data class HistoryEntry(val reminderId: Long, val title: String, val category: S
 class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db", null, 6) {
     override fun onCreate(db: SQLiteDatabase) { createTable(db); createHistory(db) }
 
+    // Safety net: the statistics table must exist whatever path the database took to get here.
+    override fun onOpen(db: SQLiteDatabase) {
+        super.onOpen(db)
+        if (!db.isReadOnly) runCatching { createHistory(db) }
+    }
+
     private fun createHistory(db: SQLiteDatabase) {
         db.execSQL("""CREATE TABLE IF NOT EXISTS history (
             id INTEGER PRIMARY KEY AUTOINCREMENT, reminder_id INTEGER NOT NULL, title TEXT NOT NULL,
@@ -149,7 +155,7 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
 
     @Synchronized
     fun record(r: Reminder, occurrenceAt: Long, done: Boolean, now: Long) {
-        writableDatabase.insert("history", null, ContentValues().apply {
+        writableDatabase.insertOrThrow("history", null, ContentValues().apply {
             put("reminder_id", r.id); put("title", r.title); put("category", r.category)
             put("repeating", if (r.unit != RepeatUnit.NONE) 1 else 0); put("occurrence_at", occurrenceAt)
             put("outcome", if (done) "DONE" else "MISSED"); put("recorded_at", now)
@@ -210,6 +216,7 @@ object Repo {
         Notifier.cancel(context, id)
         val now = System.currentTimeMillis()
         runCatching { store(context).record(r, ReminderLogic.occurrence(r).takeIf { it > 0 } ?: now, true, now) }
+            .onFailure { android.util.Log.e("Yadar", "history write failed", it) }
         return save(context, ReminderLogic.complete(r, now))
     }
 

@@ -44,8 +44,17 @@ fun StatsScreen(items: List<Reminder>, now: Long, padding: PaddingValues) {
     var period by rememberSaveable { mutableStateOf(Period.MONTH) }
     val today = LocalDate.now(zone)
     val since = period.days?.let { Dates.startOfDay(today.minusDays(it - 1L), zone) } ?: 0L
-    val history by produceState(emptyList<HistoryEntry>(), items, period) {
+    val recorded by produceState(emptyList<HistoryEntry>(), items, period) {
         value = withContext(Dispatchers.IO) { Repo.history(context, since) }
+    }
+    // Outcomes before the history existed (or not recorded for any reason) are still known from each
+    // reminder's last completion time, so periods are never empty when something was done in them.
+    val history = remember(recorded, items, since) {
+        val seen = recorded.map { it.reminderId }.toSet()
+        recorded + items.filter { it.id !in seen && it.completedAt >= since && it.completedAt > 0 &&
+            (it.completedCount > 0 || it.missed) }.map { r ->
+            HistoryEntry(r.id, r.title, r.category, r.unit != RepeatUnit.NONE, r.completedAt, done = !r.missed, recordedAt = r.completedAt)
+        }
     }
 
     // Per reminder. "All time" also counts what was done before outcomes were recorded (the reminder's own counters).
