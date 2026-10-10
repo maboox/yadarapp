@@ -24,12 +24,17 @@ jobs:
           cache-dependency-path: server/go.sum
       - name: Test
         run: go vet ./... && go test ./...
-      - name: Build static Linux binary
-        run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o deploy/yadar-server .
-      - name: Package deploy folder
+      - name: Build static Linux binaries
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o deploy/yadar-server .
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o deploy/yadar-server-arm64 .
+      - name: Package deploy folders
         run: |
           mkdir -p ../out
+          # Liara (Docker) package: amd64 binary + Dockerfile + liara.json
           cd deploy && zip -r "../../out/yadar-server-${GITHUB_SHA::7}.zip" Dockerfile liara.json yadar-server
+          # Own server package: both binaries + systemd unit, Caddyfile and env example
+          zip -r "../../out/yadar-server-selfhosted-${GITHUB_SHA::7}.zip" yadar-server yadar-server-arm64 self-hosted
       # Same approach as the APK: a per-branch release holds the ready-to-deploy zip.
       - name: Publish as a GitHub Release
         env:

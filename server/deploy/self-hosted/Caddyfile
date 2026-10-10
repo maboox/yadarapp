@@ -1,0 +1,6 @@
+# Caddy gets and renews the HTTPS certificate automatically.
+# Replace api.example.ir with your domain (its DNS A record must point to this server).
+api.example.ir {
+	encode gzip
+	reverse_proxy 127.0.0.1:8090
+}

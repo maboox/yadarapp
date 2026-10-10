@@ -33,6 +33,36 @@
    این پوشه فقط یک فایل اجرایی آماده دارد و موقع نصب چیزی از خارج دانلود نمی‌شود.
 6. **ورود به پنل:** آدرس `https://<نام-برنامه>.liara.run/_/` را باز کن و با `ADMIN_EMAIL` و `ADMIN_PASSWORD` وارد شو.
 
+## راه‌اندازی روی سرور خودت (به‌جای لیارا)
+
+سرور فقط یک فایل اجرایی است و روی هر سرور لینوکسی (اوبونتو، دبیان و…) اجرا می‌شود. پیش‌نیاز ندارد و دیتابیس هم داخل خودش است.
+
+**چیزهایی که لازم داری:**
+- یک سرور لینوکس با IP ثابت. ۱ هسته و ۱ گیگ رم کافی است.
+- یک دامنه (مثلاً از nic.ir) و یک زیردامنه مثل `api.example.ir` که رکورد A آن به IP سرور اشاره کند.
+- پورت‌های ۸۰ و ۴۴۳ باز.
+
+**قدم‌ها:**
+1. **دریافت فایل:** `yadar-server-selfhosted-xxxxxxx.zip` را از Releases (`server-<نام برنچ>`) بگیر و روی سرور ببر. فایل `yadar-server` برای پردازنده‌های معمولی (amd64) است و `yadar-server-arm64` برای ARM.
+2. **نصب:**
+   ```bash
+   sudo useradd --system --home /opt/yadar --shell /usr/sbin/nologin yadar
+   sudo mkdir -p /opt/yadar/pb_data
+   sudo cp yadar-server /opt/yadar/ && sudo chmod +x /opt/yadar/yadar-server
+   sudo chown -R yadar:yadar /opt/yadar
+   ```
+3. **متغیرها:** `self-hosted/yadar.env.example` را در `/etc/yadar.env` کپی کن، مقدارها را پر کن (همان جدول بخش لیارا)، و دسترسی را ببند: `sudo chmod 600 /etc/yadar.env`.
+4. **اجرای دائمی:** `self-hosted/yadar.service` را در `/etc/systemd/system/` کپی کن و بزن:
+   `sudo systemctl daemon-reload && sudo systemctl enable --now yadar`
+   با `systemctl status yadar` و `journalctl -u yadar -f` وضعیت و لاگ را می‌بینی.
+5. **HTTPS:** [Caddy](https://caddyserver.com/docs/install) را نصب کن، `self-hosted/Caddyfile` را در `/etc/caddy/Caddyfile` بگذار، دامنه‌ات را جای `api.example.ir` بنویس و `sudo systemctl reload caddy` را بزن.
+   Caddy گواهی HTTPS را خودش می‌گیرد و تمدید می‌کند. اگر گرفتن گواهی از داخل ایران مشکل داشت، دامنه را پشت CDN ابرآروان ببر و SSL را آنجا روشن کن.
+6. **ورود به پنل:** `https://api.example.ir/_/`
+7. **پشتیبان‌گیری:** کل اطلاعات در پوشهٔ `/opt/yadar/pb_data` است. از آن مرتب نسخه بگیر. پنل مدیریت هم بخش Backups دارد.
+8. **به‌روزرسانی:** فایل `yadar-server` جدید را جایگزین کن و بزن `sudo systemctl restart yadar`.
+
+**نکته:** سرور داخلی باید به سرویس هوش مصنوعی دسترسی داشته باشد. اول‌ای‌آی و لیارا داخلی‌اند و مشکلی نیست، ولی OpenRouter از سرور داخلی کار نمی‌کند.
+
 ## تنظیم در پنل مدیریت
 
 - **providers (سرویس‌دهنده‌ها):** یک ردیف برای هر سرویس.
@@ -46,7 +76,7 @@
 - **settings:**
   - `token_usd`: ارزش هر توکن به دلار (پیش‌فرض ۰٫۰۰۱).
   - `markup`: ضریب سود (پیش‌فرض ۱٫۵).
-  - `signup_tokens`: هدیهٔ ثبت‌نام (۱۰۰).
+  - `signup_tokens`: هدیهٔ ثبت‌نام (۱۵).
   - `default_text_model` و `default_audio_model`: مدل‌های پیش‌فرض.
   - `ai_enabled`: کلید قطع اضطراری همهٔ درخواست‌های هوش مصنوعی.
 - **models:** قیمت هر مدل (دلار به ازای یک میلیون توکن، یا به ازای هر دقیقه صدا برای مدل‌های `transcription`). قیمت‌های اولیه تخمینی‌اند و باید با قیمت سرویس‌دهنده یکی شوند.

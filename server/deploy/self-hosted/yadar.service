@@ -1,0 +1,26 @@
+# systemd unit for running the Yadar server on your own Linux server.
+# Install: copy to /etc/systemd/system/yadar.service, then:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now yadar
+[Unit]
+Description=Yadar server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=yadar
+Group=yadar
+WorkingDirectory=/opt/yadar
+# Secrets live here (one NAME=value per line), readable only by root and yadar.
+EnvironmentFile=/etc/yadar.env
+# Listens only on localhost; Caddy (or nginx) in front of it provides HTTPS.
+ExecStart=/opt/yadar/yadar-server serve --http=127.0.0.1:8090 --dir=/opt/yadar/pb_data
+Restart=always
+RestartSec=3
+LimitNOFILE=65536
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/yadar/pb_data
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -123,7 +123,7 @@ func ensureSchema(app core.App) error {
 		r := core.NewRecord(settings)
 		r.Set("token_usd", 0.001)
 		r.Set("markup", 1.5)
-		r.Set("signup_tokens", 100)
+		r.Set("signup_tokens", 15)
 		r.Set("min_balance", 1)
 		r.Set("default_text_model", "deepseek/deepseek-v4-flash")
 		r.Set("default_audio_model", "google/gemini-2.5-flash")

@@ -99,7 +99,7 @@ type Settings struct {
 }
 
 func loadSettings(app core.App) Settings {
-	s := Settings{TokenUSD: 0.001, Markup: 1.5, SignupTokens: 100, MinBalance: 1,
+	s := Settings{TokenUSD: 0.001, Markup: 1.5, SignupTokens: 15, MinBalance: 1,
 		DefaultTextModel: "deepseek/deepseek-v4-flash", DefaultAudioModel: "google/gemini-2.5-flash",
 		FallbackInputPerM: 1, FallbackOutputPerM: 4, AIEnabled: true}
 	records, err := app.FindAllRecords("settings")
