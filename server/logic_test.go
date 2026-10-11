@@ -41,14 +41,14 @@ func TestDigitsAndCode(t *testing.T) {
 }
 
 func TestCostAndTokens(t *testing.T) {
-	s := Settings{TokenUSD: 0.001, Markup: 1.5}
+	s := Settings{TokenUSD: 0.0025, Markup: 1}
 	chat := modelInfo{Kind: "chat", InPerM: 0.30, OutPerM: 2.50}
-	// 2000 prompt + 300 completion tokens = 0.0006 + 0.00075 = 0.00135 USD → ×1.5 / 0.001 = 2.025 → 2.03
+	// 2000 prompt + 300 completion tokens = 0.0006 + 0.00075 = 0.00135 USD → / 0.0025 = 0.54 → 0.6 (rounded up to 0.1)
 	cost := costUSD(usage{Prompt: 2000, Completion: 300}, chat, 0)
 	if math.Abs(cost-0.00135) > 1e-12 {
 		t.Fatalf("cost = %v", cost)
 	}
-	if got := tokensFor(cost, s); got != 2.03 {
+	if got := tokensFor(cost, s); got != 0.6 {
 		t.Fatalf("tokens = %v", got)
 	}
 	// A provider-reported cost wins over the price table.
@@ -58,6 +58,12 @@ func TestCostAndTokens(t *testing.T) {
 	whisper := modelInfo{Kind: "transcription", PerMin: 0.006}
 	if got := costUSD(usage{}, whisper, 30); math.Abs(got-0.003) > 1e-12 {
 		t.Fatalf("audio cost = %v", got)
+	}
+	if got := tokensFor(0.0025, s); got != 1 {
+		t.Fatalf("exactly one token's worth must cost 1, got %v", got)
+	}
+	if got := tokensFor(0.00001, s); got != 0.1 {
+		t.Fatalf("tiny calls cost the minimum 0.1, got %v", got)
 	}
 	if tokensFor(0, s) != 0 {
 		t.Fatal("free call must cost nothing")

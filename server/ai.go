@@ -128,12 +128,12 @@ func costUSD(u usage, info modelInfo, audioSeconds float64) float64 {
 	return (float64(u.Prompt)*info.InPerM + float64(u.Completion)*info.OutPerM) / 1e6
 }
 
-// tokensFor converts a USD cost into app tokens (with markup), rounded up to 0.01.
+// tokensFor converts a USD cost into app tokens (with markup), rounded up to one decimal (0.1 token).
 func tokensFor(cost float64, s Settings) float64 {
 	if cost <= 0 {
 		return 0
 	}
-	return math.Ceil(cost*s.Markup/s.TokenUSD*100) / 100
+	return math.Ceil(cost*s.Markup/s.TokenUSD*10-1e-9) / 10
 }
 
 // ---- concurrency guard: at most two AI calls per user at a time ----
@@ -187,7 +187,7 @@ func charge(app core.App, userID, kind, model, providerName string, u usage, sec
 		}
 		balance = user.GetFloat("balance")
 		if !user.GetBool("unlimited") && tokens > 0 {
-			balance = math.Round((balance-tokens)*100) / 100
+			balance = math.Round((balance-tokens)*10) / 10
 			user.Set("balance", balance)
 			if err := tx.Save(user); err != nil {
 				return err

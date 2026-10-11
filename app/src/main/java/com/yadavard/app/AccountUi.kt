@@ -78,8 +78,8 @@ fun AccountCard() {
             if (AiSettings(context).personal) Text(t("الان از هوش مصنوعی خودت (کلید شخصی) استفاده می‌کنی و توکن یادار کم نمی‌شود.",
                 "You are using your own AI key, so no Yadar tokens are used."),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(t("هر درخواست هوش مصنوعی معمولاً حدود ۱ تا ۳ توکن مصرف می‌کند. خرید بسته به‌زودی از همین‌جا ممکن می‌شود.",
-                "An AI request usually costs about 1–3 tokens. Buying packs will be available here soon."),
+            Text(t("هر کار با دستیار معمولاً حدود ۱ توکن است؛ کارهای ساده کمتر (مثلاً ۰٫۵) و کارهای سنگین کمی بیشتر. خرید بسته به‌زودی از همین‌جا ممکن می‌شود.",
+                "A task usually costs about 1 token; simple ones less (e.g. 0.5), heavy ones a bit more. Buying packs will be available here soon."),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             TextButton(onClick = { confirmLogout = true }) {
                 Icon(Icons.Rounded.Logout, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(t("خروج از حساب", "Sign out"))
