@@ -92,7 +92,10 @@ object Account {
             }
             error(message)
         } catch (e: java.io.IOException) {
-            error(if (fa()) "اتصال به سرور یادار برقرار نشد؛ اینترنت را چک کن" else "Could not reach the Yadar server; check your connection")
+            // Name the server and the underlying cause so a wrong address or a certificate problem is visible.
+            val cause = e.javaClass.simpleName + (e.message?.let { ": " + it.take(120) } ?: "")
+            error((if (fa()) "اتصال به سرور یادار برقرار نشد؛ اینترنت را چک کن" else "Could not reach the Yadar server; check your connection") +
+                "\n" + server(context) + "\n" + cause)
         } finally { conn.disconnect() }
     }
 
