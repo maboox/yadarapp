@@ -87,6 +87,8 @@ class MainActivity : ComponentActivity() {
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _items = MutableStateFlow<List<Reminder>>(emptyList())
     val items: StateFlow<List<Reminder>> = _items
+    private val _notes = MutableStateFlow<List<Note>>(emptyList())
+    val notes: StateFlow<List<Note>> = _notes
     private val _now = MutableStateFlow(System.currentTimeMillis())
     val now: StateFlow<Long> = _now
     private val _loaded = MutableStateFlow(false)
@@ -112,6 +114,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private suspend fun reload() {
         _items.value = withContext(Dispatchers.IO) { Repo.all(context) }
+        _notes.value = withContext(Dispatchers.IO) { Repo.notes(context) }
         _now.value = System.currentTimeMillis()
         _loaded.value = true
     }
@@ -132,11 +135,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun miss(r: Reminder) = io { Repo.miss(context, r.id) }
     /** Undo of "done" / "not done": the earlier state comes back and the recorded outcome is forgotten. */
     fun undoOutcome(r: Reminder) = io { Repo.undoOutcome(context, r) }
+    fun saveNote(n: Note) = io { Repo.saveNote(context, n) }
+    fun deleteNote(n: Note) = io { Repo.deleteNote(context, n.id) }
     /** Restores an exact earlier state, used by "Undo". */
     fun restore(r: Reminder) = io { Repo.save(context, r) }
 }
 
-enum class Tab { HOME, CALENDAR, STATS, SETTINGS }
+enum class Tab { HOME, CALENDAR, NOTES, STATS, SETTINGS }
 
 /** What the editor is opened with: an existing reminder or a pre-filled draft for a new one. */
 data class EditorRequest(val original: Reminder?, val draft: Reminder?, val key: Long = System.nanoTime())
@@ -146,6 +151,9 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
     val context = LocalContext.current
     val vm: AppViewModel = viewModel()
     val items by vm.items.collectAsState()
+    val notes by vm.notes.collectAsState()
+    // null = closed; a Note with id 0 = new note.
+    var noteEditor by remember { mutableStateOf<Note?>(null) }
     val now by vm.now.collectAsState()
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
@@ -209,6 +217,11 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
             WidgetCommands.DAY -> {
                 calendarDay = LocalDate.ofEpochDay(c.getLongExtra(WidgetCommands.EXTRA_DAY, LocalDate.now().toEpochDay()))
                 tab = Tab.CALENDAR
+            }
+            WidgetCommands.OPEN_NOTE -> {
+                val id = c.getLongExtra(WidgetCommands.EXTRA_ID, 0)
+                tab = Tab.NOTES
+                withContext(Dispatchers.IO) { Repo.note(context, id) }?.let { noteEditor = it }
             }
             WidgetCommands.EDIT_DRAFT -> {
                 val draft = c.getStringExtra(WidgetCommands.EXTRA_DRAFT)?.let { runCatching { Backup.fromJson(org.json.JSONObject(it)) }.getOrNull() }
@@ -286,6 +299,8 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                         icon = { Icon(if (tab == Tab.HOME) Icons.Rounded.Home else Icons.Outlined.OutlinedHome, null) }, label = { Text(t("خانه", "Home")) })
                     NavigationBarItem(selected = tab == Tab.CALENDAR, onClick = { tab = Tab.CALENDAR },
                         icon = { Icon(Icons.Rounded.CalendarMonth, null) }, label = { Text(t("تقویم", "Calendar")) })
+                    NavigationBarItem(selected = tab == Tab.NOTES, onClick = { tab = Tab.NOTES },
+                        icon = { Icon(Icons.Rounded.StickyNote2, null) }, label = { Text(t("یادداشت", "Notes")) })
                     NavigationBarItem(selected = tab == Tab.STATS, onClick = { tab = Tab.STATS },
                         icon = { Icon(Icons.Rounded.Insights, null) }, label = { Text(t("آمار", "Stats")) })
                     NavigationBarItem(selected = tab == Tab.SETTINGS, onClick = { tab = Tab.SETTINGS },
@@ -300,6 +315,9 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                     },
                     icon = { Icon(Icons.Rounded.Add, null) }, text = { Text(t("یادآوری جدید", "New reminder")) },
                     containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary)
+                else if (tab == Tab.NOTES) ExtendedFloatingActionButton(onClick = { noteEditor = Note(title = "") },
+                    icon = { Icon(Icons.Rounded.Edit, null) }, text = { Text(t("یادداشت جدید", "New note")) },
+                    containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary)
             },
         ) { padding ->
             AnimatedContent(tab, transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) }, label = "tab") { current ->
@@ -307,6 +325,8 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                     Tab.HOME -> HomeScreen(items, now, padding, actions, quickText, { quickText = it }, permissionTick,
                         onFixPermissions = { tab = Tab.SETTINGS })
                     Tab.CALENDAR -> CalendarScreen(items, now, padding, calendarDay, { calendarDay = it }, actions)
+                    Tab.NOTES -> NotesScreen(notes, padding, onOpen = { noteEditor = it ?: Note(title = "") },
+                        onPin = { vm.saveNote(it.copy(pinned = !it.pinned)) }, onDelete = { vm.deleteNote(it) })
                     Tab.STATS -> StatsScreen(items, now, padding)
                     Tab.SETTINGS -> SettingsScreen(padding, items.size, permissionTick, onPermissionChanged = { permissionTick++ },
                         onPackExport = { packExport = emptySet() }, onPackImport = { packImport = it })
@@ -328,6 +348,14 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                 "Sign in with your phone so the AI understands your voice and creates reminders (free tokens included), or just dictate with Google.")) },
             confirmButton = { Button(onClick = { voiceChoice = false; Account.loginRequested.value = true }) { Text(t("ورود", "Sign in")) } },
             dismissButton = { TextButton(onClick = { voiceChoice = false; dictate() }) { Text(t("تایپ صوتی ساده", "Plain dictation")) } })
+        noteEditor?.let { current ->
+            key(current.id, current.createdAt) {
+                NoteEditor(current.takeIf { it.id != 0L }, onClose = { result ->
+                    noteEditor = null
+                    if (result != null) vm.saveNote(result)
+                }, onDelete = { noteEditor = null; vm.deleteNote(it) })
+            }
+        }
         packImport?.let { pack -> PackImportDialog(pack) { packImport = null } }
         var shown by remember { mutableStateOf<EditorRequest?>(null) }
         if (editor != null) shown = editor

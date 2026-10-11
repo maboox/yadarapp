@@ -123,6 +123,9 @@ object AlertSound {
 class AlertService : Service() {
     private var player: MediaPlayer? = null
     private var currentId = 0L
+    private var currentNotification: android.app.Notification? = null
+    /** Alarms that went off while another one was ringing; they ring next, one after another. */
+    private val queue = LinkedHashSet<Long>()
     private val handler = Handler(Looper.getMainLooper())
     private val timeout = Runnable { stopRinging(currentId, remove = false, quietRepost = true) }
 
@@ -149,12 +152,27 @@ class AlertService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        if (currentId != 0L && currentId != id && player != null) {
+            // Another alarm is ringing: keep it, show this one as a notification and ring it afterwards.
+            queue.add(id)
+            Notifier.post(this, Notifier.mainId(id), notification)
+            // Every start of a foreground service must confirm the foreground state again.
+            currentNotification?.let { runCatching { ServiceCompat.startForeground(this, Notifier.mainId(currentId), it, type()) } }
+            return START_NOT_STICKY
+        }
+        queue.remove(id)
+        startRinging(id, notification)
+        return START_NOT_STICKY
+    }
+
+    private fun startRinging(id: Long, notification: android.app.Notification) {
         try {
             ServiceCompat.startForeground(this, Notifier.mainId(id), notification, type())
         } catch (_: Exception) {
             Notifier.post(this, Notifier.mainId(id), notification)
         }
         currentId = id
+        currentNotification = notification
         // Open the alarm screen directly as well: some phones (e.g. MIUI) ignore full-screen intents but allow
         // this when "display over other apps" / "pop-ups in background" is granted. Harmless when blocked.
         runCatching {
@@ -168,7 +186,18 @@ class AlertService : Service() {
         handler.removeCallbacks(timeout)
         val minutes = if (id == TEST_ID) 1 else Prefs.ringMinutes(this)
         handler.postDelayed(timeout, minutes * 60_000L)
-        return START_NOT_STICKY
+    }
+
+    /** The next queued alarm that still needs attention, with its notification, or null. */
+    private fun nextQueued(): Pair<Long, android.app.Notification>? {
+        while (queue.isNotEmpty()) {
+            val id = queue.first().also { queue.remove(it) }
+            val r = Repo.get(this, id) ?: continue
+            if (r.done || r.pendingAt == 0L || r.snoozeAt > 0) continue
+            val n = Notifier.buildAlert(this, r, r.pendingAt, ring = true) ?: continue
+            return id to n
+        }
+        return null
     }
 
     private fun type() = if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK else 0
@@ -180,7 +209,11 @@ class AlertService : Service() {
 
     /** Stops ringing. [remove] drops the notification (handled); otherwise it stays as a silent reminder. */
     fun stopRinging(id: Long, remove: Boolean, quietRepost: Boolean) {
-        if (id != 0L && id != currentId) return
+        if (id != 0L && id != currentId) {
+            // A queued alarm was handled (done, snoozed…) before its turn.
+            queue.remove(id)
+            return
+        }
         handler.removeCallbacks(timeout)
         releasePlayer()
         AlertSound.stopVibration(this)
@@ -190,6 +223,15 @@ class AlertService : Service() {
             Repo.get(this, stopped)?.takeIf { !it.done && it.pendingAt > 0 }?.let {
                 Notifier.post(this, Notifier.mainId(stopped), Notifier.buildAlert(this, it, it.pendingAt, ring = false, quiet = true))
             }
+        }
+        currentNotification = null
+        val next = nextQueued()
+        if (next != null) {
+            // Leave the handled alarm's notification as decided above, then ring the next one.
+            if (remove) Notifier.cancel(this, stopped)
+            // A short pause lets the previous alarm screen close before the next one opens.
+            handler.postDelayed({ if (currentId == 0L) startRinging(next.first, next.second) else queue.add(next.first) }, 800)
+            return
         }
         ServiceCompat.stopForeground(this, if (remove || stopped == TEST_ID) ServiceCompat.STOP_FOREGROUND_REMOVE else ServiceCompat.STOP_FOREGROUND_DETACH)
         stopSelf()

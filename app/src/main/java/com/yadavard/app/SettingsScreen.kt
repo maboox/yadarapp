@@ -73,7 +73,7 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
     val exportPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) scope.launch {
             val ok = withContext(Dispatchers.IO) {
-                runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(Backup.export(Repo.all(context)).toByteArray()) } }
+                runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(Backup.export(Repo.all(context), Repo.notes(context)).toByteArray()) } }
             }
             Toast.makeText(context, if (ok.isSuccess) t("فایل پشتیبان ذخیره شد ✓", "Backup saved ✓")
                 else t("ذخیره نشد: ", "Save failed: ") + ok.exceptionOrNull()?.message, Toast.LENGTH_LONG).show()

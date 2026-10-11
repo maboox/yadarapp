@@ -19,13 +19,20 @@ data class HistoryEntry(val reminderId: Long, val title: String, val category: S
  * Local SQLite storage. Version 5 replaced the older schema; version 6 adds "missed" counters and the
  * outcome history in place, keeping every row.
  */
-class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db", null, 6) {
-    override fun onCreate(db: SQLiteDatabase) { createTable(db); createHistory(db) }
+class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db", null, 7) {
+    override fun onCreate(db: SQLiteDatabase) { createTable(db); createHistory(db); createNotes(db) }
 
     // Safety net: the statistics table must exist whatever path the database took to get here.
     override fun onOpen(db: SQLiteDatabase) {
         super.onOpen(db)
-        if (!db.isReadOnly) runCatching { createHistory(db) }
+        if (!db.isReadOnly) runCatching { createHistory(db); createNotes(db) }
+    }
+
+    private fun createNotes(db: SQLiteDatabase) {
+        db.execSQL("""CREATE TABLE IF NOT EXISTS notes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT NOT NULL DEFAULT '',
+            color INTEGER NOT NULL DEFAULT 0, pinned INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)""")
     }
 
     private fun createHistory(db: SQLiteDatabase) {
@@ -60,6 +67,7 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
             runCatching { db.execSQL("ALTER TABLE reminders ADD COLUMN missed_count INTEGER NOT NULL DEFAULT 0") }
             runCatching { db.execSQL("ALTER TABLE reminders ADD COLUMN missed INTEGER NOT NULL DEFAULT 0") }
             createHistory(db)
+            createNotes(db)
             return
         }
         // Older versions (1-4) all used a "reminders" table with a subset of these columns.
@@ -154,6 +162,30 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
     }
 
     @Synchronized
+    fun saveNote(n: Note): Note {
+        val v = ContentValues().apply {
+            put("title", n.title); put("body", n.body); put("color", n.color); put("pinned", if (n.pinned) 1 else 0)
+            put("created_at", n.createdAt); put("updated_at", n.updatedAt)
+        }
+        val db = writableDatabase
+        if (n.id == 0L) return n.copy(id = db.insertOrThrow("notes", null, v))
+        if (db.update("notes", v, "id=?", arrayOf(n.id.toString())) == 0) db.insertOrThrow("notes", null, v.apply { put("id", n.id) })
+        return n
+    }
+
+    @Synchronized
+    fun deleteNote(id: Long) { writableDatabase.delete("notes", "id=?", arrayOf(id.toString())) }
+
+    fun notes(): List<Note> = readableDatabase.query("notes", null, null, null, null, null, "pinned DESC, updated_at DESC").use { c ->
+        buildList {
+            while (c.moveToNext()) add(Note(c.getLong(c.getColumnIndexOrThrow("id")), c.getString(c.getColumnIndexOrThrow("title")),
+                c.getString(c.getColumnIndexOrThrow("body")), c.getInt(c.getColumnIndexOrThrow("color")),
+                c.getInt(c.getColumnIndexOrThrow("pinned")) == 1, c.getLong(c.getColumnIndexOrThrow("created_at")),
+                c.getLong(c.getColumnIndexOrThrow("updated_at"))))
+        }
+    }
+
+    @Synchronized
     fun record(r: Reminder, occurrenceAt: Long, done: Boolean, now: Long) {
         writableDatabase.insertOrThrow("history", null, ContentValues().apply {
             put("reminder_id", r.id); put("title", r.title); put("category", r.category)
@@ -242,6 +274,11 @@ object Repo {
         save(context, previous)
     }
 
+    fun notes(context: Context): List<Note> = runCatching { store(context).notes() }.getOrDefault(emptyList())
+    fun note(context: Context, id: Long): Note? = notes(context).firstOrNull { it.id == id }
+    fun saveNote(context: Context, n: Note): Note { val saved = store(context).saveNote(n); changed(context); return saved }
+    fun deleteNote(context: Context, id: Long) { store(context).deleteNote(id); changed(context) }
+
     fun history(context: Context, since: Long = 0): List<HistoryEntry> = runCatching { store(context).history(since) }.getOrDefault(emptyList())
 
     fun snooze(context: Context, id: Long, minutes: Int): Reminder? {
@@ -307,7 +344,8 @@ object Backup {
     private fun autoBackup(context: Context) {
         if (android.os.Build.VERSION.SDK_INT < 29) return
         val items = Repo.all(context)
-        if (items.isEmpty()) return // never replace a good backup with an empty one
+        val notes = Repo.notes(context)
+        if (items.isEmpty() && notes.isEmpty()) return // never replace a good backup with an empty one
         val resolver = context.contentResolver
         val collection = android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI
         val dir = android.os.Environment.DIRECTORY_DOWNLOADS + "/Yadar/"
@@ -321,11 +359,15 @@ object Backup {
         val uri = existing ?: resolver.insert(collection, ContentValues().apply {
             put(column, AUTO_NAME); put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/json"); put(pathColumn, dir)
         }) ?: return
-        resolver.openOutputStream(uri, "wt")?.use { it.write(export(items).toByteArray()) }
+        resolver.openOutputStream(uri, "wt")?.use { it.write(export(items, notes).toByteArray()) }
     }
 
-    fun export(items: List<Reminder>): String = JSONObject().put("app", "yadar").put("schema", 2)
+    fun export(items: List<Reminder>, notes: List<Note> = emptyList()): String = JSONObject().put("app", "yadar").put("schema", 2)
         .put("exportedAt", System.currentTimeMillis())
+        .put("notes", JSONArray().apply {
+            notes.forEach { n -> put(JSONObject().put("title", n.title).put("body", n.body).put("color", n.color)
+                .put("pinned", n.pinned).put("createdAt", n.createdAt).put("updatedAt", n.updatedAt)) }
+        })
         .put("categories", Categories.exportJson())
         .put("reminders", JSONArray().apply {
             items.forEach { r -> put(JSONObject().apply {
@@ -348,6 +390,16 @@ object Backup {
         val array = root.getJSONArray("reminders")
         require(array.length() <= 20_000) { if (fa) "فایل بیش از حد بزرگ است" else "Backup is too large" }
         root.optJSONArray("categories")?.let { Categories.importJson(context, it) }
+        root.optJSONArray("notes")?.let { arr ->
+            val have = Repo.notes(context).map { it.title to it.createdAt }.toSet()
+            for (i in 0 until minOf(arr.length(), 5000)) {
+                val o = arr.optJSONObject(i) ?: continue
+                val n = Note(title = o.optString("title").take(200), body = o.optString("body").take(20_000), color = o.optInt("color"),
+                    pinned = o.optBoolean("pinned"), createdAt = o.optLong("createdAt", System.currentTimeMillis()),
+                    updatedAt = o.optLong("updatedAt", System.currentTimeMillis()))
+                if ((n.title.isNotBlank() || n.body.isNotBlank()) && (n.title to n.createdAt) !in have) Repo.store(context).saveNote(n)
+            }
+        }
         val store = Repo.store(context)
         val existing = store.all().map { it.title to it.firstAt }.toMutableSet()
         val now = System.currentTimeMillis()

@@ -53,6 +53,8 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
     var showDone by rememberSaveable { mutableStateOf(false) }
     var showFar by rememberSaveable { mutableStateOf(false) }
     var showMissed by rememberSaveable { mutableStateOf(false) }
+    var todayOnly by remember { mutableStateOf(Prefs.todayOnly(context)) }
+    var archiveOpen by remember { mutableStateOf(false) }
 
     val visible = remember(items, query, filter) {
         items.filter { r ->
@@ -123,10 +125,15 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
             }
         }
         val used = items.map { it.category }.toSet()
-        if (used.size > 1 || filter != null) item(key = "filters") {
+        if (items.isNotEmpty()) item(key = "filters") {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                item { FilterChip(filter == null, { filter = null }, { Text(t("همه", "All")) }) }
-                items(Categories.all.map { it.key }.filter { it in used || it == filter }) { c ->
+                // "Today only" keeps the list short: what needs attention and what is due today.
+                item {
+                    FilterChip(todayOnly, { todayOnly = !todayOnly; Prefs.setTodayOnly(context, todayOnly) }, { Text(t("فقط امروز", "Today only")) },
+                        leadingIcon = { Icon(Icons.Rounded.Today, null, Modifier.size(16.dp)) })
+                }
+                if (used.size > 1 || filter != null) item { FilterChip(filter == null, { filter = null }, { Text(t("همه", "All")) }) }
+                if (used.size > 1 || filter != null) items(Categories.all.map { it.key }.filter { it in used || it == filter }) { c ->
                     FilterChip(filter == c, { filter = if (filter == c) null else c }, { Text(c.catLabel()) },
                         leadingIcon = { Icon(c.catIcon(), null, Modifier.size(16.dp), tint = c.catColor()) })
                 }
@@ -148,10 +155,17 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
         }
         section("attention", t("نیاز به توجه", "Needs attention"), sections.attention, Color(0xFFE5484D))
         section("today", t("امروز", "Today"), sections.today, showDate = false)
-        section("tomorrow", t("فردا", "Tomorrow"), sections.tomorrow, showDate = false)
-        section("week", t("این هفته", "This week"), sections.week)
-        section("later", t("تا ۲ ماه آینده", "Next 2 months"), sections.later)
-        if (sections.far.isNotEmpty()) {
+        if (todayOnly) {
+            val rest = sections.tomorrow.size + sections.week.size + sections.later.size + sections.far.size
+            if (sections.today.isEmpty() && sections.attention.isEmpty()) item(key = "today_empty") {
+                EmptyState(Icons.Rounded.EventAvailable, t("امروز کاری نداری", "Nothing for today"),
+                    t("${n(rest)} یادآوری برای روزهای بعد هست؛ «فقط امروز» را خاموش کن تا ببینی.", "$rest upcoming; turn off “Today only” to see them."))
+            }
+        }
+        if (!todayOnly) section("tomorrow", t("فردا", "Tomorrow"), sections.tomorrow, showDate = false)
+        if (!todayOnly) section("week", t("این هفته", "This week"), sections.week)
+        if (!todayOnly) section("later", t("تا ۲ ماه آینده", "Next 2 months"), sections.later)
+        if (!todayOnly && sections.far.isNotEmpty()) {
             // Far-away reminders (e.g. yearly birthdays) stay folded unless searching or filtering.
             val open = showFar || query.isNotBlank() || filter != null
             item(key = "h_far") {
@@ -163,21 +177,56 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
                 ReminderCard(e, now, actions, Modifier.animateItem())
             }
         }
-        if (sections.done.isNotEmpty()) {
+        val dayStart = Dates.startOfDay(today, zone)
+        val doneShown = if (todayOnly) sections.done.filter { it.reminder.completedAt >= dayStart } else sections.done
+        val missedShown = if (todayOnly) sections.missed.filter { it.reminder.completedAt >= dayStart } else sections.missed
+        if (doneShown.isNotEmpty()) {
             item(key = "h_done") {
-                SectionHeader(t("انجام‌شده", "Completed"), sections.done.size, MaterialTheme.colorScheme.onSurfaceVariant) {
+                SectionHeader(t("انجام‌شده", "Completed"), doneShown.size, MaterialTheme.colorScheme.onSurfaceVariant) {
                     TextButton(onClick = { showDone = !showDone }) { Text(if (showDone) t("پنهان", "Hide") else t("نمایش", "Show")) }
                 }
             }
-            if (showDone) items(sections.done, key = { "done_${it.reminder.id}" }) { e -> ReminderCard(e, now, actions, Modifier.animateItem()) }
+            if (showDone) items(doneShown, key = { "done_${it.reminder.id}" }) { e -> ReminderCard(e, now, actions, Modifier.animateItem()) }
         }
-        if (sections.missed.isNotEmpty()) {
+        if (missedShown.isNotEmpty()) {
             item(key = "h_missed") {
-                SectionHeader(t("انجام‌نشده", "Not done"), sections.missed.size, MaterialTheme.colorScheme.error.copy(alpha = 0.8f)) {
+                SectionHeader(t("انجام‌نشده", "Not done"), missedShown.size, MaterialTheme.colorScheme.error.copy(alpha = 0.8f)) {
                     TextButton(onClick = { showMissed = !showMissed }) { Text(if (showMissed) t("پنهان", "Hide") else t("نمایش", "Show")) }
                 }
             }
-            if (showMissed) items(sections.missed, key = { "missed_${it.reminder.id}" }) { e -> ReminderCard(e, now, actions, Modifier.animateItem()) }
+            if (showMissed) items(missedShown, key = { "missed_${it.reminder.id}" }) { e -> ReminderCard(e, now, actions, Modifier.animateItem()) }
+        }
+        // Finished items older than a week are archived out of the way.
+        if (!todayOnly && sections.archived.isNotEmpty()) item(key = "archive") {
+            TextButton(onClick = { archiveOpen = true }, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Rounded.Inventory2, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
+                Text(t("بایگانی (${n(sections.archived.size)})", "Archive (${sections.archived.size})"))
+            }
+        }
+    }
+    if (archiveOpen) ArchiveDialog(sections.archived, now, actions) { archiveOpen = false }
+}
+
+/** Finished reminders older than a week, kept out of the main list. */
+@Composable
+private fun ArchiveDialog(entries: List<Entry>, now: Long, actions: ReminderActions, onClose: () -> Unit) {
+    var query by remember { mutableStateOf("") }
+    val shown = entries.filter { query.isBlank() || it.reminder.title.contains(query.trim(), true) }
+    androidx.compose.ui.window.Dialog(onDismissRequest = onClose,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Column(Modifier.fillMaxSize().systemBarsPadding()) {
+                Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, t("بستن", "Close")) }
+                    Text(t("بایگانی", "Archive"), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                }
+                OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp), singleLine = true,
+                    leadingIcon = { Icon(Icons.Rounded.Search, null) }, placeholder = { Text(t("جست‌وجو", "Search")) },
+                    shape = RoundedCornerShape(16.dp))
+                LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(shown, key = { "arch_${it.reminder.id}" }) { e -> ReminderCard(e, now, actions) }
+                }
+            }
         }
     }
 }
@@ -185,10 +234,11 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
 private class Sections(
     val attention: List<Entry>, val today: List<Entry>, val tomorrow: List<Entry>,
     val week: List<Entry>, val later: List<Entry>, val far: List<Entry>, val done: List<Entry>, val missed: List<Entry>,
+    val archived: List<Entry>,
     val todayCount: Int, val weekCount: Int,
 ) {
     val isEmpty get() = attention.isEmpty() && today.isEmpty() && tomorrow.isEmpty() && week.isEmpty() && later.isEmpty() &&
-        far.isEmpty() && done.isEmpty() && missed.isEmpty()
+        far.isEmpty() && done.isEmpty() && missed.isEmpty() && archived.isEmpty()
 }
 
 private fun buildSections(items: List<Reminder>, now: Long, zone: ZoneId): Sections {
@@ -215,9 +265,12 @@ private fun buildSections(items: List<Reminder>, now: Long, zone: ZoneId): Secti
     // Each reminder counts once, however many times it repeats in the period.
     val todayCount = active.count { it.needsAttention(now) || Recurrence.occurrencesIn(it, dayStart, tomorrowStart, 1).isNotEmpty() }
     val weekCount = active.count { Recurrence.occurrencesIn(it, now, weekEnd, 1).isNotEmpty() }
-    val done = items.filter { it.done && !it.missed }.sortedByDescending { it.completedAt }.take(50).map { Entry(it, it.nextAt, false) }
-    val missed = items.filter { it.done && it.missed }.sortedByDescending { it.completedAt }.take(50).map { Entry(it, it.nextAt, false) }
-    return Sections(attention, todayList, tomorrow, week, later, far, done, missed, todayCount, weekCount)
+    val recent = now - 7L * 24 * 3600_000
+    val finished = items.filter { it.done }.sortedByDescending { it.completedAt }
+    val done = finished.filter { !it.missed && it.completedAt >= recent }.map { Entry(it, it.nextAt, false) }
+    val missed = finished.filter { it.missed && it.completedAt >= recent }.map { Entry(it, it.nextAt, false) }
+    val archived = finished.filter { it.completedAt < recent }.map { Entry(it, it.nextAt, false) }
+    return Sections(attention, todayList, tomorrow, week, later, far, done, missed, archived, todayCount, weekCount)
 }
 
 @Composable
