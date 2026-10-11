@@ -60,12 +60,12 @@
         </provider>
 
         <activity android:name=".AssistantActivity" android:exported="true" android:theme="@style/Theme.Yadar.Translucent"
-            android:excludeFromRecents="true" android:launchMode="singleTask" android:taskAffinity="com.yadavard.app.assistant"
+            android:excludeFromRecents="true" android:launchMode="singleTask" android:taskAffinity="${applicationId}.assistant"
             android:windowSoftInputMode="adjustResize" />
 
         <activity android:name=".AlarmActivity" android:exported="false" android:theme="@style/Theme.Yadar.Alarm"
             android:showWhenLocked="true" android:turnScreenOn="true" android:excludeFromRecents="true"
-            android:launchMode="singleInstance" android:taskAffinity="com.yadavard.app.alarm" />
+            android:launchMode="singleInstance" android:taskAffinity="${applicationId}.alarm" />
 
         <service android:name=".AlertService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
 

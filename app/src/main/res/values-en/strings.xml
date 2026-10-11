@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Yadar</string>
+    <string name="app_name">Yadar+</string>
     <string name="widget_quick_description">Quickly add a reminder by voice or form</string>
     <string name="widget_today_description">Today\'s reminders</string>
     <string name="widget_week_description">Your week with tasks per day</string>

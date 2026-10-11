@@ -9,6 +9,8 @@ android {
     compileSdk = 35
     defaultConfig {
         applicationId = "com.yadavard.app"
+        // Test build of the online version: its own package so it installs next to the regular app.
+        applicationIdSuffix = ".plus"
         minSdk = 26
         targetSdk = 35
         versionCode = 34

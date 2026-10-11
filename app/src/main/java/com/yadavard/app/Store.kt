@@ -349,15 +349,17 @@ object Backup {
         val resolver = context.contentResolver
         val collection = android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI
         val dir = android.os.Environment.DIRECTORY_DOWNLOADS + "/Yadar/"
+        // The online test build keeps its own file so the two installed apps never write over each other.
+        val name = if (context.packageName.endsWith(".plus")) "yadar-plus-auto-backup.json" else AUTO_NAME
         val column = android.provider.MediaStore.MediaColumns.DISPLAY_NAME
         val pathColumn = android.provider.MediaStore.MediaColumns.RELATIVE_PATH
         // Only files created by this installation are visible here, so an older backup is never overwritten.
         val existing = resolver.query(collection, arrayOf(android.provider.MediaStore.MediaColumns._ID),
-            "$column=? AND $pathColumn=?", arrayOf(AUTO_NAME, dir), null)?.use { c ->
+            "$column=? AND $pathColumn=?", arrayOf(name, dir), null)?.use { c ->
             if (c.moveToFirst()) android.content.ContentUris.withAppendedId(collection, c.getLong(0)) else null
         }
         val uri = existing ?: resolver.insert(collection, ContentValues().apply {
-            put(column, AUTO_NAME); put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/json"); put(pathColumn, dir)
+            put(column, name); put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/json"); put(pathColumn, dir)
         }) ?: return
         resolver.openOutputStream(uri, "wt")?.use { it.write(export(items, notes).toByteArray()) }
     }
