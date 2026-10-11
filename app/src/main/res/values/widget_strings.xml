@@ -1,8 +1,0 @@
-<resources>
-    <string name="app_name">یادار</string>
-    <string name="widget_quick_description">ثبت سریع یادآوری با ویس یا فرم</string>
-    <string name="widget_today_description">یادآوری‌های امروز</string>
-    <string name="widget_week_description">تقویم هفتگی یادآوری‌ها</string>
-    <string name="widget_next_description">پنج یادآوری بعدی</string>
-    <string name="widget_focus_description">نزدیک‌ترین یادآوری</string>
-</resources>

@@ -1,8 +1,0 @@
-<resources>
-    <string name="app_name">Yadar</string>
-    <string name="widget_quick_description">Quick voice or form reminder</string>
-    <string name="widget_today_description">Today’s reminders</string>
-    <string name="widget_week_description">Weekly reminder calendar</string>
-    <string name="widget_next_description">Next five reminders</string>
-    <string name="widget_focus_description">Nearest reminder</string>
-</resources>

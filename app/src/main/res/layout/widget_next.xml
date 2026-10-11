@@ -1,15 +1,14 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/next_root" android:layout_width="match_parent" android:layout_height="match_parent"
-    android:layoutDirection="rtl" android:orientation="vertical" android:padding="15dp"
-    android:background="@drawable/widget_surface">
+    android:orientation="vertical" android:layoutDirection="rtl" android:padding="14dp" android:background="@drawable/widget_bg">
     <TextView android:id="@+id/next_header" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="۵ یادآوری بعدی  ✦" android:textColor="#2C2386" android:textSize="17sp"
-        android:textStyle="bold" />
+        android:text="پیش رو" android:textColor="@color/widget_text" android:textSize="15sp" android:textStyle="bold"
+        android:textAlignment="viewStart" />
     <TextView android:id="@+id/next_subtitle" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:layout_marginTop="2dp" android:text="از نزدیک‌ترین موعد" android:textColor="#77768E" android:textSize="11sp" />
-    <TextView android:id="@+id/next_row_0" style="@style/WidgetReminderRow" />
-    <TextView android:id="@+id/next_row_1" style="@style/WidgetReminderRow" />
-    <TextView android:id="@+id/next_row_2" style="@style/WidgetReminderRow" />
-    <TextView android:id="@+id/next_row_3" style="@style/WidgetReminderRow" />
-    <TextView android:id="@+id/next_row_4" style="@style/WidgetReminderRow" />
+        android:textColor="@color/widget_muted" android:textSize="11sp" android:textAlignment="viewStart" />
+    <TextView android:id="@+id/next_row_0" style="@style/WidgetRow" android:layout_marginTop="8dp" />
+    <TextView android:id="@+id/next_row_1" style="@style/WidgetRow" />
+    <TextView android:id="@+id/next_row_2" style="@style/WidgetRow" />
+    <TextView android:id="@+id/next_row_3" style="@style/WidgetRow" />
+    <TextView android:id="@+id/next_row_4" style="@style/WidgetRow" />
 </LinearLayout>
