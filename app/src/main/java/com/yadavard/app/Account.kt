@@ -34,7 +34,7 @@ object Account {
     /** Set when an AI feature needs the user to sign in; the main screen shows the login dialog. */
     val loginRequested = MutableStateFlow(false)
 
-    const val DEFAULT_SERVER = "https://yadar-api.liara.run"
+    const val DEFAULT_SERVER = "https://yadar.pish.run"
 
     private fun prefs(context: Context) = context.applicationContext.getSharedPreferences("account", Context.MODE_PRIVATE)
 
