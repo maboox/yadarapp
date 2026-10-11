@@ -58,10 +58,10 @@ func TestBazaarCalls(t *testing.T) {
 	cfg := bazaarConfig{ClientID: "id", ClientSecret: "sec", APIToken: "api"}
 	ctx := context.Background()
 
-	if id, err := bazaarAccountID(ctx, cfg, "good"); err != nil || id != "acc-42" {
+	if id, err := bazaarAccountID(ctx, cfg, "good", "https://x/cb"); err != nil || id != "acc-42" {
 		t.Fatalf("account id = %q, %v", id, err)
 	}
-	if _, err := bazaarAccountID(ctx, cfg, "bad"); err == nil {
+	if _, err := bazaarAccountID(ctx, cfg, "bad", "https://x/cb"); err == nil {
 		t.Fatal("bad code must fail")
 	}
 	p, err := validatePurchase(ctx, cfg, "com.yadavard.app", "tokens_50", "tok")

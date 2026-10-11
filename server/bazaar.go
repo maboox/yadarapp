@@ -170,10 +170,12 @@ func handleBazaarCallback(e *core.RequestEvent) error {
 	cfg := loadBazaar(app)
 	ctx, cancel := context.WithTimeout(e.Request.Context(), 30*time.Second)
 	defer cancel()
-	accountID, err := bazaarAccountID(ctx, cfg, code)
+	accountID, err := bazaarAccountID(ctx, cfg, code, cfg.redirectURL(e))
 	if err != nil {
 		log.Println("bazaar login:", err)
-		return page(e, http.StatusBadGateway, "ارتباط با بازار برقرار نشد", "به یادار برگرد و دوباره امتحان کن.", scheme)
+		// The reason is Bazaar's own answer (never our secret), shown small so a screenshot is enough to diagnose.
+		return page(e, http.StatusBadGateway, "ارتباط با بازار برقرار نشد",
+			"به یادار برگرد و دوباره امتحان کن.\n\nجزئیات: "+err.Error(), scheme)
 	}
 	login.Set("account_id", accountID)
 	if err := app.Save(login); err != nil {
@@ -183,9 +185,11 @@ func handleBazaarCallback(e *core.RequestEvent) error {
 }
 
 // bazaarAccountID trades the one-time code for an access token and reads the user's stable Bazaar account id.
-func bazaarAccountID(ctx context.Context, cfg bazaarConfig, code string) (string, error) {
+func bazaarAccountID(ctx context.Context, cfg bazaarConfig, code, redirect string) (string, error) {
+	// Standard OAuth2 servers want the same redirect address back; Bazaar's docs call it redirect_url.
 	form := url.Values{"grant_type": {"authorization_code"}, "code": {code},
-		"client_id": {cfg.ClientID}, "client_secret": {cfg.ClientSecret}}
+		"client_id": {cfg.ClientID}, "client_secret": {cfg.ClientSecret},
+		"redirect_uri": {redirect}, "redirect_url": {redirect}}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, bazaarTokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		return "", err
@@ -295,7 +299,7 @@ func page(e *core.RequestEvent, status int, title, text, scheme string) error {
 	doc := `<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>یادار</title><style>body{font-family:Vazirmatn,Tahoma,sans-serif;background:#f6f4ff;color:#1d1b20;display:flex;min-height:100vh;margin:0;align-items:center;justify-content:center}
 .card{background:#fff;border-radius:24px;padding:32px 24px;max-width:360px;margin:16px;text-align:center;box-shadow:0 4px 24px #0001}
-h1{font-size:22px;margin:0 0 12px}p{line-height:1.8;color:#49454f}.btn{display:inline-block;margin-top:16px;background:#6750a4;color:#fff;
+h1{font-size:22px;margin:0 0 12px}p{line-height:1.8;color:#49454f;white-space:pre-line;overflow-wrap:anywhere}.btn{display:inline-block;margin-top:16px;background:#6750a4;color:#fff;
 padding:12px 28px;border-radius:999px;text-decoration:none}</style></head><body><div class="card"><h1>` + html.EscapeString(title) +
 		`</h1><p>` + html.EscapeString(text) + `</p>` + back + `</div></body></html>`
 	return e.HTML(status, doc)
