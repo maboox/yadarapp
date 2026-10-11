@@ -1,15 +1,21 @@
 package com.yadavard.app
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.util.Base64
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
+import java.security.SecureRandom
 
 /** Thrown when the account has no tokens left (HTTP 402). */
 class NoBalanceException(message: String) : Exception(message)
@@ -18,14 +24,18 @@ class NoBalanceException(message: String) : Exception(message)
 class LoggedOutException(message: String) : Exception(message)
 
 /**
- * The Yadar account: phone login, profile and token balance. AI requests go through the Yadar server, which
+ * The Yadar account: Bazaar (or phone) login, profile and token balance. AI requests go through the Yadar server, which
  * holds the provider keys and deducts tokens. Everything else in the app works without an account.
  */
 object Account {
     data class Profile(
         val phone: String, val name: String, val balance: Double, val unlimited: Boolean,
         val plan: String, val textModel: String, val audioModel: String, val aiEnabled: Boolean,
+        val id: String = "", val bazaar: Boolean = false,
     )
+
+    /** A token pack sold through Cafe Bazaar; prices are set in the Bazaar panel, [price] is only shown. */
+    data class Pack(val sku: String, val tokens: Double, val title: String, val price: String, val note: String)
 
     private val _profile = MutableStateFlow<Profile?>(null)
     /** The signed-in profile, or null when signed out. Observed by the UI. */
@@ -53,7 +63,7 @@ object Account {
 
     private fun parse(o: JSONObject) = Profile(o.optString("phone"), o.optString("name"), o.optDouble("balance", 0.0),
         o.optBoolean("unlimited"), o.optString("plan"), o.optString("text_model"), o.optString("audio_model"),
-        o.optBoolean("ai_enabled", true))
+        o.optBoolean("ai_enabled", true), o.optString("id"), o.optBoolean("bazaar"))
 
     private fun store(context: Context, profile: JSONObject) {
         prefs(context).edit().putString("profile", profile.toString()).apply()
@@ -61,7 +71,7 @@ object Account {
     }
 
     fun logout(context: Context) {
-        prefs(context).edit().remove("token").remove("profile").apply()
+        prefs(context).edit().remove("token").remove("profile").remove("bazaar_verifier").apply()
         _profile.value = null
     }
 
@@ -99,17 +109,81 @@ object Account {
         } finally { conn.disconnect() }
     }
 
+    private fun signedIn(context: Context, res: JSONObject) {
+        prefs(context).edit().putString("token", res.getString("token")).putLong("token_at", System.currentTimeMillis())
+            .remove("bazaar_verifier").apply()
+        store(context, res.getJSONObject("profile"))
+        // Signing in is how people opt into the assistant, so typed quick add uses it too from now on.
+        Prefs.setUseAi(context, true)
+    }
+
+    // ---- Bazaar login: the browser signs in on Bazaar's site, then the app claims the login with a secret only it knows.
+
+    private val claimLock = Mutex()
+
+    /** Opens Bazaar's sign-in page in the browser. */
+    fun startBazaarLogin(context: Context) {
+        val verifier = ByteArray(32).also { SecureRandom().nextBytes(it) }.joinToString("") { "%02x".format(it) }
+        val challenge = MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray())
+            .joinToString("") { "%02x".format(it) }
+        prefs(context).edit().putString("bazaar_verifier", verifier).putLong("bazaar_at", System.currentTimeMillis()).apply()
+        val url = server(context) + "/api/yadar/bazaar/start?challenge=" + challenge + "&app=" + Uri.encode(context.packageName)
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
+    /** True while a Bazaar sign-in started in the last 15 minutes is waiting to be claimed. */
+    fun bazaarPending(context: Context): Boolean = !isLoggedIn(context) &&
+        prefs(context).getString("bazaar_verifier", null) != null &&
+        System.currentTimeMillis() - prefs(context).getLong("bazaar_at", 0) < 15 * 60_000
+
+    fun cancelBazaarLogin(context: Context) { prefs(context).edit().remove("bazaar_verifier").apply() }
+
+    /** Asks the server whether the Bazaar sign-in finished; true once signed in, false while still waiting. */
+    suspend fun claimBazaar(context: Context): Boolean = withContext(Dispatchers.IO) {
+        claimLock.withLock {
+            if (isLoggedIn(context)) return@withLock true
+            val verifier = prefs(context).getString("bazaar_verifier", null) ?: return@withLock false
+            val res = try {
+                call(context, "POST", "/api/yadar/bazaar/claim", JSONObject().put("verifier", verifier), auth = false)
+            } catch (e: IllegalStateException) {
+                if (e.message?.contains(server(context)) != true) cancelBazaarLogin(context) // keep it only when offline
+                throw e
+            }
+            if (res.optBoolean("pending")) return@withLock false
+            signedIn(context, res)
+            true
+        }
+    }
+
+    // ---- token packs ----
+
+    /** The packs on sale and whether the server can verify purchases yet. */
+    suspend fun packs(context: Context): Pair<List<Pack>, Boolean> = withContext(Dispatchers.IO) {
+        val res = call(context, "GET", "/api/yadar/packs")
+        val items = res.optJSONArray("items")
+        val list = (0 until (items?.length() ?: 0)).map { i ->
+            val o = items!!.getJSONObject(i)
+            Pack(o.optString("sku"), o.optDouble("tokens", 0.0), o.optString("title"), o.optString("price"), o.optString("note"))
+        }
+        list to res.optBoolean("ready")
+    }
+
+    /** Sends a Bazaar purchase to the server, which checks it with Bazaar and adds the tokens; returns the tokens added. */
+    suspend fun redeem(context: Context, packageName: String, sku: String, purchaseToken: String, orderId: String): Double =
+        withContext(Dispatchers.IO) {
+            val res = call(context, "POST", "/api/yadar/purchase", JSONObject().put("package", packageName).put("sku", sku)
+                .put("token", purchaseToken).put("order_id", orderId))
+            res.optJSONObject("profile")?.let { store(context, it) }
+            res.optDouble("added", 0.0)
+        }
+
     /** Asks the server to text a login code; returns the code length. */
     suspend fun requestCode(context: Context, phone: String): Int = withContext(Dispatchers.IO) {
         call(context, "POST", "/api/yadar/otp/request", JSONObject().put("phone", phone), auth = false).optInt("length", 5)
     }
 
     suspend fun verify(context: Context, phone: String, code: String) = withContext(Dispatchers.IO) {
-        val res = call(context, "POST", "/api/yadar/otp/verify", JSONObject().put("phone", phone).put("code", code), auth = false)
-        prefs(context).edit().putString("token", res.getString("token")).putLong("token_at", System.currentTimeMillis()).apply()
-        store(context, res.getJSONObject("profile"))
-        // Signing in is how people opt into the assistant, so typed quick add uses it too from now on.
-        Prefs.setUseAi(context, true)
+        signedIn(context, call(context, "POST", "/api/yadar/otp/verify", JSONObject().put("phone", phone).put("code", code), auth = false))
     }
 
     /** Updates the profile and renews the session token about once a week. Errors are ignored (offline). */

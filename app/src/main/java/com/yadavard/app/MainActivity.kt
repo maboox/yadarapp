@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.widget.Toast
+import androidx.lifecycle.lifecycleScope
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -67,8 +68,22 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Back from Bazaar's sign-in page (or reopened meanwhile): finish the login if it is ready. */
+    private fun claimBazaarLogin() {
+        if (!Account.bazaarPending(this)) return
+        lifecycleScope.launch {
+            runCatching { Account.claimBazaar(this@MainActivity) }.onSuccess { done ->
+                if (done) {
+                    Account.loginRequested.value = false
+                    Toast.makeText(this@MainActivity, t("وارد شدی؛ خوش آمدی!", "Signed in, welcome!"), Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
     override fun onResume() {
         super.onResume()
+        claimBazaarLogin()
         // If an alarm is still ringing, always give the user its screen so it can be stopped.
         val ringing = AlertService.ringingId()
         if (ringing != 0L) runCatching {
@@ -79,6 +94,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        if (intent.data?.host == "bazaar-login") { claimBazaarLogin(); return }
         setIntent(intent)
         command.value = intent
     }
@@ -105,7 +121,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         Account.load(context)
-        viewModelScope.launch { Account.refresh(context) }
+        viewModelScope.launch {
+            Account.refresh(context)
+            // Tokens paid for on Bazaar but never added (app closed or offline during the purchase).
+            Account.profile.value?.id?.let { id ->
+                Billing.recover(context, id) { info ->
+                    viewModelScope.launch {
+                        runCatching { Account.redeem(context, info.packageName, info.productId, info.purchaseToken, info.orderId) }
+                    }
+                }
+            }
+        }
         viewModelScope.launch(Dispatchers.IO) {
             Scheduler.rescheduleAll(context)
             WidgetUpdater.update(context)
@@ -344,8 +370,8 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
         if (voiceChoice) AlertDialog(onDismissRequest = { voiceChoice = false },
             icon = { Icon(Icons.Rounded.AutoAwesome, null) },
             title = { Text(t("دستیار هوشمند", "Smart assistant")) },
-            text = { Text(t("برای اینکه هوش مصنوعی صدایت را بفهمد و خودش یادآوری بسازد، با شمارهٔ موبایل وارد شو (توکن هدیه داری). یا فقط با تایپ صوتی گوگل متن را بنویس.",
-                "Sign in with your phone so the AI understands your voice and creates reminders (free tokens included), or just dictate with Google.")) },
+            text = { Text(t("برای اینکه هوش مصنوعی صدایت را بفهمد و خودش یادآوری بسازد، با حساب بازار وارد شو (توکن هدیه داری). یا فقط با تایپ صوتی گوگل متن را بنویس.",
+                "Sign in with Cafe Bazaar so the AI understands your voice and creates reminders (free tokens included), or just dictate with Google.")) },
             confirmButton = { Button(onClick = { voiceChoice = false; Account.loginRequested.value = true }) { Text(t("ورود", "Sign in")) } },
             dismissButton = { TextButton(onClick = { voiceChoice = false; dictate() }) { Text(t("تایپ صوتی ساده", "Plain dictation")) } })
         noteEditor?.let { current ->

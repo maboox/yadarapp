@@ -13,8 +13,8 @@ android {
         applicationIdSuffix = ".plus"
         minSdk = 26
         targetSdk = 35
-        versionCode = 34
-        versionName = "3.0.0-beta2"
+        versionCode = 35
+        versionName = "3.0.0-beta3"
     }
     // One fixed key for every build so each new APK installs over the previous one without losing data.
     // It is intentionally public: this app is distributed as a personal sideloaded APK, not via a store.
@@ -49,6 +49,7 @@ dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
     implementation(composeBom)
     implementation("androidx.core:core-ktx:1.15.0")
+    implementation("com.github.cafebazaar.Poolakey:poolakey:2.2.0")
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")

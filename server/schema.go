@@ -43,8 +43,12 @@ func ensureSchema(app core.App) error {
 	addField(users, &core.TextField{Name: "text_model", Max: 200, Help: "مدل اختصاصی این کاربر؛ خالی = مدل پلن"})
 	addField(users, &core.TextField{Name: "audio_model", Max: 200, Help: "مدل صدای اختصاصی؛ خالی = مدل پلن"})
 	addField(users, &core.TextField{Name: "admin_note", Max: 500})
+	addField(users, &core.TextField{Name: "bazaar_id", Max: 100, Help: "شناسهٔ حساب کافه‌بازار"})
 	if !hasIndex(users, "idx_users_phone") {
 		users.AddIndex("idx_users_phone", true, "phone", "phone != ''")
+	}
+	if !hasIndex(users, "idx_users_bazaar") {
+		users.AddIndex("idx_users_bazaar", true, "bazaar_id", "bazaar_id != ''")
 	}
 	// Users may only read their own record; balances and plans change only through this server or the admin.
 	users.ListRule = nil
@@ -115,6 +119,10 @@ func ensureSchema(app core.App) error {
 		addField(c, &core.NumberField{Name: "fallback_input_per_m", Help: "قیمت ورودی برای مدلی که در جدول models نیست"})
 		addField(c, &core.NumberField{Name: "fallback_output_per_m", Help: "قیمت خروجی برای مدلی که در جدول models نیست"})
 		addField(c, &core.BoolField{Name: "ai_enabled", Help: "خاموش = همهٔ درخواست‌های هوش مصنوعی موقتاً متوقف"})
+		addField(c, &core.TextField{Name: "public_url", Max: 200, Help: "آدرس عمومی سرور، مثلاً https://yadar.pish.run (برای ورود با بازار)"})
+		addField(c, &core.TextField{Name: "bazaar_client_id", Max: 200, Help: "پیشخان بازار ← ورود با بازار ← ClientID"})
+		addField(c, &core.TextField{Name: "bazaar_client_secret", Max: 500, Help: "پیشخان بازار ← ورود با بازار ← Secret"})
+		addField(c, &core.TextField{Name: "bazaar_api_token", Max: 500, Help: "پیشخان بازار ← API پیشخان ← دریافت توکن (برای بررسی خریدها)"})
 	})
 	if err != nil {
 		return err
@@ -153,6 +161,71 @@ func ensureSchema(app core.App) error {
 		return err
 	}
 
+	if _, err := ensureCollection(app, "logins", func(c *core.Collection) {
+		addField(c, &core.TextField{Name: "state", Max: 100})
+		addField(c, &core.TextField{Name: "challenge", Max: 100})
+		addField(c, &core.TextField{Name: "app", Max: 100})
+		addField(c, &core.TextField{Name: "account_id", Max: 100})
+		addField(c, &core.NumberField{Name: "expires"})
+		addField(c, &core.TextField{Name: "ip", Max: 60})
+		addField(c, &core.AutodateField{Name: "created", OnCreate: true})
+		if !hasIndex(c, "idx_logins_state") {
+			c.AddIndex("idx_logins_state", true, "state", "")
+		}
+		if !hasIndex(c, "idx_logins_challenge") {
+			c.AddIndex("idx_logins_challenge", true, "challenge", "")
+		}
+	}); err != nil {
+		return err
+	}
+
+	packs, err := ensureCollection(app, "packs", func(c *core.Collection) {
+		addField(c, &core.TextField{Name: "sku", Required: true, Max: 100, Presentable: true, Help: "شناسهٔ محصول در پیشخان بازار"})
+		addField(c, &core.NumberField{Name: "tokens", Help: "توکنی که با هر خرید اضافه می‌شود"})
+		addField(c, &core.TextField{Name: "title", Max: 100})
+		addField(c, &core.TextField{Name: "price_label", Max: 100, Help: "فقط برای نمایش؛ قیمت واقعی را بازار تعیین می‌کند"})
+		addField(c, &core.TextField{Name: "note", Max: 200})
+		addField(c, &core.NumberField{Name: "sort"})
+		addField(c, &core.BoolField{Name: "enabled"})
+		if !hasIndex(c, "idx_packs_sku") {
+			c.AddIndex("idx_packs_sku", true, "sku", "")
+		}
+	})
+	if err != nil {
+		return err
+	}
+	if n, _ := app.CountRecords(packs); n == 0 {
+		for i, p := range defaultPacks {
+			r := core.NewRecord(packs)
+			r.Set("sku", p.sku)
+			r.Set("tokens", p.tokens)
+			r.Set("title", p.title)
+			r.Set("price_label", p.price)
+			r.Set("note", p.note)
+			r.Set("sort", i+1)
+			r.Set("enabled", true)
+			if err := app.Save(r); err != nil {
+				return err
+			}
+		}
+	}
+
+	if _, err := ensureCollection(app, "purchases", func(c *core.Collection) {
+		addField(c, &core.RelationField{Name: "user", CollectionId: users.Id, MaxSelect: 1})
+		addField(c, &core.TextField{Name: "sku", Max: 100})
+		addField(c, &core.TextField{Name: "token", Max: 500})
+		addField(c, &core.TextField{Name: "order_id", Max: 200})
+		addField(c, &core.TextField{Name: "package", Max: 100})
+		addField(c, &core.NumberField{Name: "tokens"})
+		addField(c, &core.BoolField{Name: "consumed", Help: "در بازار مصرف شد (کاربر می‌تواند دوباره همین بسته را بخرد)"})
+		addField(c, &core.AutodateField{Name: "created", OnCreate: true})
+		if !hasIndex(c, "idx_purchases_token") {
+			c.AddIndex("idx_purchases_token", true, "token", "")
+		}
+	}); err != nil {
+		return err
+	}
+
 	if _, err := ensureCollection(app, "otps", func(c *core.Collection) {
 		addField(c, &core.TextField{Name: "phone", Max: 15})
 		addField(c, &core.TextField{Name: "code_hash", Max: 100, Hidden: true})
@@ -167,6 +240,16 @@ func ensureSchema(app core.App) error {
 		return err
 	}
 	return nil
+}
+
+var defaultPacks = []struct {
+	sku, title, price, note string
+	tokens                  float64
+}{
+	{"tokens_50", "۵۰ توکن", "۸۹ هزار تومان", "", 50},
+	{"tokens_150", "۱۵۰ توکن", "۲۲۹ هزار تومان", "", 150},
+	{"tokens_400", "۴۰۰ توکن", "۵۴۹ هزار تومان", "پرفروش", 400},
+	{"tokens_800", "۸۰۰ توکن", "۹۹۰ هزار تومان", "به‌صرفه‌ترین", 800},
 }
 
 // ensureCollection returns the named base collection, creating it if needed; configure adds missing fields.

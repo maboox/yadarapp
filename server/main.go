@@ -50,6 +50,8 @@ func configureApp(app core.App) error {
 	s.RateLimits.Enabled = true
 	want := []core.RateLimitRule{
 		{Label: "/api/yadar/otp/", MaxRequests: 8, Duration: 60},
+		{Label: "/api/yadar/bazaar/", MaxRequests: 40, Duration: 60},
+		{Label: "/api/yadar/purchase", MaxRequests: 10, Duration: 60},
 		{Label: "/api/yadar/ai/", MaxRequests: 30, Duration: 60},
 		{Label: "/api/collections/users/auth-refresh", MaxRequests: 10, Duration: 60},
 	}
