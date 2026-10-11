@@ -3,6 +3,7 @@ package com.yadavard.app
 import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -93,6 +94,7 @@ fun AssistantBubbles(state: AssistantSession.State, modifier: Modifier = Modifie
             AssistantSession.Stage.RESULT -> {
                 if (state.heard.isNotBlank()) UserBubble(state.heard)
                 if (state.reply.isNotBlank()) ReplyBubble(state.reply, closable = state.actions.isEmpty())
+                if (state.shown.isNotEmpty()) ShownBubbles(state.shown)
                 if (state.actions.isNotEmpty()) ActionBubbles(state.actions)
             }
             AssistantSession.Stage.DONE -> StatusBubble(state.message, busy = false, icon = Icons.Rounded.CheckCircle)
@@ -168,6 +170,46 @@ private fun ErrorBubble(state: AssistantSession.State) {
     }
 }
 
+/** Cards for the reminders and notes an answer refers to; tap one to open it. */
+@Composable
+private fun ShownBubbles(items: List<ShownItem>) {
+    val context = LocalContext.current
+    val scheme = MaterialTheme.colorScheme
+    val modifier = if (items.size > 4) Modifier.fillMaxWidth().heightIn(max = 360.dp).verticalScroll(rememberScrollState())
+        else Modifier.fillMaxWidth()
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        items.forEach { item ->
+            val r = item.reminder
+            val note = item.note
+            val color = if (r != null) r.category.catColor() else noteColor(note?.color ?: 0)
+            val icon = if (r != null) r.category.catIcon() else Icons.Rounded.StickyNote2
+            val title = r?.title ?: note?.title.orEmpty()
+            val subtitle = if (r != null) {
+                val zone = r.zoneId
+                val at = item.at.takeIf { it > 0 } ?: r.nextAt
+                if (at > 0) Dates.friendlyDay(Dates.localDate(at, zone), LocalDate.now(zone), AppDisplay.calendar, AppDisplay.language) +
+                    " • " + Dates.formatTime(at, zone, AppDisplay.language) + (if (r.unit != RepeatUnit.NONE) " • " + repeatLabel(r) else "")
+                else ""
+            } else note?.body?.replace('\n', ' ')?.take(90).orEmpty()
+            Surface(shape = RoundedCornerShape(18.dp), color = scheme.surfaceContainerHigh, shadowElevation = 6.dp,
+                modifier = Modifier.fillMaxWidth().clickable { AssistantSession.openShown(context, item) }) {
+                Row(Modifier.padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(color.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+                        Icon(icon, null, tint = color, modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Icon(Icons.Rounded.ChevronLeft, null, tint = scheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun ActionBubbles(actions: List<AssistantAction>) {
     val context = LocalContext.current
@@ -214,25 +256,43 @@ private fun ActionBubble(a: AssistantAction, now: Long, onTouched: () -> Unit) {
         is AssistantAction.Complete -> Triple(t("انجام شد", "Done"), scheme.secondary, Icons.Rounded.CheckCircle)
         is AssistantAction.Miss -> Triple(t("انجام نشد", "Not done"), scheme.error, Icons.Rounded.EventBusy)
         is AssistantAction.Postpone -> Triple(t("تعویق", "Postpone"), scheme.tertiary, Icons.Rounded.Snooze)
+        is AssistantAction.NoteCreate -> Triple(t("یادداشت جدید", "New note"), scheme.primary, Icons.Rounded.NoteAdd)
+        is AssistantAction.NoteUpdate -> Triple(t("ویرایش یادداشت", "Edit note"), scheme.tertiary, Icons.Rounded.EditNote)
+        is AssistantAction.NoteDelete -> Triple(t("حذف یادداشت", "Delete note"), scheme.error, Icons.Rounded.DeleteOutline)
     }
-    val r = when (a) {
+    val r: Reminder? = when (a) {
         is AssistantAction.Create -> a.draft
         is AssistantAction.Update -> a.after
         is AssistantAction.Delete -> a.target
         is AssistantAction.Complete -> a.target
         is AssistantAction.Miss -> a.target
         is AssistantAction.Postpone -> a.target
+        else -> null
     }
-    val zone = r.zoneId
+    val title = r?.title ?: when (a) {
+        is AssistantAction.NoteCreate -> a.note.title
+        is AssistantAction.NoteUpdate -> a.after.title
+        is AssistantAction.NoteDelete -> a.note.title
+        else -> ""
+    }
+    val zone = r?.zoneId ?: java.time.ZoneId.systemDefault()
     val lines = buildList {
-        when (a) {
+        if (r == null) {
+            val text = when (a) {
+                is AssistantAction.NoteCreate -> a.note.body
+                is AssistantAction.NoteUpdate -> a.after.body
+                is AssistantAction.NoteDelete -> a.note.body
+                else -> ""
+            }
+            if (text.isNotBlank()) add(text.replace('\n', ' ').take(140))
+        } else when (a) {
             is AssistantAction.Update -> addAll(Assistant.describeChanges(a.before, a.after))
             is AssistantAction.Postpone -> add(t("${leadLabel(a.minutes)} عقب‌تر", "${leadLabel(a.minutes)} later"))
             else -> {
                 val at = r.displayAt(now)
                 if (at > 0) add(Dates.friendlyDay(Dates.localDate(at, zone), LocalDate.now(zone), AppDisplay.calendar, AppDisplay.language) +
                     " • " + Dates.formatTime(at, zone, AppDisplay.language) + if (a.needsFix(now)) t(" — گذشته!", " — passed!") else "")
-                if (a is AssistantAction.Create) {
+                if (a is AssistantAction.Create && r != null) {
                     if (r.unit != RepeatUnit.NONE) add(repeatLabel(r))
                     if (r.alertStyle == AlertStyle.ALARM) add(t("زنگ تمام‌صفحه", "Full-screen alarm"))
                     if (r.important) add(t("مهم", "Important"))
@@ -242,14 +302,14 @@ private fun ActionBubble(a: AssistantAction, now: Long, onTouched: () -> Unit) {
             }
         }
     }
-    BubbleSurface(if (a is AssistantAction.Delete) scheme.errorContainer else scheme.surfaceContainerHigh) {
+    BubbleSurface(if (a is AssistantAction.Delete || a is AssistantAction.NoteDelete) scheme.errorContainer else scheme.surfaceContainerHigh) {
         Column(Modifier.padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(icon, null, Modifier.size(18.dp), tint = color)
                 Spacer(Modifier.width(6.dp))
                 Column(Modifier.weight(1f)) {
                     Text(label, style = MaterialTheme.typography.labelMedium, color = color)
-                    Text(r.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
                 IconButton(onClick = { AssistantSession.remove(a) }, modifier = Modifier.size(28.dp)) {
                     Icon(Icons.Rounded.Close, t("نادیده بگیر", "Discard"), Modifier.size(16.dp))
@@ -264,7 +324,7 @@ private fun ActionBubble(a: AssistantAction, now: Long, onTouched: () -> Unit) {
                 }
                 Button(onClick = { AssistantSession.apply(context, listOf(a)) }, enabled = !a.needsFix(now),
                     contentPadding = PaddingValues(horizontal = 14.dp), modifier = Modifier.height(36.dp),
-                    colors = if (a is AssistantAction.Delete) ButtonDefaults.buttonColors(containerColor = scheme.error) else ButtonDefaults.buttonColors()) {
+                    colors = if (a is AssistantAction.Delete || a is AssistantAction.NoteDelete) ButtonDefaults.buttonColors(containerColor = scheme.error) else ButtonDefaults.buttonColors()) {
                     Icon(Icons.Rounded.Check, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text(t("تأیید", "Confirm"))
                 }
             }

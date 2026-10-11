@@ -32,6 +32,7 @@ object AssistantSession {
         val heard: String = "",
         val reply: String = "",
         val actions: List<AssistantAction> = emptyList(),
+        val shown: List<ShownItem> = emptyList(),
         val message: String = "",
     )
 
@@ -66,10 +67,10 @@ object AssistantSession {
                 fail(t("دستیار پاسخ نداد. ", "The assistant did not answer. ") + (e.message ?: "")); return@launch
             }
             history.add(heard to result.reply)
-            _state.value = _state.value.copy(stage = Stage.RESULT, reply = result.reply, actions = result.actions)
+            _state.value = _state.value.copy(stage = Stage.RESULT, reply = result.reply, actions = result.actions, shown = result.shown)
             if (result.actions.isEmpty()) {
-                // Answers to questions stay for a while, then the bubble goes away by itself.
-                delay(30_000)
+                // Answers to questions stay for a while (longer with item cards), then the bubble goes away by itself.
+                delay(if (result.shown.isEmpty()) 30_000 else 90_000)
                 if (_state.value.stage == Stage.RESULT && _state.value.actions.isEmpty()) dismiss()
             }
         }
@@ -133,6 +134,16 @@ object AssistantSession {
     fun dismiss() {
         job?.cancel()
         _state.value = State(host = _state.value.host)
+    }
+
+    /** Opens an item shown in an answer: the reminder's form or the note. */
+    fun openShown(context: Context, item: ShownItem) {
+        dismiss()
+        context.startActivity(Intent(context, MainActivity::class.java).apply {
+            if (item.note != null) { action = WidgetCommands.OPEN_NOTE; putExtra(WidgetCommands.EXTRA_ID, item.note.id) }
+            else { action = WidgetCommands.EDIT; putExtra(WidgetCommands.EXTRA_ID, item.reminder?.id ?: 0L) }
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        })
     }
 
     fun openEditor(context: Context, original: Reminder?, draft: Reminder) {

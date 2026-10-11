@@ -66,6 +66,18 @@ data class Reminder(
     }
 }
 
+/** A free-form note (not a reminder): title, text, colour and optional pin. */
+data class Note(
+    val id: Long = 0,
+    val title: String,
+    val body: String = "",
+    /** Index into the note colour palette. */
+    val color: Int = 0,
+    val pinned: Boolean = false,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = createdAt,
+)
+
 /** State transitions shared by the app UI, notification actions and widgets. */
 object ReminderLogic {
     fun complete(r: Reminder, now: Long): Reminder {

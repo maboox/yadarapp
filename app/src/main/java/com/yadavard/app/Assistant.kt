@@ -14,6 +14,9 @@ sealed class AssistantAction {
     data class Complete(val target: Reminder) : AssistantAction()
     data class Miss(val target: Reminder) : AssistantAction()
     data class Postpone(val target: Reminder, val minutes: Int) : AssistantAction()
+    data class NoteCreate(val note: Note) : AssistantAction()
+    data class NoteUpdate(val before: Note, val after: Note) : AssistantAction()
+    data class NoteDelete(val note: Note) : AssistantAction()
 
     /** A one-time reminder whose time already passed cannot be saved as is. */
     fun needsFix(now: Long): Boolean = when (this) {
@@ -23,7 +26,11 @@ sealed class AssistantAction {
     }
 }
 
-data class AssistantResult(val heard: String, val reply: String, val actions: List<AssistantAction>)
+/** An existing reminder (at a given occurrence) or note the assistant points to when answering a question. */
+data class ShownItem(val reminder: Reminder? = null, val note: Note? = null, val at: Long = 0)
+
+data class AssistantResult(val heard: String, val reply: String, val actions: List<AssistantAction>,
+                           val shown: List<ShownItem> = emptyList())
 
 object Assistant {
     /**
@@ -56,7 +63,7 @@ object Assistant {
         }
         val today = LocalDate.now(zone)
         val agenda = buildString {
-            for (d in 0 until 8) {
+            for (d in 0 until 15) {
                 val day = today.plusDays(d.toLong())
                 val s = Dates.startOfDay(day, zone)
                 val e = Dates.startOfDay(day.plusDays(1), zone)
@@ -71,7 +78,14 @@ object Assistant {
             append("ACTIVE REMINDERS (id | title | next due | flags):\n")
             if (active.isEmpty()) append("(none)\n") else active.forEach { append(line(it)).append('\n') }
             if (done.isNotEmpty()) { append("RECENTLY COMPLETED:\n"); done.forEach { append(line(it)).append('\n') } }
-            append("AGENDA FOR THE NEXT 8 DAYS (daily/hourly routines are omitted here; they happen every day at their time):\n").append(agenda.ifBlank { "(empty)\n" })
+            append("AGENDA FOR THE NEXT 15 DAYS (daily/hourly routines are omitted here; they happen every day at their time):\n").append(agenda.ifBlank { "(empty)\n" })
+            val notes = Repo.notes(context).take(60)
+            append("NOTES (id | title | last edited | text):\n")
+            if (notes.isEmpty()) append("(none)\n") else notes.forEach { n ->
+                append("N").append(n.id).append(" | ").append(n.title.ifBlank { "-" }).append(" | ")
+                    .append(ZonedDateTime.ofInstant(java.time.Instant.ofEpochMilli(n.updatedAt), zone).toLocalDate())
+                    .append(" | ").append(n.body.replace('\n', ' ').take(160)).append('\n')
+            }
         }
     }
 
@@ -147,6 +161,9 @@ object Assistant {
                 is AssistantAction.Delete -> Repo.delete(context, a.target)
                 is AssistantAction.Complete -> Repo.complete(context, a.target.id)
                 is AssistantAction.Miss -> Repo.miss(context, a.target.id)
+                is AssistantAction.NoteCreate -> Repo.saveNote(context, a.note)
+                is AssistantAction.NoteUpdate -> Repo.saveNote(context, a.after)
+                is AssistantAction.NoteDelete -> Repo.deleteNote(context, a.note.id)
                 is AssistantAction.Postpone -> {
                     val r = Repo.get(context, a.target.id) ?: return@forEach
                     if (r.pendingAt > 0) Repo.snooze(context, r.id, a.minutes)

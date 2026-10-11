@@ -373,7 +373,7 @@ Reply language: ${if (lang == AppLanguage.FA) "Persian (Farsi), colloquial and s
 
 ${Assistant.context(context)}
 Decide what the user wants and return ONLY JSON, no prose:
-{"reply": "<what to say back, plain text, max 3 short sentences, no markdown or emojis>", "actions": [ ... ]}
+{"reply": "<what to say back, plain text, max 3 short sentences, no markdown or emojis>", "actions": [ ... ], "show": [ ... ]}
 Action objects:
 - {"type":"create","reminder":{...}}  new reminder
 - {"type":"update","id":<id>,"changes":{...only the fields that change...}}
@@ -381,6 +381,13 @@ Action objects:
 - {"type":"complete","id":<id>} when the user says it is done
 - {"type":"missed","id":<id>} when the user says they did NOT do it / missed it / it passed (انجام ندادم، قضا شد، از دستم رفت); this is recorded, unlike delete
 - {"type":"postpone","id":<id>,"minutes":<n>} when the user says remind me later / postpone by some time
+- {"type":"note_create","title":"...","body":"..."} when the user asks to write/save a note (یادداشت، نوت); not a reminder unless they want to be reminded
+- {"type":"note_update","id":<N id number>,"title":"...","body":"<full new text>"} or {"type":"note_update","id":<N id number>,"append":"<text to add>"} to change a note
+- {"type":"note_delete","id":<N id number>}
+"show" lists existing items to display as cards when answering a question (what do I have next week, do I have a work meeting, whose birthday is next, what did I write about X):
+- {"type":"reminder","id":<id>,"at":"<ISO local date-time of the relevant occurrence, optional>"}
+- {"type":"note","id":<N id number>}
+Show only the items that answer the question, in time order, at most 20.
 Keep the JSON compact: leave out every field that is null, empty or not mentioned.
 Reminder and change fields (omit when not mentioned):
 title, note, first_at (ISO-8601 local date-time WITH offset), unit (NONE|HOURS|DAYS|WEEKS|MONTHS|YEARS|AFTER_DONE_DAYS), every,
@@ -391,7 +398,7 @@ lead_minutes (advance notice), nag_minutes (keep reminding every N minutes until
 Rules:
 - Find existing reminders by meaning, not exact words. Use their #id. Never invent ids.
 - If the request is ambiguous (several reminders could match) or unclear, do NOT act: return no actions and ask a short question in "reply".
-- For questions ("what do I have this week?", "what's tomorrow?") return no actions and answer from the agenda in "reply": group by day, mention times, be concise and natural for speech.
+- For questions ("what do I have this week?", "what's tomorrow?", "when is the next birthday?", "what is in my shopping note?") return no actions, put the matching items in "show", and give a short summary in "reply" (the cards show the details, so do not list everything in the text). "Next week" means the 7 days after this week ends (weeks start on Saturday in Persian).
 - The user may ask for several things at once; return one action per thing.
 - Rescheduling ("move it to Friday 5pm") is an update with first_at. Changing to repeat is an update with unit/every/...
 - Default times: morning 09:00, noon 12:00, afternoon 16:00, evening 18:00, night 21:00; a date without time keeps the reminder's time (or 09:00 for new ones).
@@ -402,13 +409,16 @@ User: $text"""
         // A very long answer can be cut off; keep every action that arrived complete instead of failing.
         val json = runCatching { JSONObject(raw.substring(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) }.getOrElse {
             val salvaged = salvageArray(raw, "actions")
-            if (salvaged.isEmpty()) throw IllegalStateException(if (fa()) "پاسخ دستیار ناقص بود؛ درخواست را کوتاه‌تر یا در چند بخش بگو." else "The answer was cut off; try a shorter request.")
+            val shownSalvaged = salvageArray(raw, "show")
+            if (salvaged.isEmpty() && shownSalvaged.isEmpty()) throw IllegalStateException(if (fa()) "پاسخ دستیار ناقص بود؛ درخواست را کوتاه‌تر یا در چند بخش بگو." else "The answer was cut off; try a shorter request.")
             val reply = Regex("\"reply\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").find(raw)?.groupValues?.get(1)
                 ?.let { runCatching { JSONObject("{\"r\":\"$it\"}").getString("r") }.getOrNull() }.orEmpty()
-            JSONObject().put("reply", reply).put("actions", JSONArray(salvaged))
+            JSONObject().put("reply", reply).put("actions", JSONArray(salvaged)).put("show", JSONArray(shownSalvaged))
         }
         val reply = json.optString("reply").trim()
         val all = Repo.all(context).associateBy { it.id }
+        val notes = Repo.notes(context).associateBy { it.id }
+        fun noteId(a: JSONObject) = a.optString("id").trim().removePrefix("N").removePrefix("n").toLongOrNull() ?: -1L
         val actions = mutableListOf<AssistantAction>()
         val list = json.optJSONArray("actions") ?: JSONArray()
         for (i in 0 until list.length()) {
@@ -425,10 +435,42 @@ User: $text"""
                     "complete", "done" -> if (target != null && !target.done) actions += AssistantAction.Complete(target)
                     "missed", "miss", "not_done" -> if (target != null && !target.done) actions += AssistantAction.Miss(target)
                     "postpone", "snooze" -> if (target != null) actions += AssistantAction.Postpone(target, a.optInt("minutes", 60).coerceIn(1, 60 * 24 * 30))
+                    "note_create" -> {
+                        val title = a.optString("title").trim().take(200)
+                        val body = a.optString("body").trim().take(20_000)
+                        if (title.isNotBlank() || body.isNotBlank()) actions += AssistantAction.NoteCreate(Note(title = title.ifBlank { body.lineSequence().first().take(40) }, body = body))
+                    }
+                    "note_update" -> notes[noteId(a)]?.let { before ->
+                        var after = before
+                        a.optString("title").trim().takeIf { a.has("title") && it.isNotBlank() }?.let { after = after.copy(title = it.take(200)) }
+                        if (a.has("body") && !a.isNull("body")) after = after.copy(body = a.optString("body").take(20_000))
+                        a.optString("append").trim().takeIf { it.isNotBlank() }?.let { add ->
+                            after = after.copy(body = (after.body.trimEnd() + "\n" + add).trim().take(20_000))
+                        }
+                        if (after != before) actions += AssistantAction.NoteUpdate(before, after.copy(updatedAt = System.currentTimeMillis()))
+                    }
+                    "note_delete" -> notes[noteId(a)]?.let { actions += AssistantAction.NoteDelete(it) }
                 }
             }
         }
-        AssistantResult(text, reply.ifBlank { if (actions.isEmpty()) (if (fa()) "متوجه نشدم؛ دوباره بگو." else "Sorry, I didn't get that.") else "" }, actions)
+        val shown = mutableListOf<ShownItem>()
+        val showList = json.optJSONArray("show") ?: JSONArray()
+        for (i in 0 until minOf(showList.length(), 30)) {
+            val o = showList.optJSONObject(i) ?: continue
+            when (o.optString("type").lowercase()) {
+                "note" -> notes[noteId(o)]?.let { shown += ShownItem(note = it) }
+                else -> all[o.optString("id").trim().removePrefix("#").toLongOrNull() ?: -1L]?.let { r ->
+                    val at = o.optString("at").takeIf { it.isNotBlank() }?.let { v ->
+                        runCatching { ZonedDateTime.parse(v).toInstant().toEpochMilli() }.getOrElse {
+                            runCatching { java.time.LocalDateTime.parse(v.take(19)).atZone(zone).toInstant().toEpochMilli() }.getOrNull()
+                        }
+                    } ?: r.displayAt(System.currentTimeMillis())
+                    shown += ShownItem(reminder = r, at = at)
+                }
+            }
+        }
+        AssistantResult(text, reply.ifBlank { if (actions.isEmpty() && shown.isEmpty()) (if (fa()) "متوجه نشدم؛ دوباره بگو." else "Sorry, I didn't get that.") else "" },
+            actions, shown.distinctBy { (it.reminder?.id ?: -(it.note?.id ?: 0)) to it.at })
     }
 
     suspend fun parse(text: String): Reminder = parseMany(text).first()

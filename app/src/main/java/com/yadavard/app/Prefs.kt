@@ -41,6 +41,8 @@ object Prefs {
     fun setReliableMode(context: Context, value: Boolean) = prefs(context).edit().putBoolean("reliable_mode", value).apply()
 
     fun useAi(context: Context): Boolean = prefs(context).getBoolean("use_ai", false)
+    fun todayOnly(context: Context): Boolean = prefs(context).getBoolean("today_only", false)
+    fun setTodayOnly(context: Context, value: Boolean) { prefs(context).edit().putBoolean("today_only", value).apply() }
     fun setUseAi(context: Context, value: Boolean) = prefs(context).edit().putBoolean("use_ai", value).apply()
 
     /** Custom sound URIs; null means the phone's default notification / alarm sound. */
