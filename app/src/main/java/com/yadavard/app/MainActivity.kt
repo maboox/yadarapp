@@ -127,7 +127,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             Account.profile.value?.id?.let { id ->
                 Billing.recover(context, id) { info ->
                     viewModelScope.launch {
-                        runCatching { Account.redeem(context, info.packageName, info.productId, info.purchaseToken, info.orderId) }
+                        runCatching { Billing.redeem(context, info) }
                     }
                 }
             }

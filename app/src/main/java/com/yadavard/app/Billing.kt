@@ -54,6 +54,44 @@ object Billing {
     }
 
     /**
+     * Hands a finished purchase to the Yadar server, then consumes it on Bazaar when the server asks the app to
+     * (so the pack can be bought again). Returns the tokens added.
+     */
+    suspend fun redeem(context: Context, info: PurchaseInfo): Double {
+        val result = Account.redeem(context, info.packageName, info.productId, info.purchaseToken, info.orderId,
+            info.originalJson, info.dataSignature)
+        if (result.consume) {
+            val ok = kotlinx.coroutines.suspendCancellableCoroutine { cont ->
+                consume(context, info.purchaseToken) { if (cont.isActive) cont.resumeWith(kotlin.Result.success(it)) }
+            }
+            if (ok) Account.consumed(context, info.purchaseToken)
+        }
+        return result.added
+    }
+
+    /** Consumes a purchase on Bazaar (after the server credited it) so the same pack can be bought again. */
+    fun consume(context: Context, purchaseToken: String, onDone: (Boolean) -> Unit) {
+        val payment = payment(context.applicationContext)
+        var connection: Connection? = null
+        var done = false
+        fun finish(ok: Boolean) {
+            if (done) return
+            done = true
+            runCatching { connection?.disconnect() }
+            onDone(ok)
+        }
+        connection = payment.connect {
+            connectionSucceed {
+                payment.consumeProduct(purchaseToken) {
+                    consumeSucceed { finish(true) }
+                    consumeFailed { finish(false) }
+                }
+            }
+            connectionFailed { finish(false) }
+        }
+    }
+
+    /**
      * Purchases Bazaar still holds as unconsumed belong to a payment whose tokens never reached the server
      * (the app closed, the network dropped). Hands each one of [userId]'s to [redeem].
      */
@@ -73,6 +111,30 @@ object Billing {
             }
             connectionFailed { }
         }
+    }
+}
+
+/**
+ * Bazaar's in-app login, the same intent the CafeBazaarAuth library sends: the installed Bazaar app asks the
+ * user once and answers with a stable account id for this app.
+ */
+object BazaarLogin {
+    private const val BAZAAR = "com.farsitel.bazaar"
+
+    fun intent(context: Context): android.content.Intent =
+        android.content.Intent("ir.cafebazaar.intent.action.IAL", android.net.Uri.parse("bazaar://inapplogin")).apply {
+            setPackage(BAZAAR)
+            putExtra("packageName", context.packageName)
+            putExtra("permissionScope", intArrayOf(0)) // ACCOUNT_ID
+        }
+
+    fun installed(context: Context): Boolean =
+        runCatching { context.packageManager.getPackageInfo(BAZAAR, 0); true }.getOrDefault(false)
+
+    /** The account id from Bazaar's answer, or null when the user declined. */
+    fun accountId(data: android.content.Intent?): String? {
+        val response = data?.extras?.getString("response") ?: return null
+        return runCatching { org.json.JSONObject(response).getString("accountId") }.getOrNull()?.takeIf { it.isNotBlank() }
     }
 }
 

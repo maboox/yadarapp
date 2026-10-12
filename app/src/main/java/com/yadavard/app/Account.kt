@@ -136,6 +136,14 @@ object Account {
         prefs(context).getString("bazaar_verifier", null) != null &&
         System.currentTimeMillis() - prefs(context).getLong("bazaar_at", 0) < 15 * 60_000
 
+    /** Signs in with the account id the Bazaar app returned (in-app login). */
+    suspend fun bazaarAppLogin(context: Context, accountId: String) = withContext(Dispatchers.IO) {
+        @android.annotation.SuppressLint("HardwareIds")
+        val device = android.provider.Settings.Secure.getString(context.contentResolver, android.provider.Settings.Secure.ANDROID_ID).orEmpty()
+        signedIn(context, call(context, "POST", "/api/yadar/bazaar/app-login",
+            JSONObject().put("account_id", accountId).put("device", device), auth = false))
+    }
+
     fun cancelBazaarLogin(context: Context) { prefs(context).edit().remove("bazaar_verifier").apply() }
 
     /** Asks the server whether the Bazaar sign-in finished; true once signed in, false while still waiting. */
@@ -168,14 +176,25 @@ object Account {
         list to res.optBoolean("ready")
     }
 
-    /** Sends a Bazaar purchase to the server, which checks it with Bazaar and adds the tokens; returns the tokens added. */
-    suspend fun redeem(context: Context, packageName: String, sku: String, purchaseToken: String, orderId: String): Double =
-        withContext(Dispatchers.IO) {
-            val res = call(context, "POST", "/api/yadar/purchase", JSONObject().put("package", packageName).put("sku", sku)
-                .put("token", purchaseToken).put("order_id", orderId))
-            res.optJSONObject("profile")?.let { store(context, it) }
-            res.optDouble("added", 0.0)
-        }
+    /** What the server did with a purchase: tokens added now, and whether the app should consume it on Bazaar. */
+    data class Redeemed(val added: Double, val consume: Boolean)
+
+    /**
+     * Sends a Bazaar purchase to the server, which checks Bazaar's signature (or asks Bazaar) and adds the tokens
+     * once. Bazaar's signed purchase data travels with it, so nothing here can be faked by the app.
+     */
+    suspend fun redeem(context: Context, packageName: String, sku: String, purchaseToken: String, orderId: String,
+                       originalJson: String, signature: String): Redeemed = withContext(Dispatchers.IO) {
+        val res = call(context, "POST", "/api/yadar/purchase", JSONObject().put("package", packageName).put("sku", sku)
+            .put("token", purchaseToken).put("order_id", orderId).put("original_json", originalJson).put("signature", signature))
+        res.optJSONObject("profile")?.let { store(context, it) }
+        Redeemed(res.optDouble("added", 0.0), res.optBoolean("consume"))
+    }
+
+    /** Tells the server the app consumed the purchase on Bazaar. */
+    suspend fun consumed(context: Context, purchaseToken: String) = withContext(Dispatchers.IO) {
+        runCatching { call(context, "POST", "/api/yadar/purchase/consumed", JSONObject().put("token", purchaseToken)) }
+    }
 
     /** Asks the server to text a login code; returns the code length. */
     suspend fun requestCode(context: Context, phone: String): Int = withContext(Dispatchers.IO) {

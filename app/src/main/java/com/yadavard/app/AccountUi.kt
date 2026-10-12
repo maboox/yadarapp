@@ -1,7 +1,13 @@
+@file:OptIn(ExperimentalFoundationApi::class)
+
 package com.yadavard.app
 
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -124,65 +130,67 @@ fun BazaarButton(modifier: Modifier = Modifier.fillMaxWidth(), enabled: Boolean 
 }
 
 /**
- * Sign in with Cafe Bazaar: Bazaar's page opens in the browser and the app finishes the login when the user
- * comes back. Phone sign-in stays as a second option (it needs an SMS provider on the server, or the review number).
+ * Sign in with Cafe Bazaar: the installed Bazaar app asks the user once and hands Yadar their account id.
+ * Phone sign-in is kept for the admin's review number only: long-press the icon to reach it.
  */
 @Composable
 fun LoginDialog(onDone: () -> Unit) {
     val context = LocalContext.current
-    var waiting by remember { mutableStateOf(Account.bazaarPending(context)) }
+    val scope = rememberCoroutineScope()
     var usePhone by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
-    val profile by Account.profile.collectAsState()
-    LaunchedEffect(profile) { if (profile != null) onDone() }
-    // While the browser is open, check every few seconds whether Bazaar has confirmed the sign-in.
-    LaunchedEffect(waiting) {
-        while (waiting && Account.bazaarPending(context)) {
-            delay(3000)
-            runCatching { Account.claimBazaar(context) }
-                .onSuccess { if (it) { Toast.makeText(context, t("خوش آمدی!", "Welcome!"), Toast.LENGTH_SHORT).show(); onDone() } }
-                .onFailure { if (!Account.bazaarPending(context)) { waiting = false; error = it.message.orEmpty() } }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val accountId = BazaarLogin.accountId(result.data)
+        if (accountId == null) {
+            busy = false
+            error = t("ورود انجام نشد؛ اگر در بازار اجازه ندادی، دوباره امتحان کن.", "Sign-in was not completed; try again.")
+            return@rememberLauncherForActivityResult
+        }
+        scope.launch {
+            runCatching { Account.bazaarAppLogin(context, accountId) }
+                .onSuccess {
+                    Toast.makeText(context, t("خوش آمدی!", "Welcome!"), Toast.LENGTH_SHORT).show()
+                    onDone()
+                }
+                .onFailure { error = it.message.orEmpty() }
+            busy = false
         }
     }
     if (usePhone) { PhoneLoginDialog(onDone = onDone, onBack = { usePhone = false }); return }
 
-    AlertDialog(onDismissRequest = onDone,
-        icon = { Icon(Icons.Rounded.AccountCircle, null) },
+    AlertDialog(onDismissRequest = { if (!busy) onDone() },
+        icon = {
+            Icon(Icons.Rounded.AccountCircle, null, Modifier.combinedClickable(onClick = {}, onLongClick = { usePhone = true }))
+        },
         title = { Text(t("ورود به یادار", "Sign in to Yadar")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (!waiting) {
-                    Text(t("با حساب کافه‌بازارت وارد شو؛ پیامک و رمز لازم نیست. خرید توکن هم با همین حساب از بازار انجام می‌شود.",
-                        "Sign in with your Cafe Bazaar account; no SMS or password needed. Tokens are bought through Bazaar too."),
-                        style = MaterialTheme.typography.bodyMedium)
-                    BazaarButton {
-                        error = ""
-                        runCatching { Account.startBazaarLogin(context); waiting = true }
-                            .onFailure { error = t("مرورگری برای باز کردن صفحهٔ بازار پیدا نشد.", "No browser found to open Bazaar.") }
+                Text(t("با حساب کافه‌بازارت وارد شو؛ پیامک و رمز لازم نیست. خرید توکن هم با همین حساب از بازار انجام می‌شود.",
+                    "Sign in with your Cafe Bazaar account; no SMS or password needed. Tokens are bought through Bazaar too."),
+                    style = MaterialTheme.typography.bodyMedium)
+                BazaarButton(enabled = !busy) {
+                    error = ""
+                    if (!BazaarLogin.installed(context)) {
+                        error = t("برای ورود، برنامهٔ «بازار» باید روی گوشی نصب و به‌روز باشد.", "Cafe Bazaar must be installed to sign in.")
+                        return@BazaarButton
                     }
-                } else {
-                    Text(t("صفحهٔ بازار در مرورگر باز شد. وارد حسابت شو، اجازه بده و بعد به یادار برگرد؛ ورود خودش کامل می‌شود.",
-                        "Bazaar opened in your browser. Sign in, allow access, then come back to Yadar; it finishes by itself."),
-                        style = MaterialTheme.typography.bodyMedium)
-                    LinearProgressIndicator(Modifier.fillMaxWidth())
-                    Row {
-                        TextButton(onClick = { runCatching { Account.startBazaarLogin(context) } }) { Text(t("باز کردن دوبارهٔ صفحه", "Open again")) }
-                        Spacer(Modifier.weight(1f))
-                        TextButton(onClick = { Account.cancelBazaarLogin(context); waiting = false }) { Text(t("از اول", "Start over")) }
+                    busy = true
+                    runCatching { launcher.launch(BazaarLogin.intent(context)) }.onFailure {
+                        busy = false
+                        error = t("بازار ورود درون‌برنامه‌ای را باز نکرد؛ بازار را به‌روز کن و دوباره امتحان کن.",
+                            "Bazaar could not open its sign-in; update Bazaar and try again.")
                     }
                 }
+                if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                TextButton(onClick = { usePhone = true }) {
-                    Icon(Icons.Rounded.PhoneAndroid, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
-                    Text(t("ورود با شمارهٔ موبایل", "Sign in with phone number"))
-                }
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDone) { Text(t("بستن", "Close")) } })
+        dismissButton = { TextButton(onClick = onDone, enabled = !busy) { Text(t("بستن", "Close")) } })
 }
 
-/** Token packs sold through Bazaar; the server checks each payment with Bazaar before adding the tokens. */
+/** Token packs sold through Bazaar; the server checks each payment (Bazaar's signature) before adding the tokens. */
 @Composable
 fun PacksDialog(onDone: () -> Unit) {
     val context = LocalContext.current
@@ -206,7 +214,7 @@ fun PacksDialog(onDone: () -> Unit) {
             when (result) {
                 is Billing.Result.Bought -> scope.launch {
                     val info = result.info
-                    runCatching { Account.redeem(context, info.packageName, info.productId, info.purchaseToken, info.orderId) }
+                    runCatching { Billing.redeem(context, info) }
                         .onSuccess { added ->
                             Toast.makeText(context, t("${tokensLabel(added)} توکن به حسابت اضافه شد. ممنون!", "${tokensLabel(added)} tokens added. Thank you!"),
                                 Toast.LENGTH_LONG).show()

@@ -3,7 +3,12 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto"
+	"crypto/rsa"
+	"crypto/sha1"
 	"crypto/sha256"
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -81,9 +86,12 @@ var hex64 = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 // bazaarConfig comes from the settings row (editable in the admin panel); environment variables win when set.
 type bazaarConfig struct {
-	ClientID, ClientSecret, APIToken, PublicURL string
-	Packages                                    []string
+	ClientID, ClientSecret, APIToken, PublicURL, RSAKey string
+	Packages                                            []string
 }
+
+// canVerify is true when purchases can be checked, by Bazaar's API or by signature.
+func (c bazaarConfig) canVerify() bool { return c.APIToken != "" || c.RSAKey != "" }
 
 func loadBazaar(app core.App) bazaarConfig {
 	var c bazaarConfig
@@ -93,9 +101,10 @@ func loadBazaar(app core.App) bazaarConfig {
 		c.ClientSecret = strings.TrimSpace(r.GetString("bazaar_client_secret"))
 		c.APIToken = strings.TrimSpace(r.GetString("bazaar_api_token"))
 		c.PublicURL = strings.TrimSpace(r.GetString("public_url"))
+		c.RSAKey = strings.TrimSpace(r.GetString("bazaar_rsa_key"))
 	}
 	for env, field := range map[string]*string{"BAZAAR_CLIENT_ID": &c.ClientID, "BAZAAR_CLIENT_SECRET": &c.ClientSecret,
-		"BAZAAR_API_TOKEN": &c.APIToken, "PUBLIC_URL": &c.PublicURL} {
+		"BAZAAR_API_TOKEN": &c.APIToken, "PUBLIC_URL": &c.PublicURL, "BAZAAR_RSA_KEY": &c.RSAKey} {
 		if v := strings.TrimSpace(os.Getenv(env)); v != "" {
 			*field = v
 		}
@@ -304,6 +313,93 @@ func handleBazaarClaim(e *core.RequestEvent) error {
 	return e.JSON(http.StatusOK, map[string]any{"token": token, "new": created, "profile": profile(app, user)})
 }
 
+var accountIDPattern = regexp.MustCompile(`^[A-Za-z0-9_.:-]{6,100}$`)
+
+// handleBazaarAppLogin signs in with the account id the Bazaar app hands to Yadar (in-app login). The server
+// cannot check that id with Bazaar, so the free signup tokens are limited to one per device and a few per
+// network address a day; tokens bought on Bazaar are always checked separately.
+func handleBazaarAppLogin(e *core.RequestEvent) error {
+	var body struct {
+		AccountID string `json:"account_id"`
+		Device    string `json:"device"`
+	}
+	if err := e.BindBody(&body); err != nil || !accountIDPattern.MatchString(body.AccountID) {
+		return apis.NewBadRequestError("درخواست نامعتبر است", nil)
+	}
+	if loadSettings(e.App).AppLoginDisabled {
+		return apis.NewForbiddenError("ورود با بازار موقتاً بسته است", nil)
+	}
+	app := e.App
+	user, _ := app.FindFirstRecordByData("users", "bazaar_id", body.AccountID)
+	created := false
+	if user == nil {
+		gift := 0.0
+		if giftAllowed(app, body.Device, e.RealIP()) {
+			gift = loadSettings(app).SignupTokens
+		}
+		users, err := app.FindCollectionByNameOrId("users")
+		if err != nil {
+			return err
+		}
+		sum := sha256.Sum256([]byte(body.AccountID))
+		user = core.NewRecord(users)
+		user.Set("bazaar_id", body.AccountID)
+		user.SetEmail("bz" + hex.EncodeToString(sum[:12]) + "@bazaar.yadar.app")
+		user.SetPassword(security.RandomString(40))
+		user.SetVerified(true)
+		user.Set("balance", gift)
+		if err := app.Save(user); err != nil {
+			return err
+		}
+		created = true
+		if gift > 0 {
+			recordGift(app, body.Device, e.RealIP(), user.Id)
+		}
+	}
+	token, err := user.NewAuthToken()
+	if err != nil {
+		return err
+	}
+	return e.JSON(http.StatusOK, map[string]any{"token": token, "new": created, "profile": profile(app, user)})
+}
+
+func deviceHash(device string) string {
+	device = strings.TrimSpace(device)
+	if device == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte("yadar-device|" + device))
+	return hex.EncodeToString(sum[:16])
+}
+
+// giftAllowed gives the signup tokens once per device and at most a few times a day per network address.
+func giftAllowed(app core.App, device, ip string) bool {
+	d := deviceHash(device)
+	if d == "" {
+		return false
+	}
+	if r, _ := app.FindFirstRecordByData("gifts", "device", d); r != nil {
+		return false
+	}
+	since := time.Now().Add(-24 * time.Hour).UTC().Format("2006-01-02 15:04:05.000Z")
+	n, _ := app.CountRecords("gifts", dbx.NewExp("ip = {:ip} AND created > {:t}", dbx.Params{"ip": ip, "t": since}))
+	return n < 5
+}
+
+func recordGift(app core.App, device, ip, userID string) {
+	col, err := app.FindCollectionByNameOrId("gifts")
+	if err != nil {
+		return
+	}
+	r := core.NewRecord(col)
+	r.Set("device", deviceHash(device))
+	r.Set("ip", ip)
+	r.Set("user", userID)
+	if err := app.Save(r); err != nil {
+		log.Println("gift:", err)
+	}
+}
+
 func findOrCreateBazaarUser(app core.App, accountID string) (*core.Record, bool, error) {
 	if u, _ := app.FindFirstRecordByData("users", "bazaar_id", accountID); u != nil {
 		return u, false, nil
@@ -353,7 +449,7 @@ func handlePacks(e *core.RequestEvent) error {
 		items = append(items, map[string]any{"sku": r.GetString("sku"), "tokens": r.GetFloat("tokens"),
 			"title": r.GetString("title"), "price": r.GetString("price_label"), "note": r.GetString("note")})
 	}
-	return e.JSON(http.StatusOK, map[string]any{"items": items, "ready": loadBazaar(e.App).APIToken != ""})
+	return e.JSON(http.StatusOK, map[string]any{"items": items, "ready": loadBazaar(e.App).canVerify()})
 }
 
 type bazaarPurchase struct {
@@ -399,19 +495,57 @@ func consumePurchase(ctx context.Context, cfg bazaarConfig, pkg, token string) e
 	return err
 }
 
+// signedPurchase is the purchase data Bazaar signs with the app's key (Poolakey's originalJson).
+type signedPurchase struct {
+	OrderID          string `json:"orderId"`
+	PurchaseToken    string `json:"purchaseToken"`
+	DeveloperPayload string `json:"developerPayload"`
+	PackageName      string `json:"packageName"`
+	ProductID        string `json:"productId"`
+	PurchaseState    int    `json:"purchaseState"`
+}
+
+// verifySignature checks Bazaar's SHA1withRSA signature of the purchase data with the RSA key from the panel
+// («پرداخت درون‌برنامه‌ای» ← کلید RSA). Nobody without Bazaar's private key can produce a valid one, so this
+// proves the purchase without calling Bazaar.
+func verifySignature(publicKey, data, signature string) error {
+	der, err := base64.StdEncoding.DecodeString(strings.Join(strings.Fields(publicKey), ""))
+	if err != nil {
+		return fmt.Errorf("RSA key is not base64: %w", err)
+	}
+	parsed, err := x509.ParsePKIXPublicKey(der)
+	if err != nil {
+		return fmt.Errorf("RSA key: %w", err)
+	}
+	key, ok := parsed.(*rsa.PublicKey)
+	if !ok {
+		return fmt.Errorf("RSA key is not an RSA public key")
+	}
+	sig, err := base64.StdEncoding.DecodeString(strings.TrimSpace(signature))
+	if err != nil {
+		return fmt.Errorf("signature is not base64")
+	}
+	sum := sha1.Sum([]byte(data))
+	return rsa.VerifyPKCS1v15(key, crypto.SHA1, sum[:], sig)
+}
+
 func handlePurchase(e *core.RequestEvent) error {
 	var body struct {
-		Package string `json:"package"`
-		SKU     string `json:"sku"`
-		Token   string `json:"token"`
-		OrderID string `json:"order_id"`
+		Package      string `json:"package"`
+		SKU          string `json:"sku"`
+		Token        string `json:"token"`
+		OrderID      string `json:"order_id"`
+		OriginalJSON string `json:"original_json"`
+		Signature    string `json:"signature"`
 	}
-	if err := e.BindBody(&body); err != nil || body.SKU == "" || body.Token == "" || len(body.Token) > 500 {
+	if err := e.BindBody(&body); err != nil || body.SKU == "" || body.Token == "" || len(body.Token) > 500 ||
+		len(body.OriginalJSON) > 5000 || len(body.Signature) > 2000 {
 		return apis.NewBadRequestError("درخواست نامعتبر است", nil)
 	}
 	app := e.App
 	cfg := loadBazaar(app)
-	if cfg.APIToken == "" {
+	bySignature := cfg.RSAKey != "" && body.Signature != "" && body.OriginalJSON != ""
+	if !bySignature && cfg.APIToken == "" {
 		return apis.NewApiError(http.StatusServiceUnavailable, "خرید هنوز راه‌اندازی نشده", nil)
 	}
 	if !cfg.allows(body.Package) {
@@ -423,36 +557,64 @@ func handlePurchase(e *core.RequestEvent) error {
 	}
 	ctx, cancel := context.WithTimeout(e.Request.Context(), 30*time.Second)
 	defer cancel()
+	answer := func(added float64, already bool, r *core.Record) error {
+		user, _ := app.FindRecordById("users", e.Auth.Id)
+		// "consume" asks the app to consume the purchase on Bazaar itself when the server could not.
+		return e.JSON(http.StatusOK, map[string]any{"ok": true, "added": added, "already": already,
+			"consume": r != nil && !r.GetBool("consumed"), "profile": profile(app, user)})
+	}
 
 	if existing, _ := app.FindFirstRecordByData("purchases", "token", body.Token); existing != nil {
 		if existing.GetString("user") != e.Auth.Id {
 			return apis.NewForbiddenError("این خرید مال حساب دیگری است", nil)
 		}
 		finishConsume(app, ctx, cfg, existing)
-		user, _ := app.FindRecordById("users", e.Auth.Id)
-		return e.JSON(http.StatusOK, map[string]any{"ok": true, "added": 0, "already": true, "profile": profile(app, user)})
+		return answer(0, true, existing)
 	}
 
-	p, err := validatePurchase(ctx, cfg, body.Package, body.SKU, body.Token)
-	if err != nil {
-		log.Println("bazaar validate:", err)
-		if ce, ok := err.(*callError); ok && ce.Status == http.StatusNotFound {
-			return apis.NewBadRequestError("این خرید در بازار پیدا نشد", nil)
+	if bySignature {
+		if err := verifySignature(cfg.RSAKey, body.OriginalJSON, body.Signature); err != nil {
+			log.Println("purchase signature:", err)
+			return apis.NewForbiddenError("امضای این خرید معتبر نیست", nil)
 		}
-		return apis.NewApiError(http.StatusBadGateway, "بررسی خرید با بازار انجام نشد؛ کمی بعد دوباره امتحان کن", nil)
-	}
-	if p.PurchaseState != 0 {
-		return apis.NewBadRequestError("این خرید برگشت خورده است", nil)
-	}
-	// The app puts the user id in the payload, so a purchase can only ever charge up the account that made it.
-	if p.DeveloperPayload != e.Auth.Id {
-		return apis.NewForbiddenError("این خرید مال حساب دیگری است", nil)
+		var p signedPurchase
+		if err := json.Unmarshal([]byte(body.OriginalJSON), &p); err != nil {
+			return apis.NewBadRequestError("اطلاعات خرید خوانده نشد", nil)
+		}
+		// Everything must come from the signed data, not from the rest of the request.
+		if p.PurchaseToken != body.Token || p.ProductID != body.SKU || p.PackageName != body.Package {
+			return apis.NewBadRequestError("اطلاعات خرید با هم نمی‌خواند", nil)
+		}
+		if p.PurchaseState != 0 {
+			return apis.NewBadRequestError("این خرید برگشت خورده است", nil)
+		}
+		if p.DeveloperPayload != e.Auth.Id {
+			return apis.NewForbiddenError("این خرید مال حساب دیگری است", nil)
+		}
+		if body.OrderID == "" {
+			body.OrderID = p.OrderID
+		}
+	} else {
+		p, err := validatePurchase(ctx, cfg, body.Package, body.SKU, body.Token)
+		if err != nil {
+			log.Println("bazaar validate:", err)
+			if ce, ok := err.(*callError); ok && ce.Status == http.StatusNotFound {
+				return apis.NewBadRequestError("این خرید در بازار پیدا نشد", nil)
+			}
+			return apis.NewApiError(http.StatusBadGateway, "بررسی خرید با بازار انجام نشد؛ کمی بعد دوباره امتحان کن", nil)
+		}
+		if p.PurchaseState != 0 {
+			return apis.NewBadRequestError("این خرید برگشت خورده است", nil)
+		}
+		// The app puts the user id in the payload, so a purchase can only ever charge up the account that made it.
+		if p.DeveloperPayload != e.Auth.Id {
+			return apis.NewForbiddenError("این خرید مال حساب دیگری است", nil)
+		}
 	}
 
 	tokens := pack.GetFloat("tokens")
 	var record *core.Record
-	var balance float64
-	err = app.RunInTransaction(func(tx core.App) error {
+	err := app.RunInTransaction(func(tx core.App) error {
 		if dup, _ := tx.FindFirstRecordByData("purchases", "token", body.Token); dup != nil {
 			return fmt.Errorf("duplicate purchase")
 		}
@@ -474,8 +636,7 @@ func handlePurchase(e *core.RequestEvent) error {
 		if err != nil {
 			return err
 		}
-		balance = math.Round((user.GetFloat("balance")+tokens)*10) / 10
-		user.Set("balance", balance)
+		user.Set("balance", math.Round((user.GetFloat("balance")+tokens)*10)/10)
 		return tx.Save(user)
 	})
 	if err != nil {
@@ -483,12 +644,30 @@ func handlePurchase(e *core.RequestEvent) error {
 		return apis.NewBadRequestError("این خرید قبلاً ثبت شده است", nil)
 	}
 	finishConsume(app, ctx, cfg, record)
-	user, _ := app.FindRecordById("users", e.Auth.Id)
-	return e.JSON(http.StatusOK, map[string]any{"ok": true, "added": tokens, "profile": profile(app, user)})
+	return answer(tokens, false, record)
+}
+
+// handlePurchaseConsumed records that the app consumed the purchase on Bazaar itself.
+func handlePurchaseConsumed(e *core.RequestEvent) error {
+	var body struct {
+		Token string `json:"token"`
+	}
+	if err := e.BindBody(&body); err != nil || body.Token == "" {
+		return apis.NewBadRequestError("درخواست نامعتبر است", nil)
+	}
+	r, _ := e.App.FindFirstRecordByData("purchases", "token", body.Token)
+	if r == nil || r.GetString("user") != e.Auth.Id {
+		return apis.NewNotFoundError("خرید پیدا نشد", nil)
+	}
+	r.Set("consumed", true)
+	if err := e.App.Save(r); err != nil {
+		return err
+	}
+	return e.JSON(http.StatusOK, map[string]any{"ok": true})
 }
 
 func finishConsume(app core.App, ctx context.Context, cfg bazaarConfig, r *core.Record) {
-	if r == nil || r.GetBool("consumed") {
+	if r == nil || r.GetBool("consumed") || cfg.APIToken == "" {
 		return
 	}
 	if err := consumePurchase(ctx, cfg, r.GetString("package"), r.GetString("token")); err != nil {

@@ -2,6 +2,12 @@ package main
 
 import (
 	"context"
+	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha1"
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -88,5 +94,25 @@ func TestBazaarPackages(t *testing.T) {
 	}
 	if !hex64.MatchString(strings.Repeat("a1", 32)) || hex64.MatchString("xyz") {
 		t.Fatal("challenge format")
+	}
+}
+
+func TestVerifySignature(t *testing.T) {
+	key, _ := rsa.GenerateKey(rand.Reader, 1024)
+	der, _ := x509.MarshalPKIXPublicKey(&key.PublicKey)
+	pub := base64.StdEncoding.EncodeToString(der)
+	data := `{"orderId":"o1","purchaseToken":"tok","developerPayload":"u1","packageName":"com.yadavard.app.plus","productId":"tokens_50","purchaseState":0}`
+	sum := sha1.Sum([]byte(data))
+	sig, _ := rsa.SignPKCS1v15(rand.Reader, key, crypto.SHA1, sum[:])
+	s := base64.StdEncoding.EncodeToString(sig)
+	if err := verifySignature(pub, data, s); err != nil {
+		t.Fatal("valid signature rejected:", err)
+	}
+	// Keys pasted from the panel may be wrapped over several lines.
+	if err := verifySignature(pub[:40]+"\n"+pub[40:], data, s); err != nil {
+		t.Fatal("wrapped key rejected:", err)
+	}
+	if err := verifySignature(pub, strings.Replace(data, "u1", "u2", 1), s); err == nil {
+		t.Fatal("tampered data accepted")
 	}
 }

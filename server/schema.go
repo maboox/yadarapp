@@ -123,6 +123,8 @@ func ensureSchema(app core.App) error {
 		addField(c, &core.TextField{Name: "bazaar_client_id", Max: 200, Help: "پیشخان بازار ← ورود با بازار ← ClientID"})
 		addField(c, &core.TextField{Name: "bazaar_client_secret", Max: 500, Help: "پیشخان بازار ← ورود با بازار ← Secret"})
 		addField(c, &core.TextField{Name: "bazaar_api_token", Max: 500, Help: "پیشخان بازار ← API پیشخان ← دریافت توکن (برای بررسی خریدها)"})
+		addField(c, &core.TextField{Name: "bazaar_rsa_key", Max: 2000, Help: "پیشخان بازار ← پرداخت درون‌برنامه‌ای ← کلید RSA (بررسی امضای خریدها بدون تماس با بازار)"})
+		addField(c, &core.BoolField{Name: "app_login_disabled", Help: "روشن = ورود درون‌برنامه‌ای با بازار بسته شود (مثلاً اگر سوءاستفاده دیدی)"})
 	})
 	if err != nil {
 		return err
@@ -221,6 +223,21 @@ func ensureSchema(app core.App) error {
 		addField(c, &core.AutodateField{Name: "created", OnCreate: true})
 		if !hasIndex(c, "idx_purchases_token") {
 			c.AddIndex("idx_purchases_token", true, "token", "")
+		}
+	}); err != nil {
+		return err
+	}
+
+	if _, err := ensureCollection(app, "gifts", func(c *core.Collection) {
+		addField(c, &core.TextField{Name: "device", Max: 100})
+		addField(c, &core.TextField{Name: "ip", Max: 60})
+		addField(c, &core.RelationField{Name: "user", CollectionId: users.Id, MaxSelect: 1, CascadeDelete: false})
+		addField(c, &core.AutodateField{Name: "created", OnCreate: true})
+		if !hasIndex(c, "idx_gifts_device") {
+			c.AddIndex("idx_gifts_device", false, "device", "")
+		}
+		if !hasIndex(c, "idx_gifts_ip") {
+			c.AddIndex("idx_gifts_ip", false, "ip, created", "")
 		}
 	}); err != nil {
 		return err

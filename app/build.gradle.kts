@@ -13,8 +13,8 @@ android {
         applicationIdSuffix = ".plus"
         minSdk = 26
         targetSdk = 35
-        versionCode = 35
-        versionName = "3.0.0-beta3"
+        versionCode = 36
+        versionName = "3.0.0-beta4"
     }
     // One fixed key for every build so each new APK installs over the previous one without losing data.
     // It is intentionally public: this app is distributed as a personal sideloaded APK, not via a store.

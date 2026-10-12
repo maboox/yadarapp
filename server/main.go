@@ -97,7 +97,7 @@ type Settings struct {
 	TokenUSD, Markup, SignupTokens, MinBalance float64
 	DefaultTextModel, DefaultAudioModel        string
 	FallbackInputPerM, FallbackOutputPerM      float64
-	AIEnabled                                  bool
+	AIEnabled, AppLoginDisabled                bool
 }
 
 func loadSettings(app core.App) Settings {
@@ -130,5 +130,6 @@ func loadSettings(app core.App) Settings {
 		s.FallbackOutputPerM = v
 	}
 	s.AIEnabled = r.GetBool("ai_enabled")
+	s.AppLoginDisabled = r.GetBool("app_login_disabled")
 	return s
 }
