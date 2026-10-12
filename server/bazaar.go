@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"io"
 	"log"
 	"math"
 	"net/http"
@@ -37,6 +38,41 @@ func init() {
 		bazaarOAuthURL, bazaarTokenURL = base+"/user/oauth", base+"/api/v0/tokens"
 		bazaarUserInfoURL, bazaarAPIBase = base+"/api/v0/userinfo", base+"/devapi/v2/api"
 	}
+}
+
+// bazaarClient talks to Cafe Bazaar. Bazaar refuses many non-Iranian addresses, so a server abroad can send these
+// calls through a proxy inside Iran with BAZAAR_PROXY (http://user:pass@host:port or socks5://host:port).
+var bazaarClient = func() *http.Client {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	if raw := strings.TrimSpace(os.Getenv("BAZAAR_PROXY")); raw != "" {
+		if u, err := url.Parse(raw); err == nil {
+			transport.Proxy = http.ProxyURL(u)
+		} else {
+			log.Println("BAZAAR_PROXY is not a valid address:", err)
+		}
+	}
+	return &http.Client{Timeout: 30 * time.Second, Transport: transport}
+}()
+
+func bazaarDo(req *http.Request) ([]byte, error) {
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Linux; Android 14) YadarServer/1.0")
+	req.Header.Set("Accept", "application/json")
+	resp, err := bazaarClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	data, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		msg := string(data)
+		if strings.Contains(msg, "nginx") && resp.StatusCode == http.StatusForbidden {
+			msg = "Bazaar refused this server's address (403). The server is probably outside Iran; set BAZAAR_PROXY."
+		} else if len(msg) > 300 {
+			msg = msg[:300]
+		}
+		return nil, &callError{resp.StatusCode, msg}
+	}
+	return data, nil
 }
 
 const loginLifetime = 15 * time.Minute
@@ -195,7 +231,7 @@ func bazaarAccountID(ctx context.Context, cfg bazaarConfig, code, redirect strin
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	data, err := doRequest(req)
+	data, err := bazaarDo(req)
 	if err != nil {
 		return "", fmt.Errorf("token: %w", err)
 	}
@@ -214,7 +250,7 @@ func bazaarAccountID(ctx context.Context, cfg bazaarConfig, code, redirect strin
 		return "", err
 	}
 	req.Header.Set("Authorization", tok.TokenType+" "+tok.AccessToken)
-	data, err = doRequest(req)
+	data, err = bazaarDo(req)
 	if err != nil {
 		return "", fmt.Errorf("userinfo: %w", err)
 	}
@@ -335,7 +371,7 @@ func validatePurchase(ctx context.Context, cfg bazaarConfig, pkg, sku, token str
 		return nil, err
 	}
 	req.Header.Set("CAFEBAZAAR-PISHKHAN-API-SECRET", cfg.APIToken)
-	data, err := doRequest(req)
+	data, err := bazaarDo(req)
 	if err != nil {
 		return nil, err
 	}
@@ -356,7 +392,7 @@ func consumePurchase(ctx context.Context, cfg bazaarConfig, pkg, token string) e
 	}
 	req.Header.Set("CAFEBAZAAR-PISHKHAN-API-SECRET", cfg.APIToken)
 	req.Header.Set("Content-Type", "application/json")
-	_, err = doRequest(req)
+	_, err = bazaarDo(req)
 	if ce, ok := err.(*callError); ok && strings.Contains(ce.Msg, "already_consumed") {
 		return nil
 	}
