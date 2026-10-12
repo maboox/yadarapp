@@ -313,7 +313,8 @@ func handleBazaarClaim(e *core.RequestEvent) error {
 	return e.JSON(http.StatusOK, map[string]any{"token": token, "new": created, "profile": profile(app, user)})
 }
 
-var accountIDPattern = regexp.MustCompile(`^[A-Za-z0-9_.:-]{6,100}$`)
+// Bazaar does not document the id's format; accept any printable ASCII without spaces.
+var accountIDPattern = regexp.MustCompile(`^[\x21-\x7E]{4,200}$`)
 
 // handleBazaarAppLogin signs in with the account id the Bazaar app hands to Yadar (in-app login). The server
 // cannot check that id with Bazaar, so the free signup tokens are limited to one per device and a few per
@@ -324,7 +325,8 @@ func handleBazaarAppLogin(e *core.RequestEvent) error {
 		Device    string `json:"device"`
 	}
 	if err := e.BindBody(&body); err != nil || !accountIDPattern.MatchString(body.AccountID) {
-		return apis.NewBadRequestError("درخواست نامعتبر است", nil)
+		log.Printf("bazaar app-login: rejected account id (length %d)", len(body.AccountID))
+		return apis.NewBadRequestError("شناسهٔ حساب بازار خوانده نشد", nil)
 	}
 	if loadSettings(e.App).AppLoginDisabled {
 		return apis.NewForbiddenError("ورود با بازار موقتاً بسته است", nil)
