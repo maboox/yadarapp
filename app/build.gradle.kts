@@ -9,21 +9,30 @@ android {
     compileSdk = 35
     defaultConfig {
         applicationId = "com.yadavard.app"
-        // Test build of the online version: its own package so it installs next to the regular app.
+        // The online version is published on Cafe Bazaar under com.yadavard.app.plus, so it also installs next to
+        // the personal offline build (com.yadavard.app). The package can never change once published.
         applicationIdSuffix = ".plus"
         minSdk = 26
         targetSdk = 35
-        versionCode = 36
-        versionName = "3.0.0-beta4"
+        versionCode = 37
+        versionName = "3.0.0"
     }
-    // One fixed key for every build so each new APK installs over the previous one without losing data.
-    // It is intentionally public: this app is distributed as a personal sideloaded APK, not via a store.
+    // Test builds use one fixed, public key so each new APK installs over the previous one.
+    // Store builds use the private Bazaar key from CI secrets (see .github/workflows/android.yml); when it is not
+    // configured, the store build is simply skipped.
+    val storeKey = System.getenv("YADAR_STORE_KEYSTORE")?.let { file(it) }?.takeIf { it.exists() }
     signingConfigs {
         create("yadar") {
             storeFile = file("yadar.keystore")
             storePassword = "yadar-public-key"
             keyAlias = "yadar"
             keyPassword = "yadar-public-key"
+        }
+        if (storeKey != null) create("store") {
+            storeFile = storeKey
+            storePassword = System.getenv("YADAR_STORE_PASSWORD")
+            keyAlias = System.getenv("YADAR_STORE_ALIAS")
+            keyPassword = System.getenv("YADAR_STORE_KEY_PASSWORD")
         }
     }
     buildTypes {
@@ -33,6 +42,11 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+        if (storeKey != null) create("store") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("store")
+            matchingFallbacks += "release"
         }
     }
     compileOptions {
