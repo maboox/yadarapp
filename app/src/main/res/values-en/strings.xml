@@ -9,4 +9,5 @@
     <string name="widget_add_description">New reminder (1×1)</string>
     <string name="shortcut_assistant">Assistant</string>
     <string name="shortcut_add">New reminder</string>
+    <string name="widget_note_description">One of your notes on the home screen</string>
 </resources>

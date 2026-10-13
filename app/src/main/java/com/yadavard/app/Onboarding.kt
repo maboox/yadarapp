@@ -45,8 +45,8 @@ fun OnboardingScreen(onFinish: () -> Unit) {
     val pages = listOf(
         Page(Icons.Rounded.NotificationsActive, listOf(Color(0xFF3B2DB0), Color(0xFF8F7BFF)),
             { t("به یادار خوش آمدی", "Welcome to Yadar") },
-            { t("دستیار یادآوری فارسی برای همهٔ کارها: قرص، قسط، تولد، جلسه، خرید و هر چیز دیگر. همه‌چیز فقط روی گوشی خودت می‌ماند.",
-                "A reminder assistant for everything — pills, bills, birthdays, meetings and more. Everything stays on your phone.") }) {
+            { t("دستیار یادآوری و یادداشت فارسی برای همهٔ کارها: قرص، قسط، تولد، جلسه، خرید و هر چیز دیگر. یادآوری‌ها و یادداشت‌هایت فقط روی گوشی خودت می‌مانند.",
+                "A reminder and notes assistant for everything — pills, bills, birthdays, meetings and more. Your reminders and notes stay on your phone.") }) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 listOf(AppLanguage.FA to "فارسی", AppLanguage.EN to "English").forEach { (lang, label) ->
                     FilterChip(AppDisplay.language == lang, {
@@ -65,6 +65,26 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                     .forEach { Example(it) }
             }
         },
+        Page(Icons.Rounded.RecordVoiceOver, listOf(Color(0xFF4A2FBF), Color(0xFFB06BFF)),
+            { t("دستیار هوشمند", "Smart assistant") },
+            { t("با هوش مصنوعی فقط حرف بزن: یادآوری بساز، جابه‌جا کن، تیک بزن، یا بپرس برنامه‌ات چیست. جواب را با کارت خود کارها نشان می‌دهد.",
+                "Just talk: create, move and tick reminders, or ask about your plans. Answers come with cards of the actual items.") }) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Feature(Icons.Rounded.EditCalendar, t("«جلسهٔ فردا رو ببر ساعت ۱۱»", "“move tomorrow's meeting to 11”"))
+                Feature(Icons.Rounded.TaskAlt, t("«قرص رو خوردم» • «باشگاه امروز نرفتم»", "“I took the pills” • “I skipped the gym”"))
+                Feature(Icons.Rounded.QuestionAnswer, t("«هفتهٔ بعد چه کارهایی دارم؟» • «نزدیک‌ترین تولد کیه؟»", "“what do I have next week?” • “whose birthday is next?”"))
+                Feature(Icons.Rounded.Widgets, t("از ویجت دستیار، بدون باز کردن برنامه", "From the assistant widget, without opening the app"))
+            }
+        },
+        Page(Icons.Rounded.StickyNote2, listOf(Color(0xFF8A6D00), Color(0xFFF2C94C)),
+            { t("یادداشت و لیست", "Notes and lists") },
+            { t("یادداشت‌های رنگی با سنجاق، فهرست و چک‌لیست. لیست خرید بساز و با دستیار اضافه یا تیکش کن؛ یک یادداشت را هم روی صفحهٔ اصلی گوشی بگذار.",
+                "Coloured notes with pins, bullets and checklists. Make a shopping list, add to it or tick items by voice, and pin a note to your home screen.") }) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(t("یه لیست خرید بذار: شیر، نان", "shopping list: milk, bread"), t("پنیر هم اضافه کن", "add cheese"),
+                    t("نان رو تیک بزن", "tick the bread")).forEach { Example(it) }
+            }
+        },
         Page(Icons.Rounded.Alarm, listOf(Color(0xFFB4441B), Color(0xFFF0A05A)),
             { t("یادآوری که جا نمی‌ماند", "Reminders you won't miss") },
             { t("برای کارهای مهم «زنگ تمام‌صفحه» را انتخاب کن تا مثل ساعت زنگ‌دار، حتی روی صفحهٔ قفل، زنگ بزند. می‌توانی بگویی تا انجامش ندادی هر چند دقیقه دوباره یادت بیندازد.",
@@ -77,10 +97,20 @@ fun OnboardingScreen(onFinish: () -> Unit) {
         },
         Page(Icons.Rounded.Widgets, listOf(Color(0xFF8A2D7A), Color(0xFFD6409F)),
             { t("تقویم شمسی و ویجت‌ها", "Calendar and widgets") },
-            { t("همه‌چیز را در تقویم ماهانهٔ شمسی یا میلادی ببین. پنج ویجت صفحهٔ اصلی داری: ثبت سریع، امروز، هفتهٔ من، پیش رو و نزدیک‌ترین یادآوری.",
-                "See everything on a Persian or Gregorian monthly calendar. Five home-screen widgets: quick add, today, my week, coming up and next reminder.") }) {
+            { t("همه‌چیز را در تقویم ماهانهٔ شمسی یا میلادی ببین و آمار انجام کارها را دنبال کن. ویجت‌ها: ثبت سریع، دستیار صوتی، امروز، هفتهٔ من، پیش رو، نزدیک‌ترین یادآوری و یادداشت.",
+                "See everything on a Persian or Gregorian calendar and follow your stats. Widgets: quick add, voice assistant, today, my week, coming up, next reminder and a note.") }) {
             Text(t("برای افزودن ویجت: روی صفحهٔ اصلی گوشی انگشت را نگه دار ← ابزارک‌ها ← یادار", "To add a widget: long-press the home screen → Widgets → Yadar"),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+        },
+        Page(Icons.Rounded.Toll, listOf(Color(0xFF0E8A63), Color(0xFF5ED6A6)),
+            { t("حساب و توکن", "Account and tokens") },
+            { t("یادآور، یادداشت، تقویم و ویجت‌ها بدون حساب و رایگان کار می‌کنند. فقط دستیار هوشمند از هوش مصنوعی استفاده می‌کند و توکن می‌خواهد.",
+                "Reminders, notes, calendar and widgets are free and need no account. Only the smart assistant uses AI and needs tokens.") }) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Feature(Icons.Rounded.ShoppingBag, t("ورود با یک لمس با حساب کافه‌بازار", "One-tap sign-in with Cafe Bazaar"))
+                Feature(Icons.Rounded.CardGiftcard, t("۱۰ توکن هدیه؛ هر دستور معمولاً کمتر از ۱ توکن", "10 free tokens; a command usually costs under 1"))
+                Feature(Icons.Rounded.ThumbUp, t("اول امتحان کن؛ اگر به کارت آمد، بسته بخر", "Try it first; buy a pack only if it helps"))
+            }
         },
         Page(Icons.Rounded.HealthAndSafety, listOf(Color(0xFF1F5FBF), Color(0xFF5AA0FF)),
             { t("یک قدم آخر: دسترسی‌ها", "Last step: permissions") },

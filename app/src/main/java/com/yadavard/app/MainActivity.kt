@@ -180,6 +180,7 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
     val notes by vm.notes.collectAsState()
     // null = closed; a Note with id 0 = new note.
     var noteEditor by remember { mutableStateOf<Note?>(null) }
+    var showHelp by rememberSaveable { mutableStateOf(false) }
     val now by vm.now.collectAsState()
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
@@ -205,6 +206,7 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
     }
     var voiceChoice by remember { mutableStateOf(false) }
     val loginRequested by Account.loginRequested.collectAsState()
+    val bazaarSignIn = rememberBazaarSignIn()
     fun dictate() {
         try { speech.launch(speechIntent(context)) } catch (_: ActivityNotFoundException) {
             Toast.makeText(context, t("تشخیص گفتار در دسترس نیست. اپ Google را نصب کن یا برای دستیار هوشمند وارد حسابت شو.",
@@ -244,6 +246,7 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                 calendarDay = LocalDate.ofEpochDay(c.getLongExtra(WidgetCommands.EXTRA_DAY, LocalDate.now().toEpochDay()))
                 tab = Tab.CALENDAR
             }
+            WidgetCommands.NEW_NOTE -> { tab = Tab.NOTES; noteEditor = Note(title = "") }
             WidgetCommands.OPEN_NOTE -> {
                 val id = c.getLongExtra(WidgetCommands.EXTRA_ID, 0)
                 tab = Tab.NOTES
@@ -352,10 +355,11 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                         onFixPermissions = { tab = Tab.SETTINGS })
                     Tab.CALENDAR -> CalendarScreen(items, now, padding, calendarDay, { calendarDay = it }, actions)
                     Tab.NOTES -> NotesScreen(notes, padding, onOpen = { noteEditor = it ?: Note(title = "") },
-                        onPin = { vm.saveNote(it.copy(pinned = !it.pinned)) }, onDelete = { vm.deleteNote(it) })
+                        onPin = { vm.saveNote(it.copy(pinned = !it.pinned)) }, onDelete = { vm.deleteNote(it) },
+                        onSave = { vm.saveNote(it) })
                     Tab.STATS -> StatsScreen(items, now, padding)
                     Tab.SETTINGS -> SettingsScreen(padding, items.size, permissionTick, onPermissionChanged = { permissionTick++ },
-                        onPackExport = { packExport = emptySet() }, onPackImport = { packImport = it })
+                        onPackExport = { packExport = emptySet() }, onPackImport = { packImport = it }, onHelp = { showHelp = true })
                 }
             }
         }
@@ -367,12 +371,15 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
             modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 96.dp))
         packExport?.let { pre -> PackExportDialog(items, pre) { packExport = null } }
         if (loginRequested) LoginDialog { Account.loginRequested.value = false }
+        if (bazaarSignIn.error.isNotBlank()) AlertDialog(onDismissRequest = { bazaarSignIn.error = "" },
+            text = { Text(bazaarSignIn.error) },
+            confirmButton = { TextButton(onClick = { bazaarSignIn.error = "" }) { Text(t("باشه", "OK")) } })
         if (voiceChoice) AlertDialog(onDismissRequest = { voiceChoice = false },
             icon = { Icon(Icons.Rounded.AutoAwesome, null) },
             title = { Text(t("دستیار هوشمند", "Smart assistant")) },
             text = { Text(t("برای اینکه هوش مصنوعی صدایت را بفهمد و خودش یادآوری بسازد، با حساب بازار وارد شو (توکن هدیه داری). یا فقط با تایپ صوتی گوگل متن را بنویس.",
                 "Sign in with Cafe Bazaar so the AI understands your voice and creates reminders (free tokens included), or just dictate with Google.")) },
-            confirmButton = { Button(onClick = { voiceChoice = false; Account.loginRequested.value = true }) { Text(t("ورود", "Sign in")) } },
+            confirmButton = { BazaarButton(Modifier) { voiceChoice = false; bazaarSignIn.start() } },
             dismissButton = { TextButton(onClick = { voiceChoice = false; dictate() }) { Text(t("تایپ صوتی ساده", "Plain dictation")) } })
         noteEditor?.let { current ->
             key(current.id, current.createdAt) {
@@ -383,6 +390,7 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
             }
         }
         packImport?.let { pack -> PackImportDialog(pack) { packImport = null } }
+        if (showHelp) HelpScreen { showHelp = false }
         var shown by remember { mutableStateOf<EditorRequest?>(null) }
         if (editor != null) shown = editor
         BackHandler(enabled = editor != null) { editor = null }

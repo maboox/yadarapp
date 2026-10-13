@@ -221,4 +221,19 @@ class CoreLogicTest {
             assertNotNull(it.at)
         }
     }
+
+    @Test fun noteLists() {
+        val body = "خرید\n☐ شیر\n☐ نان سنگک\n- پنیر"
+        val edited = NoteText.edit(body, check = listOf("نان"), remove = listOf("پنیر"))
+        assertEquals("خرید\n☐ شیر\n☑ نان سنگک", edited)
+        assertEquals("خرید\n☐ شیر\n☐ نان سنگک", NoteText.edit(edited, uncheck = listOf("نان سنگک")))
+        assertEquals("خرید\n☑ شیر\n☑ نان سنگک", NoteText.toggle(edited, 1))
+        assertEquals("☐ a", NoteText.setKind("a", 0, NoteText.Kind.TODO))
+        assertEquals("a", NoteText.setKind("☐ a", 0, NoteText.Kind.TODO))
+        assertEquals("1. x\n2. y", NoteText.setKind("1. x\ny", 1, NoteText.Kind.NUMBER))
+        assertEquals("☐ a\n☐ " to 6, NoteText.continueList("☐ a", "☐ a\n", 4))
+        assertEquals("1. a\n2. " to 8, NoteText.continueList("1. a", "1. a\n", 5))
+        assertEquals("x\n" to 2, NoteText.continueList("x\n☐ ", "x\n☐ \n", 5))
+        assertNull(NoteText.continueList("plain", "plain\n", 6))
+    }
 }

@@ -112,6 +112,14 @@
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_voice_info" />
         </receiver>
+        <receiver android:name=".NoteWidgetProvider" android:exported="true" android:label="@string/widget_note_description">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_note_info" />
+        </receiver>
+        <activity android:name=".NoteWidgetConfigActivity" android:exported="true" android:excludeFromRecents="true"
+            android:theme="@style/Theme.Yadar">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" /></intent-filter>
+        </activity>
         <receiver android:name=".AddWidgetProvider" android:exported="true" android:label="@string/widget_add_description">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_add_info" />

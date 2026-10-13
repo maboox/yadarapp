@@ -47,15 +47,21 @@ fun AccountCard() {
     var editingName by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
     var buying by remember { mutableStateOf(false) }
+    val signIn = rememberBazaarSignIn()
     LaunchedEffect(Unit) { Account.refresh(context) }
 
     SettingsCard(t("حساب کاربری", "Account"), Icons.Rounded.AccountCircle) {
         val p = profile
         if (p == null) {
-            Text(t("همهٔ امکانات یادار بدون حساب کار می‌کنند. برای دستیار هوشمند (صدا و متن با هوش مصنوعی) با حساب کافه‌بازارت وارد شو؛ هدیهٔ ثبت‌نام هم توکن رایگان است.",
-                "Everything works without an account. Sign in with Cafe Bazaar to use the smart assistant; new accounts get free tokens."),
+            Text(t("یادآور، یادداشت، تقویم و ویجت‌ها بدون حساب کار می‌کنند. با ورود، دستیار هوشمند (هوش مصنوعی) هم برایت باز می‌شود:",
+                "Reminders, notes, calendar and widgets work without an account. Sign in to unlock the smart assistant (AI):"),
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            BazaarButton { loggingIn = true }
+            AssistantPerks()
+            Box(Modifier.combinedClickable(onClick = {}, onLongClick = { loggingIn = true })) {
+                BazaarButton(enabled = !signIn.busy) { signIn.start() }
+            }
+            if (signIn.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if (signIn.error.isNotBlank()) Text(signIn.error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         } else {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
@@ -90,15 +96,15 @@ fun AccountCard() {
                 Icon(Icons.Rounded.AddShoppingCart, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
                 Text(t("خرید توکن", "Buy tokens"))
             }
-            Text(t("هر کار با دستیار معمولاً حدود ۱ توکن یا کمتر است؛ کارهای ساده کمتر و کارهای سنگین کمی بیشتر.",
-                "A task usually costs about 1 token or less; simple ones less, heavy ones a bit more."),
+            Text(t("توکن فقط برای دستیار هوشمند خرج می‌شود. هر دستور معمولاً کمتر از ۱ توکن است؛ کارهای ساده کمتر و کارهای سنگین کمی بیشتر.",
+                "Tokens are only used by the smart assistant. A command usually costs under 1 token; simple ones less, heavy ones a bit more."),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             TextButton(onClick = { confirmLogout = true }) {
                 Icon(Icons.Rounded.Logout, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(t("خروج از حساب", "Sign out"))
             }
         }
     }
-    if (loggingIn) LoginDialog { loggingIn = false }
+    if (loggingIn) LoginDialog(startWithPhone = true) { loggingIn = false }
     if (buying) PacksDialog { buying = false }
     if (editingName) {
         var name by remember { mutableStateOf(profile?.name.orEmpty()) }
@@ -129,65 +135,103 @@ fun BazaarButton(modifier: Modifier = Modifier.fillMaxWidth(), enabled: Boolean 
     }
 }
 
-/**
- * Sign in with Cafe Bazaar: the installed Bazaar app asks the user once and hands Yadar their account id.
- * Phone sign-in is kept for the admin's review number only: long-press the icon to reach it.
- */
+/** One-tap Bazaar sign-in: the installed Bazaar app asks the user once and hands Yadar their account id. */
+class BazaarSignIn {
+    var busy by mutableStateOf(false)
+    var error by mutableStateOf("")
+    internal var action: () -> Unit = {}
+    fun start() = action()
+}
+
 @Composable
-fun LoginDialog(onDone: () -> Unit) {
+fun rememberBazaarSignIn(onSignedIn: () -> Unit = {}): BazaarSignIn {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var usePhone by remember { mutableStateOf(false) }
-    var busy by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf("") }
+    val state = remember { BazaarSignIn() }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val accountId = BazaarLogin.accountId(result.data)
         if (accountId == null) {
-            busy = false
-            error = t("ورود انجام نشد؛ اگر در بازار اجازه ندادی، دوباره امتحان کن.", "Sign-in was not completed; try again.")
+            state.busy = false
+            state.error = t("ورود انجام نشد؛ اگر در بازار اجازه ندادی، دوباره امتحان کن.", "Sign-in was not completed; try again.")
             return@rememberLauncherForActivityResult
         }
         scope.launch {
             runCatching { Account.bazaarAppLogin(context, accountId) }
                 .onSuccess {
-                    Toast.makeText(context, t("خوش آمدی!", "Welcome!"), Toast.LENGTH_SHORT).show()
-                    onDone()
+                    val balance = Account.profile.value?.balance ?: 0.0
+                    Toast.makeText(context, if (balance > 0) t("خوش آمدی! ${tokensLabel(balance)} توکن داری؛ دستیار را امتحان کن.",
+                        "Welcome! You have ${tokensLabel(balance)} tokens; try the assistant.") else t("خوش آمدی!", "Welcome!"),
+                        Toast.LENGTH_LONG).show()
+                    onSignedIn()
                 }
-                .onFailure { error = it.message.orEmpty() }
-            busy = false
+                .onFailure { state.error = it.message.orEmpty() }
+            state.busy = false
         }
     }
+    state.action = {
+        run {
+            state.error = ""
+            if (!BazaarLogin.installed(context)) {
+                state.error = t("برای ورود، برنامهٔ «بازار» باید روی گوشی نصب و به‌روز باشد.", "Cafe Bazaar must be installed to sign in.")
+            } else {
+                state.busy = true
+                runCatching { launcher.launch(BazaarLogin.intent(context)) }.onFailure {
+                    state.busy = false
+                    state.error = t("بازار ورود درون‌برنامه‌ای را باز نکرد؛ بازار را به‌روز کن و دوباره امتحان کن.",
+                        "Bazaar could not open its sign-in; update Bazaar and try again.")
+                }
+            }
+        }
+    }
+    return state
+}
+
+/** What signing in gives: shown before the user signs in. */
+@Composable
+fun AssistantPerks() {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf(
+            Icons.Rounded.Mic to t("با صدا یا متن یادآوری بساز، عوض کن، تیک بزن یا لغو کن", "Create, change, tick or cancel reminders by voice or text"),
+            Icons.Rounded.QuestionAnswer to t("بپرس «هفتهٔ بعد چی دارم؟» و کارها را به‌صورت کارت ببین", "Ask “what do I have next week?” and see the items as cards"),
+            Icons.Rounded.Checklist to t("یادداشت و لیست خرید بساز، اضافه کن و تیک بزن", "Make notes and shopping lists, add to them and tick items"),
+            Icons.Rounded.CardGiftcard to t("۱۰ توکن هدیه برای امتحان؛ هر دستور معمولاً کمتر از ۱ توکن", "10 free tokens to try; a command usually costs under 1"),
+        ).forEach { (icon, text) ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(10.dp))
+                Text(text, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+    }
+}
+
+/**
+ * Shown when an AI feature needs an account. Phone sign-in is kept for the admin's review number only:
+ * long-press the icon to reach it.
+ */
+@Composable
+fun LoginDialog(startWithPhone: Boolean = false, onDone: () -> Unit) {
+    var usePhone by remember { mutableStateOf(startWithPhone) }
+    val signIn = rememberBazaarSignIn(onSignedIn = onDone)
     if (usePhone) { PhoneLoginDialog(onDone = onDone, onBack = { usePhone = false }); return }
 
-    AlertDialog(onDismissRequest = { if (!busy) onDone() },
+    AlertDialog(onDismissRequest = { if (!signIn.busy) onDone() },
         icon = {
-            Icon(Icons.Rounded.AccountCircle, null, Modifier.combinedClickable(onClick = {}, onLongClick = { usePhone = true }))
+            Icon(Icons.Rounded.AutoAwesome, null, Modifier.combinedClickable(onClick = {}, onLongClick = { usePhone = true }))
         },
-        title = { Text(t("ورود به یادار", "Sign in to Yadar")) },
+        title = { Text(t("دستیار هوشمند یادار", "Yadar smart assistant")) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(t("با حساب کافه‌بازارت وارد شو؛ پیامک و رمز لازم نیست. خرید توکن هم با همین حساب از بازار انجام می‌شود.",
-                    "Sign in with your Cafe Bazaar account; no SMS or password needed. Tokens are bought through Bazaar too."),
-                    style = MaterialTheme.typography.bodyMedium)
-                BazaarButton(enabled = !busy) {
-                    error = ""
-                    if (!BazaarLogin.installed(context)) {
-                        error = t("برای ورود، برنامهٔ «بازار» باید روی گوشی نصب و به‌روز باشد.", "Cafe Bazaar must be installed to sign in.")
-                        return@BazaarButton
-                    }
-                    busy = true
-                    runCatching { launcher.launch(BazaarLogin.intent(context)) }.onFailure {
-                        busy = false
-                        error = t("بازار ورود درون‌برنامه‌ای را باز نکرد؛ بازار را به‌روز کن و دوباره امتحان کن.",
-                            "Bazaar could not open its sign-in; update Bazaar and try again.")
-                    }
-                }
-                if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                AssistantPerks()
+                Text(t("فقط با حساب کافه‌بازارت وارد شو؛ پیامک و رمز لازم نیست.", "Just sign in with your Cafe Bazaar account; no SMS or password."),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                BazaarButton(enabled = !signIn.busy) { signIn.start() }
+                if (signIn.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                if (signIn.error.isNotBlank()) Text(signIn.error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDone, enabled = !busy) { Text(t("بستن", "Close")) } })
+        dismissButton = { TextButton(onClick = onDone, enabled = !signIn.busy) { Text(t("بعداً", "Later")) } })
 }
 
 /** Token packs sold through Bazaar; the server checks each payment (Bazaar's signature) before adding the tokens. */
@@ -258,6 +302,15 @@ fun PacksDialog(onDone: () -> Unit) {
                 }
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.tertiaryContainer) {
+                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
+                        Icon(Icons.Rounded.Lightbulb, null, tint = MaterialTheme.colorScheme.onTertiaryContainer, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(t("توکن فقط برای دستیار هوشمند (هوش مصنوعی) خرج می‌شود؛ یادآور، یادداشت، تقویم و ویجت‌ها همیشه رایگان‌اند. قبل از خرید، با همین توکن‌هایی که داری چند دستور به دستیار بده و ببین به کارت می‌آید یا نه. هر دستور معمولاً کمتر از ۱ توکن است.",
+                            "Tokens are only used by the smart assistant (AI); reminders, notes, calendar and widgets are always free. Before buying, try a few commands with the tokens you have and see if it helps. A command usually costs under 1 token."),
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                    }
+                }
                 Text(t("پرداخت با کافه‌بازار انجام می‌شود و توکن‌ها بلافاصله به حسابت اضافه می‌شوند.",
                     "Payment goes through Cafe Bazaar and the tokens are added right away."),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

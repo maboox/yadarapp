@@ -1,0 +1,107 @@
+@file:OptIn(ExperimentalLayoutApi::class)
+
+package com.yadavard.app
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+
+private class Topic(val icon: ImageVector, val title: String, val text: String, val examples: List<String> = emptyList())
+
+private fun topics() = listOf(
+    Topic(Icons.Rounded.Mic, t("دستیار هوشمند", "Smart assistant"),
+        t("دکمهٔ میکروفون را بزن و عادی حرف بزن، یا بنویس. دستیار یادآوری و یادداشت می‌سازد، عوض می‌کند، تیک می‌زند و به سؤال‌هایت جواب می‌دهد. قبل از انجام هر کاری، پیشنهادش را نشان می‌دهد تا تأیید کنی.",
+            "Tap the mic and talk normally, or type. The assistant creates, changes and ticks reminders and notes and answers questions. It shows what it will do before doing it.")),
+    Topic(Icons.Rounded.AddAlert, t("ساختن یادآوری", "Create reminders"),
+        t("زمان، تکرار، دسته و نوع یادآوری را از جمله‌ات می‌فهمد. چند کار را هم با هم بگو.",
+            "It understands time, repeat, category and alert type. You can say several things at once."),
+        listOf(t("فردا ساعت ۱۰ جلسه کاری", "work meeting tomorrow 10am"), t("هر شب ساعت ۱۰ قرص، با زنگ", "pills every night 10pm, as an alarm"),
+            t("۲۰ هر ماه قسط وام", "loan payment on the 20th every month"), t("تولد مامان ۱۲ مهر، دو روز قبلش یادم بنداز", "mom's birthday Oct 4, remind me two days before"),
+            t("هر شنبه و سه‌شنبه ساعت ۶ عصر باشگاه", "gym every Saturday and Tuesday 6pm"))),
+    Topic(Icons.Rounded.EditCalendar, t("عوض کردن و جابه‌جا کردن", "Change and move"),
+        t("لازم نیست اسم دقیق را بگویی؛ از معنی پیدایش می‌کند. اگر چند مورد شبیه هم باشد، می‌پرسد کدام.",
+            "No need for the exact name; it finds it by meaning and asks if several match."),
+        listOf(t("جلسهٔ فردا رو ببر ساعت ۱۱", "move tomorrow's meeting to 11"), t("قرص رو هر ۸ ساعت کن", "make the pills every 8 hours"),
+            t("یادآوری باشگاه رو زنگی کن", "make the gym reminder an alarm"), t("قسط رو یک ساعت دیگه دوباره یادم بنداز", "remind me about the loan again in an hour"))),
+    Topic(Icons.Rounded.TaskAlt, t("انجام شد، انجام نشد، حذف", "Done, missed, delete"),
+        t("«انجام نشد» با حذف فرق دارد: در آمار ثبت می‌شود و در بخش جدا دیده می‌شود. در صفحهٔ اصلی هم با تیک «انجام شد» و با کشیدن «انجام نشد» یا حذف کن.",
+            "“Missed” is not delete: it is kept in stats and shown separately. On the home screen, tick for done, swipe for missed or delete."),
+        listOf(t("قرص رو خوردم", "I took the pills"), t("باشگاه امروز نرفتم", "I skipped the gym today"), t("جلسه فردا کنسل شد", "tomorrow's meeting is cancelled"))),
+    Topic(Icons.Rounded.QuestionAnswer, t("پرسیدن از برنامه‌ات", "Ask about your plans"),
+        t("جواب کوتاه می‌دهد و خود کارها را به‌صورت کارت نشان می‌دهد؛ با لمس هر کارت بازش کن. از ویجت دستیار روی صفحهٔ اصلی گوشی هم کار می‌کند.",
+            "It answers briefly and shows the items as cards you can open, also from the assistant widget."),
+        listOf(t("هفتهٔ بعد چه کارهایی دارم؟", "what do I have next week?"), t("فردا جلسهٔ کاری دارم؟", "do I have a work meeting tomorrow?"),
+            t("نزدیک‌ترین تولد کیه؟", "whose birthday is next?"), t("تو لیست خرید چی نوشتم؟", "what's on my shopping list?"))),
+    Topic(Icons.Rounded.StickyNote2, t("یادداشت و لیست", "Notes and lists"),
+        t("یادداشت‌ها رنگ، سنجاق، فهرست، شماره و چک‌لیست دارند. در کارت یادداشت روی مربع چک‌لیست بزن تا تیک بخورد. دستیار هم لیست‌ها را می‌فهمد.",
+            "Notes have colours, pins, bullets, numbers and checklists; tap a box on the card to tick it. The assistant understands lists too."),
+        listOf(t("یه لیست خرید بذار: شیر، نان، تخم‌مرغ", "make a shopping list: milk, bread, eggs"), t("به لیست خرید پنیر هم اضافه کن", "add cheese to the shopping list"),
+            t("نان رو تیک بزن", "tick the bread"), t("یادداشت ایده‌ها رو پاک کن", "delete the ideas note"))),
+    Topic(Icons.Rounded.Widgets, t("ویجت‌ها", "Widgets"),
+        t("روی صفحهٔ اصلی گوشی انگشت را نگه دار ← ابزارک‌ها ← یادار. ثبت سریع، دستیار صوتی، امروز، هفته، پیش رو، نزدیک‌ترین یادآوری و یک یادداشت دلخواه را می‌توانی روی صفحه بگذاری. ویجت یادداشت با هر تغییر، حتی با دستیار، به‌روز می‌شود.",
+            "Long-press the home screen → Widgets → Yadar: quick add, voice assistant, today, week, coming up, next reminder and any note. The note widget updates with every change, even from the assistant.")),
+    Topic(Icons.Rounded.Toll, t("توکن و حساب", "Tokens and account"),
+        t("همهٔ امکانات بدون حساب کار می‌کنند؛ فقط دستیار هوشمند با هوش مصنوعی کار می‌کند و توکن می‌خواهد. با «ورود با بازار» ۱۰ توکن هدیه می‌گیری. هر دستور معمولاً کمتر از ۱ توکن است. اول با هدیه امتحان کن، بعد اگر به کارت آمد بسته بخر.",
+            "Everything works without an account; only the smart assistant uses AI and tokens. Sign in with Bazaar for 10 free tokens. A command usually costs under 1 token. Try it with the gift first, then buy a pack if it helps.")),
+    Topic(Icons.Rounded.Inventory2, t("پک و پشتیبان", "Packs and backup"),
+        t("چند یادآوری (مثلاً تولدهای خانواده) را به‌صورت «پک» برای دیگران بفرست. یادار بعد از هر تغییر یک پشتیبان خودکار در پوشهٔ Download/Yadar می‌گذارد.",
+            "Send reminders (e.g. family birthdays) as a pack. Yadar keeps an automatic backup in Download/Yadar after every change.")),
+)
+
+/** Everything Yadar can do, with sentences to try. Opened from Settings. */
+@Composable
+fun HelpScreen(onClose: () -> Unit) {
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Column(Modifier.fillMaxSize().systemBarsPadding()) {
+                Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, t("بستن", "Close")) }
+                    Text(t("راهنمای یادار", "Yadar guide"), style = MaterialTheme.typography.titleLarge)
+                }
+                LazyColumn(contentPadding = PaddingValues(16.dp, 4.dp, 16.dp, 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    topics().forEach { topic ->
+                        item {
+                            Surface(shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer),
+                                            contentAlignment = Alignment.Center) {
+                                            Icon(topic.icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                        }
+                                        Spacer(Modifier.width(10.dp))
+                                        Text(topic.title, style = MaterialTheme.typography.titleMedium)
+                                    }
+                                    Text(topic.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    if (topic.examples.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        topic.examples.forEach { example ->
+                                            Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+                                                Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(Icons.Rounded.FormatQuote, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                                                    Spacer(Modifier.width(6.dp))
+                                                    Text(example, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

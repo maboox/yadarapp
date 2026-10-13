@@ -4,6 +4,7 @@ package com.yadavard.app
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.delay
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -364,19 +366,30 @@ fun TimePickerSheet(hour: Int, minute: Int, onDismiss: () -> Unit, onPick: (Int,
 }
 
 @Composable
-fun SettingsCard(title: String, icon: ImageVector, content: @Composable ColumnScope.() -> Unit) {
+fun SettingsCard(title: String, icon: ImageVector, summary: String? = null, collapsible: Boolean = false,
+                 startExpanded: Boolean = !collapsible, content: @Composable ColumnScope.() -> Unit) {
+    // Collapsible cards keep the settings page short; each remembers whether it is open.
+    var open by rememberSaveable(title) { mutableStateOf(startExpanded) }
+    val rotation by animateFloatAsState(if (open) 180f else 0f, label = "chevron")
     Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, shadowElevation = 1.dp,
         modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically,
+                modifier = if (collapsible) Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { open = !open } else Modifier) {
                 Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center) {
                     Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                 }
                 Spacer(Modifier.width(10.dp))
-                Text(title, style = MaterialTheme.typography.titleMedium)
+                Column(Modifier.weight(1f, fill = collapsible)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium)
+                    if (summary != null && collapsible && !open) Text(summary, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                if (collapsible) Icon(Icons.Rounded.ExpandMore, if (open) t("بستن", "Collapse") else t("باز کردن", "Expand"),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.rotate(rotation))
             }
-            content()
+            if (!collapsible || open) content()
         }
     }
 }

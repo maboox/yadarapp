@@ -44,7 +44,8 @@ fun CategoriesCard() {
     var editing by remember { mutableStateOf<CategoryDef?>(null) }
     var adding by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<CategoryDef?>(null) }
-    SettingsCard(t("دسته‌بندی‌ها", "Categories"), Icons.Rounded.Category) {
+    SettingsCard(t("دسته‌بندی‌ها", "Categories"), Icons.Rounded.Category,
+        summary = t("دسته‌های پیش‌فرض و دلخواه", "Built-in and custom categories"), collapsible = true) {
         Text(t("دسته‌های خودت را بساز (مثلاً دارو، باشگاه، دکتر بچه). یادار از روی متن، دستهٔ مناسب را خودش انتخاب می‌کند؛ اگر نشد «عمومی» می‌گذارد.",
             "Create your own categories. Yadar picks the right one from the text by itself, or “General” if unsure."),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

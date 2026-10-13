@@ -11,6 +11,9 @@ enum class AppLanguage { FA, EN }
 enum class AlertStyle { NOTIFICATION, ALARM }
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/** Accent palette of the app (the light/dark choice is [ThemeMode]). */
+enum class ThemeColor { VIOLET, OCEAN, FOREST, SUNSET }
+
 data class Reminder(
     val id: Long = 0,
     val title: String,

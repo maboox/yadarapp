@@ -23,7 +23,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -44,7 +47,8 @@ private fun noteDate(time: Long): String {
 
 /** Notes: free text with a title, colour and pin. The assistant can create, edit and search them too. */
 @Composable
-fun NotesScreen(notes: List<Note>, padding: PaddingValues, onOpen: (Note?) -> Unit, onPin: (Note) -> Unit, onDelete: (Note) -> Unit) {
+fun NotesScreen(notes: List<Note>, padding: PaddingValues, onOpen: (Note?) -> Unit, onPin: (Note) -> Unit, onDelete: (Note) -> Unit,
+                onSave: (Note) -> Unit = {}) {
     var query by rememberSaveable { mutableStateOf("") }
     val shown = remember(notes, query) {
         notes.filter { query.isBlank() || it.title.contains(query.trim(), true) || it.body.contains(query.trim(), true) }
@@ -66,12 +70,16 @@ fun NotesScreen(notes: List<Note>, padding: PaddingValues, onOpen: (Note?) -> Un
                 t("با دکمهٔ «یادداشت جدید» یا به دستیار بگو: «یه یادداشت بذار برای خرید: شیر، نان، تخم‌مرغ».",
                     "Tap “New note”, or tell the assistant: “make a shopping note: milk, bread, eggs”."))
         }
-        items(shown, key = { it.id }) { note -> NoteCard(note, { onOpen(note) }, { onPin(note) }, { onDelete(note) }) }
+        items(shown, key = { it.id }) { note ->
+            NoteCard(note, { onOpen(note) }, { onPin(note) }, { onDelete(note) }) { line ->
+                onSave(note.copy(body = NoteText.toggle(note.body, line), updatedAt = System.currentTimeMillis()))
+            }
+        }
     }
 }
 
 @Composable
-private fun NoteCard(note: Note, onOpen: () -> Unit, onPin: () -> Unit, onDelete: () -> Unit) {
+private fun NoteCard(note: Note, onOpen: () -> Unit, onPin: () -> Unit, onDelete: () -> Unit, onToggle: (Int) -> Unit) {
     val accent = noteColor(note.color)
     var menu by remember { mutableStateOf(false) }
     var confirm by remember { mutableStateOf(false) }
@@ -87,7 +95,7 @@ private fun NoteCard(note: Note, onOpen: () -> Unit, onPin: () -> Unit, onDelete
             }
             if (note.body.isNotBlank()) {
                 Spacer(Modifier.height(6.dp))
-                Text(note.body, style = MaterialTheme.typography.bodyMedium, maxLines = 8, overflow = TextOverflow.Ellipsis)
+                NoteBody(note.body, accent, maxLines = 10, onToggle = onToggle)
             }
             Spacer(Modifier.height(8.dp))
             Text(noteDate(note.updatedAt), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -109,7 +117,8 @@ private fun NoteCard(note: Note, onOpen: () -> Unit, onPin: () -> Unit, onDelete
 @Composable
 fun NoteEditor(note: Note?, onClose: (Note?) -> Unit, onDelete: (Note) -> Unit) {
     var title by remember { mutableStateOf(note?.title.orEmpty()) }
-    var body by remember { mutableStateOf(note?.body.orEmpty()) }
+    var field by remember { mutableStateOf(TextFieldValue(note?.body.orEmpty())) }
+    val body = field.text
     var color by remember { mutableIntStateOf(note?.color ?: 0) }
     var pinned by remember { mutableStateOf(note?.pinned ?: false) }
     var confirm by remember { mutableStateOf(false) }
@@ -147,7 +156,17 @@ fun NoteEditor(note: Note?, onClose: (Note?) -> Unit, onDelete: (Note) -> Unit) 
                 if (note != null) Text(t("آخرین ویرایش: ", "Edited ") + noteDate(note.updatedAt),
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 20.dp))
-                TextField(body, { body = it.take(20_000) }, Modifier.fillMaxWidth().weight(1f).padding(horizontal = 4.dp),
+                ListToolbar(accent) { kind ->
+                    val line = NoteText.lineAt(field.text, field.selection.start)
+                    val text = NoteText.setKind(field.text, line, kind)
+                    val end = text.split('\n').take(line + 1).sumOf { it.length + 1 } - 1
+                    field = TextFieldValue(text, TextRange(end.coerceIn(0, text.length)))
+                }
+                TextField(field, { value ->
+                    val limited = if (value.text.length > 20_000) value.copy(text = value.text.take(20_000)) else value
+                    field = NoteText.continueList(field.text, limited.text, limited.selection.start)
+                        ?.let { (text, cursor) -> TextFieldValue(text, TextRange(cursor)) } ?: limited
+                }, Modifier.fillMaxWidth().weight(1f).padding(horizontal = 4.dp),
                     placeholder = { Text(t("بنویس…", "Write…")) },
                     colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent,
                         focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent))
@@ -158,4 +177,47 @@ fun NoteEditor(note: Note?, onClose: (Note?) -> Unit, onDelete: (Note) -> Unit) 
         title = { Text(t("یادداشت حذف شود؟", "Delete note?")) },
         confirmButton = { TextButton({ confirm = false; onDelete(note) }) { Text(t("حذف", "Delete"), color = MaterialTheme.colorScheme.error) } },
         dismissButton = { TextButton({ confirm = false }) { Text(t("انصراف", "Cancel")) } })
+}
+
+/** Bullet, checklist and numbered-list buttons for the note editor. */
+@Composable
+private fun ListToolbar(accent: Color, onKind: (NoteText.Kind) -> Unit) {
+    Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        listOf(
+            Triple(NoteText.Kind.TODO, Icons.Rounded.Checklist, t("چک‌لیست", "Checklist")),
+            Triple(NoteText.Kind.BULLET, Icons.Rounded.FormatListBulleted, t("فهرست", "Bullets")),
+            Triple(NoteText.Kind.NUMBER, Icons.Rounded.FormatListNumbered, t("شماره‌دار", "Numbered")),
+        ).forEach { (kind, icon, label) ->
+            AssistChip(onClick = { onKind(kind) }, label = { Text(label) },
+                leadingIcon = { Icon(icon, null, tint = accent, modifier = Modifier.size(18.dp)) })
+        }
+    }
+}
+
+/** Note text with lists drawn as bullets and tappable checkboxes. */
+@Composable
+fun NoteBody(body: String, accent: Color, maxLines: Int = Int.MAX_VALUE, onToggle: ((Int) -> Unit)? = null) {
+    val lines = body.split('\n')
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        lines.take(maxLines).forEachIndexed { index, raw ->
+            val line = NoteText.parse(raw)
+            Row(verticalAlignment = Alignment.Top) {
+                when (line.kind) {
+                    NoteText.Kind.TODO, NoteText.Kind.DONE -> Icon(
+                        if (line.kind == NoteText.Kind.DONE) Icons.Rounded.CheckBox else Icons.Rounded.CheckBoxOutlineBlank, null,
+                        tint = accent, modifier = Modifier.padding(end = 6.dp).size(20.dp).clip(RoundedCornerShape(4.dp))
+                            .then(if (onToggle != null) Modifier.clickable { onToggle(index) } else Modifier))
+                    NoteText.Kind.BULLET -> Text("•", color = accent, modifier = Modifier.padding(horizontal = 4.dp),
+                        style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    NoteText.Kind.NUMBER -> Text(n(line.number) + ".", color = accent, modifier = Modifier.padding(end = 4.dp),
+                        style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    NoteText.Kind.TEXT -> {}
+                }
+                Text(line.text, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis,
+                    textDecoration = if (line.kind == NoteText.Kind.DONE) TextDecoration.LineThrough else null,
+                    color = if (line.kind == NoteText.Kind.DONE) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
+            }
+        }
+        if (lines.size > maxLines) Text("…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }

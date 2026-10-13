@@ -12,10 +12,13 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -24,6 +27,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,7 +39,7 @@ import kotlinx.coroutines.withContext
 
 @Composable
 fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPermissionChanged: () -> Unit,
-                   onPackExport: () -> Unit = {}, onPackImport: (Packs.Pack) -> Unit = {}) {
+                   onPackExport: () -> Unit = {}, onPackImport: (Packs.Pack) -> Unit = {}, onHelp: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     @Suppress("UNUSED_VARIABLE") val tick = permissionTick
@@ -103,11 +108,20 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = padding.calculateTopPadding() + 8.dp,
             bottom = padding.calculateBottomPadding() + 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { Text(t("تنظیمات", "Settings"), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 4.dp)) }
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                Text(t("تنظیمات", "Settings"), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                FilledTonalButton(onClick = onHelp) {
+                    Icon(Icons.Rounded.HelpOutline, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(t("راهنما", "Guide"))
+                }
+            }
+        }
         item { AccountCard() }
 
         item {
-            SettingsCard(t("سلامت اعلان‌ها", "Notification health"), Icons.Rounded.HealthAndSafety) {
+            SettingsCard(t("سلامت اعلان‌ها", "Notification health"), Icons.Rounded.HealthAndSafety,
+                summary = if (allCriticalGranted(context)) t("همه‌چیز آماده است ✓", "All set ✓") else t("چند مورد نیاز به توجه دارد", "Some items need attention"),
+                collapsible = true, startExpanded = !allCriticalGranted(context)) {
                 Text(if (allCriticalGranted(context)) t("همه‌چیز آماده است؛ یادآوری‌ها سر وقت و با صدا می‌رسند ✓", "All set — reminders arrive on time and with sound ✓")
                     else t("موارد قرمز را درست کن تا هیچ یادآوری‌ای جا نماند.", "Fix the red items so no reminder is missed."),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -135,7 +149,8 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
         }
 
         item {
-            SettingsCard(t("صدا و لرزش", "Sound & vibration"), Icons.Rounded.MusicNote) {
+            SettingsCard(t("صدا و لرزش", "Sound & vibration"), Icons.Rounded.MusicNote,
+                summary = t("صدای یادآوری، زنگ و لرزش", "Reminder sound, alarm and vibration"), collapsible = true) {
                 @Suppress("UNUSED_VARIABLE") val readSound = soundTick
                 SoundRow(t("صدای یادآوری", "Reminder sound"), AlertSound.soundName(context, alarm = false),
                     onPick = { pickSound(false) }, onPreview = { AlertSound.playOnce(context, alarm = false) })
@@ -152,7 +167,8 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
         }
 
         item {
-            SettingsCard(t("ظاهر و زبان", "Appearance"), Icons.Rounded.Palette) {
+            SettingsCard(t("ظاهر و زبان", "Appearance"), Icons.Rounded.Palette,
+                summary = t("زبان، تقویم، پوسته و رنگ", "Language, calendar, theme and colour"), collapsible = true) {
                 Label(t("زبان", "Language"))
                 Segmented(listOf(AppLanguage.FA to "فارسی", AppLanguage.EN to "English"), AppDisplay.language) {
                     AppDisplay.language = it; Prefs.setLanguage(context, it)
@@ -165,11 +181,31 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
                 Label(t("پوسته", "Theme"))
                 Segmented(listOf(ThemeMode.SYSTEM to t("خودکار", "System"), ThemeMode.LIGHT to t("روشن", "Light"), ThemeMode.DARK to t("تیره", "Dark")),
                     AppDisplay.theme) { AppDisplay.theme = it; Prefs.setTheme(context, it) }
+                Label(t("رنگ", "Colour"))
+                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    ThemeColor.entries.forEach { c ->
+                        val selected = AppDisplay.color == c
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(Modifier.size(42.dp).clip(CircleShape).background(themeSwatch(c))
+                                .border(if (selected) 3.dp else 0.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+                                .clickable { AppDisplay.color = c; Prefs.setThemeColor(context, c) },
+                                contentAlignment = Alignment.Center) {
+                                if (selected) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            Text(when (c) {
+                                ThemeColor.VIOLET -> t("بنفش", "Violet"); ThemeColor.OCEAN -> t("آبی", "Ocean")
+                                ThemeColor.FOREST -> t("سبز", "Forest"); ThemeColor.SUNSET -> t("نارنجی", "Sunset")
+                            }, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
             }
         }
 
         item {
-            SettingsCard(t("پیش‌فرض‌های یادآوری", "Reminder defaults"), Icons.Rounded.Tune) {
+            SettingsCard(t("پیش‌فرض‌های یادآوری", "Reminder defaults"), Icons.Rounded.Tune,
+                summary = t("تعویق، نوع یادآوری، زودتر و مدت زنگ", "Snooze, alert type, advance notice, ring time"), collapsible = true) {
                 Label(t("مدت تعویق", "Snooze length"))
                 ChoiceChips(listOf(5, 10, 15, 30, 60), snooze, ::leadLabel, { snooze = it; Prefs.setSnoozeMinutes(context, it) })
                 Label(t("نحوهٔ یادآوری پیش‌فرض", "Default alert"))
@@ -199,7 +235,8 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
         item { CategoriesCard() }
 
         item {
-            SettingsCard(t("اشتراک‌گذاری یادآوری‌ها", "Share reminders"), Icons.Rounded.Inventory2) {
+            SettingsCard(t("اشتراک‌گذاری یادآوری‌ها", "Share reminders"), Icons.Rounded.Inventory2,
+                summary = t("فرستادن و وارد کردن پک یادآوری", "Send and import reminder packs"), collapsible = true) {
                 Text(t("چند یادآوری (مثلاً تولدهای خانواده) را در یک «پک» بفرست تا دیگران با یک لمس به یادار خودشان اضافه کنند.",
                     "Send a few reminders (e.g. family birthdays) as a pack others can add to their Yadar with one tap."),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -217,7 +254,8 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
         item { AiCard() }
 
         item {
-            SettingsCard(t("پشتیبان‌گیری", "Backup"), Icons.Rounded.Backup) {
+            SettingsCard(t("پشتیبان‌گیری", "Backup"), Icons.Rounded.Backup,
+                summary = t("${n(count)} یادآوری • نسخهٔ پشتیبان و بازیابی", "$count reminders • backup and restore"), collapsible = true) {
                 Text(t("${n(count)} یادآوری روی این گوشی ذخیره است. نسخه‌های جدید را روی همین نصب کن تا اطلاعات بماند. یادار بعد از هر تغییر یک نسخهٔ پشتیبان خودکار در پوشهٔ Download/Yadar می‌گذارد که با حذف برنامه هم پاک نمی‌شود؛ با «بازیابی» برش گردان. کلید هوش مصنوعی داخل پشتیبان نیست.",
                     "$count reminders on this phone. Install new versions over this one to keep your data. Yadar also saves an automatic backup to Download/Yadar after every change, which survives uninstalling; bring it back with Restore. Your AI key is not included."),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -264,7 +302,8 @@ private fun AiCard() {
     var baseUrl by remember { mutableStateOf(ai.baseUrl) }
     var server by remember { mutableStateOf(Account.server(context)) }
 
-    SettingsCard(t("دستیار هوشمند", "Smart assistant"), Icons.Rounded.AutoAwesome) {
+    SettingsCard(t("دستیار هوشمند", "Smart assistant"), Icons.Rounded.AutoAwesome,
+        summary = t("تنظیمات دستیار و گزینه‌های پیشرفته", "Assistant settings and advanced options"), collapsible = true) {
         Text(t("ثبت سریع بدون اینترنت هم جمله‌های فارسی و انگلیسی را می‌فهمد. با ورود به حساب، دستیار یادار فعال می‌شود: با صدا یا متن یادآوری بساز، ویرایش کن، حذف کن، «انجام شد» بزن یا بپرس «این هفته چی دارم؟».",
             "Quick add works offline. Sign in to use the Yadar assistant: create, edit, delete and complete reminders by voice or text, and ask “what do I have this week?”."),
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

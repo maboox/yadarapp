@@ -23,6 +23,8 @@ object Prefs {
 
     fun theme(context: Context): ThemeMode = enumValue(prefs(context).getString("theme", null), ThemeMode.SYSTEM)
     fun setTheme(context: Context, value: ThemeMode) = prefs(context).edit().putString("theme", value.name).apply()
+    fun themeColor(context: Context): ThemeColor = enumValue(prefs(context).getString("theme_color", null), ThemeColor.VIOLET)
+    fun setThemeColor(context: Context, value: ThemeColor) = prefs(context).edit().putString("theme_color", value.name).apply()
 
     fun snoozeMinutes(context: Context): Int = prefs(context).getInt("snooze_minutes", 10)
     fun setSnoozeMinutes(context: Context, value: Int) = prefs(context).edit().putInt("snooze_minutes", value).apply()

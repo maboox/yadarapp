@@ -416,12 +416,13 @@ Action objects:
 - {"type":"missed","id":<id>} when the user says they did NOT do it / missed it / it passed (انجام ندادم، قضا شد، از دستم رفت); this is recorded, unlike delete
 - {"type":"postpone","id":<id>,"minutes":<n>} when the user says remind me later / postpone by some time
 - {"type":"note_create","title":"...","body":"..."} when the user asks to write/save a note (یادداشت، نوت); not a reminder unless they want to be reminded
-- {"type":"note_update","id":<N id number>,"title":"...","body":"<full new text>"} or {"type":"note_update","id":<N id number>,"append":"<text to add>"} to change a note
+- {"type":"note_update","id":<N id number>, ...} to change a note, with any of: "title"; "append":"<lines to add>"; "check":["item",...] / "uncheck":[...] / "remove":[...] to tick, untick or delete list items (give the item text); "body":"<full new text>" only to rewrite the whole note
 - {"type":"note_delete","id":<N id number>}
 "show" lists existing items to display as cards when answering a question (what do I have next week, do I have a work meeting, whose birthday is next, what did I write about X):
 - {"type":"reminder","id":<id>,"at":"<ISO local date-time of the relevant occurrence, optional>"}
 - {"type":"note","id":<N id number>}
 Show only the items that answer the question, in time order, at most 20.
+Note text is plain; lists are one item per line: "• item" for a bullet, "☐ item" for a to-do or shopping item, "☑ item" for a ticked one, "1. item" for numbered steps. Write shopping and to-do lists with ☐ (e.g. body "☐ شیر\n☐ نان"), and add to a list with "append" in the same style.
 Keep the JSON compact: leave out every field that is null, empty or not mentioned.
 Reminder and change fields (omit when not mentioned):
 title, note, first_at (ISO-8601 local date-time WITH offset), unit (NONE|HOURS|DAYS|WEEKS|MONTHS|YEARS|AFTER_DONE_DAYS), every,
@@ -481,6 +482,9 @@ User: $text"""
                         a.optString("append").trim().takeIf { it.isNotBlank() }?.let { add ->
                             after = after.copy(body = (after.body.trimEnd() + "\n" + add).trim().take(20_000))
                         }
+                        fun items(key: String) = a.optJSONArray(key)?.let { arr -> (0 until arr.length()).map { arr.optString(it) } }.orEmpty()
+                        val body = NoteText.edit(after.body, check = items("check"), uncheck = items("uncheck"), remove = items("remove"))
+                        if (body != after.body) after = after.copy(body = body)
                         if (after != before) actions += AssistantAction.NoteUpdate(before, after.copy(updatedAt = System.currentTimeMillis()))
                     }
                     "note_delete" -> notes[noteId(a)]?.let { actions += AssistantAction.NoteDelete(it) }

@@ -23,11 +23,13 @@ object AppDisplay {
     var language by mutableStateOf(AppLanguage.FA)
     var calendar by mutableStateOf(CalendarSystem.PERSIAN)
     var theme by mutableStateOf(ThemeMode.SYSTEM)
+    var color by mutableStateOf(ThemeColor.VIOLET)
 
     fun load(context: Context) {
         language = Prefs.language(context)
         calendar = Prefs.calendar(context)
         theme = Prefs.theme(context)
+        color = Prefs.themeColor(context)
         Categories.ensure(context)
     }
 }
@@ -95,11 +97,37 @@ fun isDarkTheme(): Boolean = when (AppDisplay.theme) {
     ThemeMode.DARK -> true
 }
 
+/** Accent colours of a palette: light primary, light container, dark primary, dark container. */
+private class Accent(val primary: Long, val container: Long, val onContainer: Long, val darkPrimary: Long, val darkContainer: Long,
+                     val tint: Long, val darkTint: Long)
+
+private fun accent(color: ThemeColor) = when (color) {
+    ThemeColor.VIOLET -> null
+    ThemeColor.OCEAN -> Accent(0xFF1E6FD9, 0xFFDCE9FF, 0xFF00296B, 0xFF9CC4FF, 0xFF0D4A9E, 0xFFF4F7FC, 0xFF0E131B)
+    ThemeColor.FOREST -> Accent(0xFF0E8A63, 0xFFCDF2E2, 0xFF00382A, 0xFF7FDDB8, 0xFF00573F, 0xFFF3F8F5, 0xFF0D1512)
+    ThemeColor.SUNSET -> Accent(0xFFD2512A, 0xFFFFE1D6, 0xFF4A1300, 0xFFFFB59C, 0xFF8A2E10, 0xFFFBF5F3, 0xFF1A1210)
+}
+
+/** Light or dark scheme in the chosen palette; violet is the original design. */
+fun appColors(dark: Boolean, color: ThemeColor): ColorScheme {
+    val base = if (dark) DarkColors else LightColors
+    val a = accent(color) ?: return base
+    return if (dark) base.copy(primary = Color(a.darkPrimary), onPrimary = Color(a.onContainer),
+        primaryContainer = Color(a.darkContainer), onPrimaryContainer = Color(a.container),
+        background = Color(a.darkTint), surface = Color(a.darkTint))
+    else base.copy(primary = Color(a.primary), onPrimary = Color.White,
+        primaryContainer = Color(a.container), onPrimaryContainer = Color(a.onContainer),
+        background = Color(a.tint), surface = Color(a.tint))
+}
+
+/** Swatch colour shown in the palette picker. */
+fun themeSwatch(color: ThemeColor): Color = Color(accent(color)?.primary ?: 0xFF5B4BDB)
+
 @Composable
 fun YadarTheme(darkOverride: Boolean? = null, content: @Composable () -> Unit) {
     val dark = darkOverride ?: isDarkTheme()
     MaterialTheme(
-        colorScheme = if (dark) DarkColors else LightColors,
+        colorScheme = appColors(dark, AppDisplay.color),
         typography = AppTypography,
         shapes = Shapes(
             extraSmall = RoundedCornerShape(8.dp), small = RoundedCornerShape(12.dp),

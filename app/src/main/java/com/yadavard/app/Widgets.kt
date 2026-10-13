@@ -35,6 +35,20 @@ class FocusWidgetProvider : AppWidgetProvider() {
 class VoiceWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = WidgetUpdater.update(context)
 }
+/** Shows one chosen note; follows every change to it, including the assistant's. */
+class NoteWidgetProvider : AppWidgetProvider() {
+    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = WidgetUpdater.update(context)
+    override fun onDeleted(context: Context, ids: IntArray) = ids.forEach { NoteWidgets.forget(context, it) }
+}
+
+/** Which note each note widget shows; -1 means "the latest pinned or edited note". */
+object NoteWidgets {
+    private fun prefs(context: Context) = context.getSharedPreferences("note_widgets", Context.MODE_PRIVATE)
+    fun noteFor(context: Context, widgetId: Int): Long = prefs(context).getLong("w$widgetId", -1L)
+    fun set(context: Context, widgetId: Int, noteId: Long) = prefs(context).edit().putLong("w$widgetId", noteId).apply()
+    fun forget(context: Context, widgetId: Int) = prefs(context).edit().remove("w$widgetId").apply()
+}
+
 class AddWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = WidgetUpdater.update(context)
 }
@@ -48,6 +62,7 @@ object WidgetCommands {
     const val EDIT = "com.yadavard.app.widget.EDIT"
     const val EDIT_DRAFT = "com.yadavard.app.widget.EDIT_DRAFT"
     const val OPEN_NOTE = "com.yadavard.app.widget.OPEN_NOTE"
+    const val NEW_NOTE = "com.yadavard.app.widget.NEW_NOTE"
     const val EXTRA_DRAFT = "draft_json"
     const val EXTRA_ID = "reminder_id"
     const val EXTRA_DAY = "day_epoch"
@@ -61,7 +76,7 @@ object WidgetUpdater {
         R.id.week_day_4, R.id.week_day_5, R.id.week_day_6)
     private val providers = listOf(QuickWidgetProvider::class.java, TodayWidgetProvider::class.java,
         WeekWidgetProvider::class.java, NextWidgetProvider::class.java, FocusWidgetProvider::class.java,
-        VoiceWidgetProvider::class.java, AddWidgetProvider::class.java)
+        VoiceWidgetProvider::class.java, AddWidgetProvider::class.java, NoteWidgetProvider::class.java)
 
     private fun activity(context: Context, widgetId: Int, slot: Int, action: String, reminderId: Long = 0, day: LocalDate? = null) =
         PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java).apply {
@@ -86,6 +101,22 @@ object WidgetUpdater {
             setSpan(android.text.style.ForegroundColorSpan(r.category.catColor().toArgb()), 0, 1, 0)
             setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 3, 3 + prefix.length, 0)
         }
+    }
+
+    /** Note text for a widget: list glyphs kept, ticked items struck through. */
+    private fun noteSpans(body: String): CharSequence {
+        val out = android.text.SpannableStringBuilder()
+        body.split('\n').take(40).forEachIndexed { i, raw ->
+            if (i > 0) out.append('\n')
+            val line = NoteText.parse(raw)
+            val start = out.length
+            out.append(NoteText.render(line))
+            if (line.kind == NoteText.Kind.DONE) {
+                out.setSpan(android.text.style.StrikethroughSpan(), start + 2, out.length, 0)
+                out.setSpan(android.text.style.ForegroundColorSpan(0xFF8A879C.toInt()), start, out.length, 0)
+            }
+        }
+        return out
     }
 
     private fun done(context: Context, widgetId: Int, id: Long) =
@@ -237,6 +268,27 @@ object WidgetUpdater {
             v.setTextViewText(R.id.icon_label, l("جدید", "New"))
             v.setOnClickPendingIntent(R.id.icon_root, activity(context, widgetId, 0, WidgetCommands.ADD))
             manager.updateAppWidget(widgetId, v)
+        }
+
+        val noteIds = all.getValue(NoteWidgetProvider::class.java)
+        if (noteIds.isNotEmpty()) {
+            val notes = Repo.notes(context)
+            val latest = notes.sortedWith(compareByDescending<Note> { it.pinned }.thenByDescending { it.updatedAt }).firstOrNull()
+            for (widgetId in noteIds) {
+                val wanted = NoteWidgets.noteFor(context, widgetId)
+                val note = if (wanted == -1L) latest else notes.firstOrNull { it.id == wanted }
+                val v = layout(R.layout.widget_note, R.layout.widget_note_ltr)
+                v.setInt(R.id.note_accent, "setColorFilter", noteColor(note?.color ?: 0).toArgb())
+                v.setTextViewText(R.id.note_title, note?.title?.ifBlank { null } ?: if (note == null) l("یادداشت", "Note") else "")
+                v.setTextViewText(R.id.note_body, if (note == null) l("یادداشتی نیست. لمس کن تا یکی بسازی.", "No note yet. Tap to write one.")
+                    else noteSpans(note.body))
+                v.setTextViewText(R.id.note_footer, if (note == null) "" else
+                    l("یادار • ", "Yadar • ") + Dates.friendlyDay(Dates.localDate(note.updatedAt, zone), today, cal, lang) + " " +
+                        Dates.formatTime(note.updatedAt, zone, lang))
+                v.setOnClickPendingIntent(R.id.note_root, if (note == null) activity(context, widgetId, 0, WidgetCommands.NEW_NOTE)
+                    else activity(context, widgetId, 0, WidgetCommands.OPEN_NOTE, note.id))
+                manager.updateAppWidget(widgetId, v)
+            }
         }
 
         val focus = active.filter { it.needsAttention(now) }.minByOrNull { it.displayAt(now) } ?: upcoming.firstOrNull()
