@@ -195,7 +195,7 @@ private fun Tile(label: String, value: String, icon: ImageVector, color: Color, 
 }
 
 @Composable
-private fun StatsCard(title: String, icon: ImageVector, content: @Composable ColumnScope.() -> Unit) = SettingsCard(title, icon, content)
+private fun StatsCard(title: String, icon: ImageVector, content: @Composable ColumnScope.() -> Unit) = SettingsCard(title, icon, content = content)
 
 @Composable
 private fun Legend(doneColor: Color, missedColor: Color) {

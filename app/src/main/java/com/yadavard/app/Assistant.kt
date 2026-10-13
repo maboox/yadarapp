@@ -84,7 +84,7 @@ object Assistant {
             if (notes.isEmpty()) append("(none)\n") else notes.forEach { n ->
                 append("N").append(n.id).append(" | ").append(n.title.ifBlank { "-" }).append(" | ")
                     .append(ZonedDateTime.ofInstant(java.time.Instant.ofEpochMilli(n.updatedAt), zone).toLocalDate())
-                    .append(" | ").append(n.body.replace('\n', " / ").take(400)).append('\n')
+                    .append(" | ").append(n.body.replace("\n", " / ").take(400)).append('\n')
             }
         }
     }
