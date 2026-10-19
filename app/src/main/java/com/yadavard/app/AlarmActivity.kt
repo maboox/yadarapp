@@ -127,7 +127,7 @@ private fun AlarmScreen(r: Reminder, defaultSnooze: Int, onDone: () -> Unit, onS
             // The big button only stops the sound; "done" is a separate, deliberate choice.
             Button(onClick = { if (armed) onClose() }, modifier = Modifier.fillMaxWidth().height(60.dp), shape = RoundedCornerShape(20.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = heroColors()[0])) {
-                Icon(Icons.Rounded.AlarmOff, null); Spacer(Modifier.width(8.dp))
+                Icon(Icons.Rounded.Alarm, null); Spacer(Modifier.width(8.dp))
                 Text(t("قطع زنگ", "Stop ringing"), fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(10.dp))
