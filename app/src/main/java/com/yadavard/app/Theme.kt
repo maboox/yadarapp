@@ -182,6 +182,20 @@ fun appColors(dark: Boolean, id: ThemeColor): ColorScheme {
 /** Gradient of the quick-add header and the alarm screen in the current theme. */
 fun heroColors(): List<Color> = themeSpec(AppDisplay.color).hero.map { Color(it) }
 
+
+@Composable
+fun YadarTheme(darkOverride: Boolean? = null, content: @Composable () -> Unit) {
+    val dark = darkOverride ?: isDarkTheme()
+    MaterialTheme(
+        colorScheme = appColors(dark, AppDisplay.color),
+        typography = AppTypography,
+        shapes = themeSpec(AppDisplay.color).corner.let { c ->
+            Shapes(extraSmall = RoundedCornerShape((c / 3).dp), small = RoundedCornerShape((c / 2).dp),
+                medium = RoundedCornerShape((c * 3 / 4).dp), large = RoundedCornerShape(c.dp), extraLarge = RoundedCornerShape((c * 5 / 4).dp))
+        },
+        content = content)
+}
+
 /** Human description of a repeat rule, e.g. "Every 2 weeks · Sat, Tue". */
 fun repeatLabel(r: Reminder): String {
     val every = r.every
