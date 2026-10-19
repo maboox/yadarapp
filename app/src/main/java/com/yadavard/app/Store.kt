@@ -269,6 +269,14 @@ object Repo {
     }
 
     /** Undo of "done" / "not done": restores the earlier state and forgets the recorded outcome. */
+    /** Un-ticks a finished reminder; its history entry goes too so stats stay right. */
+    fun reopen(context: Context, id: Long): Reminder? {
+        val r = get(context, id) ?: return null
+        if (!r.done) return r
+        runCatching { store(context).unrecordLast(id) }
+        return save(context, ReminderLogic.reopen(r, System.currentTimeMillis()))
+    }
+
     fun undoOutcome(context: Context, previous: Reminder) {
         runCatching { store(context).unrecordLast(previous.id) }
         save(context, previous)

@@ -10,6 +10,10 @@ import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
@@ -71,7 +75,10 @@ fun ReminderCard(entry: Entry, now: Long, actions: ReminderActions, modifier: Mo
         backgroundContent = {
             val direction = state.dismissDirection
             val past = state.targetValue != SwipeToDismissBoxValue.Settled
-            val done = direction == SwipeToDismissBoxValue.StartToEnd
+            val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+            // In right-to-left layouts the reported drag direction is the mirror of the value that is confirmed
+            // (and acted on), so the label must be flipped too or it shows "delete" for a "not done" swipe.
+            val done = (direction == SwipeToDismissBoxValue.StartToEnd) != rtl
             // "done" here is the swipe toward "not done" (the tick button already marks done).
             val base = if (done) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error
             val color by animateColorAsState(when {
@@ -81,11 +88,9 @@ fun ReminderCard(entry: Entry, now: Long, actions: ReminderActions, modifier: Mo
                 else -> base.copy(alpha = 0.35f)
             }, label = "swipe")
             val scale by animateFloatAsState(if (ready) 1.25f else 1f, label = "icon")
-            // The label sits on the side the card uncovers. Swipe directions follow the physical drag, so in
-            // right-to-left layouts the uncovered side is the opposite of the layout's start/end.
-            val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-            Box(Modifier.fillMaxSize().clip(RoundedCornerShape(22.dp)).background(color).padding(horizontal = 20.dp),
-                contentAlignment = if (done != rtl) Alignment.CenterStart else Alignment.CenterEnd) {
+            // The label sits on the side the card uncovers.
+            Box(Modifier.fillMaxSize().clip(MaterialTheme.shapes.large).background(color).padding(horizontal = 20.dp),
+                contentAlignment = if (done) Alignment.CenterStart else Alignment.CenterEnd) {
                 if (direction != SwipeToDismissBoxValue.Settled) Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(if (done) Icons.Rounded.EventBusy else Icons.Rounded.DeleteForever, null, tint = Color.White,
                         modifier = Modifier.size(26.dp).scale(scale))
@@ -120,7 +125,7 @@ private fun ReminderCardBody(entry: Entry, now: Long, actions: ReminderActions, 
     val zone = r.zoneId
     var menu by remember { mutableStateOf(false) }
     val scheme = MaterialTheme.colorScheme
-    Surface(shape = RoundedCornerShape(22.dp), color = scheme.surfaceContainerLow, tonalElevation = 0.dp, shadowElevation = 1.dp,
+    Surface(shape = MaterialTheme.shapes.large, color = scheme.surfaceContainerLow, tonalElevation = 0.dp, shadowElevation = 1.dp,
         modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.combinedClickable(onClick = { actions.open(r) }, onLongClick = { menu = true })
             .padding(start = 14.dp, end = 6.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -183,11 +188,18 @@ private fun ReminderCardBody(entry: Entry, now: Long, actions: ReminderActions, 
                     Box(Modifier.size(26.dp).clip(CircleShape).border(2.dp, color.copy(alpha = 0.7f), CircleShape))
                 }
             } else if (r.missed) {
-                IconButton(onClick = { actions.open(r) }) { Icon(Icons.Rounded.EventBusy, null, tint = scheme.error) }
+                IconButton(onClick = { actions.reopen(r) }) {
+                    Icon(Icons.Rounded.EventBusy, t("برگرداندن به یادآوری‌ها", "Back to reminders"), tint = scheme.error)
+                }
             } else {
-                IconButton(onClick = { actions.open(r) }) { Icon(Icons.Rounded.CheckCircle, null, tint = scheme.secondary) }
+                // Tapping the tick again un-ticks it.
+                IconButton(onClick = { actions.reopen(r) }) {
+                    Icon(Icons.Rounded.CheckCircle, t("برگرداندن به یادآوری‌ها", "Back to reminders"), tint = scheme.secondary)
+                }
             }
             DropdownMenu(menu, onDismissRequest = { menu = false }) {
+                if (r.done) DropdownMenuItem(text = { Text(t("برگرداندن به یادآوری‌ها", "Back to reminders")) },
+                    leadingIcon = { Icon(Icons.Rounded.Undo, null) }, onClick = { menu = false; actions.reopen(r) })
                 if (!r.done) DropdownMenuItem(text = { Text(t("انجام شد", "Mark done")) }, leadingIcon = { Icon(Icons.Rounded.Check, null) },
                     onClick = { menu = false; actions.complete(r) })
                 if (!r.done) DropdownMenuItem(text = { Text(t("انجام نشد (ثبت در آمار)", "Not done (keep in stats)")) },
@@ -367,16 +379,24 @@ fun TimePickerSheet(hour: Int, minute: Int, onDismiss: () -> Unit, onPick: (Int,
 
 @Composable
 fun SettingsCard(title: String, icon: ImageVector, summary: String? = null, collapsible: Boolean = false,
-                 startExpanded: Boolean = !collapsible, content: @Composable ColumnScope.() -> Unit) {
+                 startExpanded: Boolean = !collapsible, onIconHold: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
     // Collapsible cards keep the settings page short; each remembers whether it is open.
     var open by rememberSaveable(title) { mutableStateOf(startExpanded) }
     val rotation by animateFloatAsState(if (open) 180f else 0f, label = "chevron")
-    Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, shadowElevation = 1.dp,
+    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, shadowElevation = 1.dp,
         modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 modifier = if (collapsible) Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { open = !open } else Modifier) {
-                Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer),
+                Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer)
+                    .then(if (onIconHold != null) Modifier.pointerInput(Unit) {
+                        // A plain long press is too easy to hit by accident; this needs a 3-second hold.
+                        awaitEachGesture {
+                            awaitFirstDown()
+                            val released = withTimeoutOrNull(3000) { waitForUpOrCancellation() }
+                            if (released == null) onIconHold()
+                        }
+                    } else Modifier),
                     contentAlignment = Alignment.Center) {
                     Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                 }

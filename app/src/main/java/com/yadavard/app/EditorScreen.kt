@@ -286,6 +286,8 @@ fun EditorScreen(request: EditorRequest, onClose: () -> Unit, onSave: (Reminder)
                     }
                     Hint(if (alert == AlertStyle.ALARM) t("مثل ساعت زنگ‌دار، با صدا و صفحهٔ کامل حتی روی صفحهٔ قفل.", "Rings like an alarm clock, full screen even on the lock screen.")
                         else t("اعلان معمولی با صدا و لرزش.", "A regular notification with sound and vibration."))
+                    // Asked only when it is actually needed: the first time someone picks a full-screen alarm.
+                    if (alert == AlertStyle.ALARM) AlarmPermissionHint()
                     Text(t("یادآوری زودتر", "Advance notice"), style = MaterialTheme.typography.labelLarge)
                     ChoiceChips((listOf(0, 5, 15, 30, 60, 1440, 2880, 4320, 10080) + lead).distinct().sorted(), lead, ::leadLabel, { lead = it })
                 }
@@ -367,7 +369,7 @@ private fun unitName(u: RepeatUnit) = when (u) {
 
 @Composable
 private fun Block(title: String, icon: ImageVector, content: @Composable ColumnScope.() -> Unit) {
-    Surface(shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, shadowElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, shadowElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))

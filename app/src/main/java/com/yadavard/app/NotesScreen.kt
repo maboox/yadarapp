@@ -83,8 +83,8 @@ private fun NoteCard(note: Note, onOpen: () -> Unit, onPin: () -> Unit, onDelete
     val accent = noteColor(note.color)
     var menu by remember { mutableStateOf(false) }
     var confirm by remember { mutableStateOf(false) }
-    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = Modifier.fillMaxWidth().border(1.dp, accent.copy(alpha = 0.35f), RoundedCornerShape(20.dp))) {
+    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = Modifier.fillMaxWidth().border(1.dp, accent.copy(alpha = 0.35f), MaterialTheme.shapes.large)) {
         Column(Modifier.background(accent.copy(alpha = 0.12f)).combinedClickable(onClick = onOpen, onLongClick = { menu = true })
             .padding(14.dp)) {
             Row(verticalAlignment = Alignment.Top) {

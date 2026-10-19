@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -91,49 +92,95 @@ private val DarkColors = darkColorScheme(
 )
 
 @Composable
-fun isDarkTheme(): Boolean = when (AppDisplay.theme) {
+fun isDarkTheme(): Boolean = if (themeSpec(AppDisplay.color).alwaysDark) true else when (AppDisplay.theme) {
     ThemeMode.SYSTEM -> isSystemInDarkTheme()
     ThemeMode.LIGHT -> false
     ThemeMode.DARK -> true
 }
 
-/** Accent colours of a palette: light primary, light container, dark primary, dark container. */
-private class Accent(val primary: Long, val container: Long, val onContainer: Long, val darkPrimary: Long, val darkContainer: Long,
-                     val tint: Long, val darkTint: Long)
+/** Everything that makes a theme: palette, light and dark backgrounds, header gradient and corner style. */
+class ThemeSpec(
+    val id: ThemeColor, val fa: String, val en: String,
+    val primary: Long, val darkPrimary: Long, val secondary: Long, val tertiary: Long,
+    /** Page background and card colour in light mode. */
+    val lightBg: Long, val lightCard: Long,
+    /** Page background and card colour in dark mode. */
+    val darkBg: Long, val darkCard: Long,
+    /** Quick-add header and alarm screen gradient (dark → light). */
+    val hero: List<Long>,
+    val corner: Int = 24,
+    /** Always dark, whatever the light/dark setting says. */
+    val alwaysDark: Boolean = false,
+)
 
-private fun accent(color: ThemeColor) = when (color) {
-    ThemeColor.VIOLET -> null
-    ThemeColor.OCEAN -> Accent(0xFF1E6FD9, 0xFFDCE9FF, 0xFF00296B, 0xFF9CC4FF, 0xFF0D4A9E, 0xFFF4F7FC, 0xFF0E131B)
-    ThemeColor.FOREST -> Accent(0xFF0E8A63, 0xFFCDF2E2, 0xFF00382A, 0xFF7FDDB8, 0xFF00573F, 0xFFF3F8F5, 0xFF0D1512)
-    ThemeColor.SUNSET -> Accent(0xFFD2512A, 0xFFFFE1D6, 0xFF4A1300, 0xFFFFB59C, 0xFF8A2E10, 0xFFFBF5F3, 0xFF1A1210)
-}
+val themes = listOf(
+    ThemeSpec(ThemeColor.VIOLET, "یادار", "Yadar", 0xFF5B4BDB, 0xFFB9B0FF, 0xFF0F9D8A, 0xFFE07A2E,
+        0xFFF6F5FB, 0xFFFFFFFF, 0xFF110F1A, 0xFF1B1926, listOf(0xFF3B2DB0, 0xFF5B4BDB, 0xFF8F7BFF)),
+    ThemeSpec(ThemeColor.OCEAN, "اقیانوس", "Ocean", 0xFF1667C7, 0xFF8EC2FF, 0xFF00897B, 0xFF7B5CD6,
+        0xFFEFF5FB, 0xFFFFFFFF, 0xFF0B1220, 0xFF132033, listOf(0xFF0B3D91, 0xFF1667C7, 0xFF35B6E5), corner = 26),
+    ThemeSpec(ThemeColor.FOREST, "جنگل", "Forest", 0xFF2E7D4F, 0xFF8BD7A8, 0xFF8D6E2F, 0xFFC0573A,
+        0xFFF2F6EF, 0xFFFDFEFB, 0xFF0E150F, 0xFF18221A, listOf(0xFF1D5133, 0xFF2E7D4F, 0xFF7DBF6A), corner = 22),
+    ThemeSpec(ThemeColor.SUNSET, "غروب", "Sunset", 0xFFD2512A, 0xFFFFB59C, 0xFF9C3D6E, 0xFFE0A100,
+        0xFFFCF4EE, 0xFFFFFCFA, 0xFF1A1210, 0xFF261A17, listOf(0xFF8E2F5A, 0xFFD2512A, 0xFFF4A340), corner = 28),
+    ThemeSpec(ThemeColor.BLOSSOM, "شکوفه", "Blossom", 0xFFC2407E, 0xFFFFB0D2, 0xFF6A5ACD, 0xFF2E9C8A,
+        0xFFFDF2F6, 0xFFFFFFFF, 0xFF1A0F15, 0xFF271820, listOf(0xFF8E2C63, 0xFFC2407E, 0xFFF29BC2), corner = 30),
+    ThemeSpec(ThemeColor.PAPER, "کاغذی", "Paper", 0xFF2B2B2B, 0xFFE6E1D6, 0xFF5E6F64, 0xFFB5562F,
+        0xFFF5F1E8, 0xFFFFFDF7, 0xFF151412, 0xFF201F1C, listOf(0xFF2B2B2B, 0xFF4A4740, 0xFF8A8270), corner = 12),
+    ThemeSpec(ThemeColor.MIDNIGHT, "نیمه‌شب", "Midnight", 0xFF00BFA6, 0xFF4DE8CF, 0xFF7C6CFF, 0xFFFFB454,
+        0xFF000000, 0xFF0E0E10, 0xFF000000, 0xFF0E0E10, listOf(0xFF001E1A, 0xFF00796B, 0xFF00BFA6), corner = 20, alwaysDark = true),
+)
 
-/** Light or dark scheme in the chosen palette; violet is the original design. */
-fun appColors(dark: Boolean, color: ThemeColor): ColorScheme {
+fun themeSpec(id: ThemeColor): ThemeSpec = themes.firstOrNull { it.id == id } ?: themes.first()
+
+private fun mix(a: Color, b: Color, t: Float) = Color(
+    a.red + (b.red - a.red) * t, a.green + (b.green - a.green) * t, a.blue + (b.blue - a.blue) * t, 1f)
+
+private fun onColor(c: Color) = if (c.luminance() > 0.5f) Color(0xFF111111) else Color.White
+
+/** The full light or dark colour scheme of a theme; the original Yadar theme keeps its hand-tuned colours. */
+fun appColors(dark: Boolean, id: ThemeColor): ColorScheme {
+    val spec = themeSpec(id)
+    if (id == ThemeColor.VIOLET) return if (dark) DarkColors else LightColors
     val base = if (dark) DarkColors else LightColors
-    val a = accent(color) ?: return base
-    return if (dark) base.copy(primary = Color(a.darkPrimary), onPrimary = Color(a.onContainer),
-        primaryContainer = Color(a.darkContainer), onPrimaryContainer = Color(a.container),
-        background = Color(a.darkTint), surface = Color(a.darkTint))
-    else base.copy(primary = Color(a.primary), onPrimary = Color.White,
-        primaryContainer = Color(a.container), onPrimaryContainer = Color(a.onContainer),
-        background = Color(a.tint), surface = Color(a.tint))
+    return if (dark) {
+        val p = Color(spec.darkPrimary)
+        val bg = Color(spec.darkBg)
+        val card = Color(spec.darkCard)
+        val sec = mix(Color(spec.secondary), Color.White, 0.35f)
+        val ter = mix(Color(spec.tertiary), Color.White, 0.35f)
+        base.copy(
+            primary = p, onPrimary = onColor(p),
+            primaryContainer = mix(Color(spec.primary), bg, 0.35f), onPrimaryContainer = mix(p, Color.White, 0.6f),
+            secondary = sec, onSecondary = onColor(sec), secondaryContainer = mix(Color(spec.secondary), bg, 0.55f),
+            onSecondaryContainer = mix(sec, Color.White, 0.6f),
+            tertiary = ter, onTertiary = onColor(ter), tertiaryContainer = mix(Color(spec.tertiary), bg, 0.55f),
+            onTertiaryContainer = mix(ter, Color.White, 0.6f),
+            background = bg, surface = bg, onBackground = Color(0xFFE9E6EF), onSurface = Color(0xFFE9E6EF),
+            surfaceVariant = mix(card, p, 0.12f), onSurfaceVariant = mix(Color(0xFFB8B4C4), p, 0.15f),
+            surfaceContainerLowest = bg, surfaceContainerLow = card, surfaceContainer = mix(card, p, 0.05f),
+            surfaceContainerHigh = mix(card, p, 0.09f), surfaceContainerHighest = mix(card, p, 0.14f),
+            outline = mix(card, p, 0.35f), outlineVariant = mix(card, p, 0.18f))
+    } else {
+        val p = Color(spec.primary)
+        val bg = Color(spec.lightBg)
+        val card = Color(spec.lightCard)
+        base.copy(
+            primary = p, onPrimary = onColor(p),
+            primaryContainer = mix(p, Color.White, 0.84f), onPrimaryContainer = mix(p, Color.Black, 0.55f),
+            secondary = Color(spec.secondary), onSecondary = onColor(Color(spec.secondary)),
+            secondaryContainer = mix(Color(spec.secondary), Color.White, 0.84f), onSecondaryContainer = mix(Color(spec.secondary), Color.Black, 0.6f),
+            tertiary = Color(spec.tertiary), onTertiary = onColor(Color(spec.tertiary)),
+            tertiaryContainer = mix(Color(spec.tertiary), Color.White, 0.84f), onTertiaryContainer = mix(Color(spec.tertiary), Color.Black, 0.6f),
+            background = bg, surface = bg, onBackground = Color(0xFF1C1B1F), onSurface = Color(0xFF1C1B1F),
+            surfaceVariant = mix(bg, p, 0.08f), onSurfaceVariant = mix(Color(0xFF5F5C6B), p, 0.15f),
+            surfaceContainerLowest = card, surfaceContainerLow = card, surfaceContainer = mix(bg, p, 0.03f),
+            surfaceContainerHigh = mix(bg, p, 0.07f), surfaceContainerHighest = mix(bg, p, 0.11f),
+            outline = mix(bg, p, 0.3f), outlineVariant = mix(bg, p, 0.14f))
+    }
 }
 
-/** Swatch colour shown in the palette picker. */
-fun themeSwatch(color: ThemeColor): Color = Color(accent(color)?.primary ?: 0xFF5B4BDB)
-
-@Composable
-fun YadarTheme(darkOverride: Boolean? = null, content: @Composable () -> Unit) {
-    val dark = darkOverride ?: isDarkTheme()
-    MaterialTheme(
-        colorScheme = appColors(dark, AppDisplay.color),
-        typography = AppTypography,
-        shapes = Shapes(
-            extraSmall = RoundedCornerShape(8.dp), small = RoundedCornerShape(12.dp),
-            medium = RoundedCornerShape(18.dp), large = RoundedCornerShape(24.dp), extraLarge = RoundedCornerShape(30.dp)),
-        content = content)
-}
+/** Gradient of the quick-add header and the alarm screen in the current theme. */
+fun heroColors(): List<Color> = themeSpec(AppDisplay.color).hero.map { Color(it) }
 
 /** Human description of a repeat rule, e.g. "Every 2 weeks · Sat, Tue". */
 fun repeatLabel(r: Reminder): String {

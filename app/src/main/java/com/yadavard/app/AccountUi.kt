@@ -48,6 +48,11 @@ fun AccountCard() {
     var confirmLogout by remember { mutableStateOf(false) }
     var buying by remember { mutableStateOf(false) }
     val signIn = rememberBazaarSignIn()
+    var usage by remember { mutableStateOf(false) }
+    val buyRequested by Account.buyRequested.collectAsState()
+    LaunchedEffect(buyRequested, profile != null) {
+        if (buyRequested) { Account.buyRequested.value = false; if (profile != null) buying = true }
+    }
     LaunchedEffect(Unit) { Account.refresh(context) }
 
     SettingsCard(t("حساب کاربری", "Account"), Icons.Rounded.AccountCircle) {
@@ -75,7 +80,8 @@ fun AccountCard() {
                 }
                 IconButton(onClick = { editingName = true }) { Icon(Icons.Rounded.Edit, t("ویرایش نام", "Edit name")) }
             }
-            Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.fillMaxWidth()) {
+            Surface(onClick = { usage = true }, shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.Toll, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
                     Spacer(Modifier.width(10.dp))
@@ -87,6 +93,8 @@ fun AccountCard() {
                             color = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
                     if (p.plan.isNotBlank()) Text(p.plan, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(6.dp))
+                    Text(t("جزئیات مصرف ›", "Usage ›"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                 }
             }
             if (AiSettings(context).personal) Text(t("الان از هوش مصنوعی خودت (کلید شخصی) استفاده می‌کنی و توکن یادار کم نمی‌شود.",
@@ -106,6 +114,7 @@ fun AccountCard() {
     }
     if (loggingIn) LoginDialog(startWithPhone = true) { loggingIn = false }
     if (buying) PacksDialog { buying = false }
+    if (usage) UsageDialog { usage = false }
     if (editingName) {
         var name by remember { mutableStateOf(profile?.name.orEmpty()) }
         AlertDialog(onDismissRequest = { editingName = false }, title = { Text(t("نام", "Name")) },
@@ -392,4 +401,47 @@ private fun PhoneLoginDialog(onDone: () -> Unit, onBack: () -> Unit) {
             else Button(onClick = ::verify, enabled = code.length == codeLength && !busy) { Text(t("ورود", "Sign in")) }
         },
         dismissButton = { TextButton(onClick = onBack, enabled = !busy) { Text(t("بازگشت", "Back")) } })
+}
+
+/** Where the tokens went: one row per assistant request, newest first. */
+@Composable
+fun UsageDialog(onDone: () -> Unit) {
+    val context = LocalContext.current
+    val entries = remember { UsageLog.entries(context) }
+    val zone = java.time.ZoneId.systemDefault()
+    val monthAgo = System.currentTimeMillis() - 30L * 24 * 3600_000
+    val recent = entries.filter { it.time >= monthAgo }
+    AlertDialog(onDismissRequest = onDone,
+        icon = { Icon(Icons.Rounded.ReceiptLong, null) },
+        title = { Text(t("جزئیات مصرف توکن", "Token usage")) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(t("۳۰ روز اخیر: ${n(recent.size)} بار استفاده • ${tokensLabel(recent.sumOf { it.tokens })} توکن",
+                    "Last 30 days: ${recent.size} uses • ${tokensLabel(recent.sumOf { it.tokens })} tokens"),
+                    style = MaterialTheme.typography.titleSmall)
+                if (entries.isEmpty()) Text(t("هنوز از دستیار استفاده نکرده‌ای.", "You haven't used the assistant yet."),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 380.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(entries.size) { i ->
+                        val e = entries[i]
+                        Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+                            Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(Dates.friendlyDay(Dates.localDate(e.time, zone), java.time.LocalDate.now(zone), AppDisplay.calendar, AppDisplay.language) +
+                                        " • " + Dates.formatTime(e.time, zone, AppDisplay.language), style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(UsageLog.describe(e), style = MaterialTheme.typography.bodyMedium)
+                                }
+                                Text(tokensLabel(e.tokens), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                }
+                Text(t("فقط نوع کارها ثبت می‌شود، نه متن یادآوری‌ها؛ این فهرست فقط روی همین گوشی است.",
+                    "Only the kind of work is kept, not your reminders; this list stays on this phone."),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        confirmButton = { TextButton(onClick = onDone) { Text(t("بستن", "Close")) } })
 }

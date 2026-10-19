@@ -9,6 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -275,7 +276,7 @@ private fun buildSections(items: List<Reminder>, now: Long, zone: ZoneId): Secti
 
 @Composable
 private fun StatCard(label: String, value: Int, icon: ImageVector, color: Color, modifier: Modifier) {
-    Surface(shape = RoundedCornerShape(20.dp), color = color.copy(alpha = 0.10f), modifier = modifier) {
+    Surface(shape = MaterialTheme.shapes.large, color = color.copy(alpha = 0.10f), modifier = modifier) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 12.dp)) {
             Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
             Spacer(Modifier.height(6.dp))
@@ -295,6 +296,8 @@ private fun QuickAddCard(text: String, onText: (String) -> Unit, now: Long, acti
     var busy by remember { mutableStateOf(false) }
     val account by Account.profile.collectAsState()
     val useAi = remember(account != null) { Prefs.useAi(context) && Ai.ready(context) }
+    // Running out of Yadar tokens turns the card red with a top-up hint.
+    val lowTokens = account?.let { !it.unlimited && it.balance <= Account.LOW_BALANCE } == true && !AiSettings(context).personal
     val custom = remember(Categories.all.size) { Categories.customPairs(context) }
     // Typing must never crash the app, whatever the parser thinks of a half-written sentence.
     val parsed = remember(text, now / 60_000, custom) {
@@ -337,8 +340,9 @@ private fun QuickAddCard(text: String, onText: (String) -> Unit, now: Long, acti
         }
     }
 
-    Surface(shape = RoundedCornerShape(26.dp), color = Color.Transparent, modifier = Modifier.fillMaxWidth()) {
-        Box(Modifier.background(Brush.linearGradient(listOf(Color(0xFF3B2DB0), Color(0xFF5B4BDB), Color(0xFF8F7BFF)))).padding(16.dp)) {
+    Surface(shape = MaterialTheme.shapes.large, color = Color.Transparent, modifier = Modifier.fillMaxWidth()) {
+        Box(Modifier.background(Brush.linearGradient(if (lowTokens) listOf(Color(0xFF8E1F2F), Color(0xFFC0392B), Color(0xFFE5735A))
+            else heroColors())).padding(16.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.AutoAwesome, null, tint = Color(0xFFFFDC83), modifier = Modifier.size(20.dp))
@@ -357,7 +361,7 @@ private fun QuickAddCard(text: String, onText: (String) -> Unit, now: Long, acti
                         colors = TextFieldDefaults.colors(focusedContainerColor = Color.White, unfocusedContainerColor = Color.White,
                             disabledContainerColor = Color.White, focusedTextColor = Color(0xFF1B1A26), unfocusedTextColor = Color(0xFF1B1A26),
                             focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent,
-                            disabledIndicatorColor = Color.Transparent, cursorColor = Color(0xFF5B4BDB),
+                            disabledIndicatorColor = Color.Transparent, cursorColor = heroColors()[1],
                             focusedPlaceholderColor = Color(0xFF8A879C), unfocusedPlaceholderColor = Color(0xFF8A879C)),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = { submit() }))
@@ -371,10 +375,19 @@ private fun QuickAddCard(text: String, onText: (String) -> Unit, now: Long, acti
                         }
                     } else {
                         FilledIconButton(onClick = ::submit, modifier = Modifier.size(48.dp),
-                            colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color.White, contentColor = Color(0xFF3B2DB0))) {
+                            colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color.White, contentColor = heroColors()[0])) {
                             Icon(Icons.AutoMirrored.Rounded.Send, t("ثبت", "Add"))
                         }
                     }
+                }
+                if (lowTokens) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { Account.buyRequested.value = true }
+                    .background(Color.White.copy(alpha = 0.16f)).padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.BatteryAlert, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(t("توکن‌هایت رو به اتمام است (${tokensLabel(account?.balance ?: 0.0)} مانده)؛ برای ادامهٔ دستیار شارژ کن.",
+                        "You're running out of tokens (${tokensLabel(account?.balance ?: 0.0)} left); top up to keep using the assistant."),
+                        color = Color.White, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                    Text(t("شارژ", "Top up"), color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
                 }
                 AnimatedVisibility(parsed != null && !useAi) {
                     val p = parsed

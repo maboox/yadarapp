@@ -41,6 +41,16 @@ object Account {
     /** The signed-in profile, or null when signed out. Observed by the UI. */
     val profile: StateFlow<Profile?> = _profile
 
+    /** Balance at or below which the app warns that tokens are running out. */
+    const val LOW_BALANCE = 5.0
+
+    /** Set to open the token packs (from the low-balance notice or the home card). */
+    val buyRequested = MutableStateFlow(false)
+
+    /** Tokens charged by the server since the app started; the usage log diffs it per assistant request. */
+    @Volatile var chargedTotal = 0.0
+        private set
+
     /** Set when an AI feature needs the user to sign in; the main screen shows the login dialog. */
     val loginRequested = MutableStateFlow(false)
 
@@ -67,7 +77,10 @@ object Account {
 
     private fun store(context: Context, profile: JSONObject) {
         prefs(context).edit().putString("profile", profile.toString()).apply()
-        _profile.value = parse(profile)
+        val before = _profile.value?.balance ?: Double.MAX_VALUE
+        val parsed = parse(profile)
+        _profile.value = parsed
+        LowBalance.check(context, before, parsed)
     }
 
     fun logout(context: Context) {
@@ -223,9 +236,12 @@ object Account {
         store(context, call(context, "POST", "/api/yadar/me", JSONObject().put("name", name)))
     }
 
-    private fun afterCall(res: JSONObject) {
+    private fun afterCall(context: Context, res: JSONObject) {
+        chargedTotal += res.optDouble("charged", 0.0)
         val current = _profile.value ?: return
-        _profile.value = current.copy(balance = res.optDouble("balance", current.balance), unlimited = res.optBoolean("unlimited", current.unlimited))
+        val updated = current.copy(balance = res.optDouble("balance", current.balance), unlimited = res.optBoolean("unlimited", current.unlimited))
+        _profile.value = updated
+        LowBalance.check(context, current.balance, updated)
     }
 
     private fun requireLogin(context: Context) {
@@ -241,7 +257,7 @@ object Account {
         val req = JSONObject().put("messages", body.getJSONArray("messages"))
             .put("max_tokens", body.optInt("max_tokens", 1500)).put("temperature", body.optDouble("temperature", 0.0))
         val res = call(context, "POST", "/api/yadar/ai/chat", req, timeout = 120_000)
-        afterCall(res)
+        afterCall(context, res)
         return res.optString("content")
     }
 
@@ -250,7 +266,7 @@ object Account {
         val req = JSONObject().put("audio", Base64.encodeToString(file.readBytes(), Base64.NO_WRAP))
             .put("language", if (fa()) "fa" else "en")
         val res = call(context, "POST", "/api/yadar/ai/transcribe", req, timeout = 120_000)
-        afterCall(res)
+        afterCall(context, res)
         return res.optString("text")
     }
 }

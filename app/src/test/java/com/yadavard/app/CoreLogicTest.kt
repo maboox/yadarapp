@@ -236,4 +236,18 @@ class CoreLogicTest {
         assertEquals("x\n" to 2, NoteText.continueList("x\n☐ ", "x\n☐ \n", 5))
         assertNull(NoteText.continueList("plain", "plain\n", 6))
     }
+
+    @Test fun reopenDone() {
+        val now = System.currentTimeMillis()
+        val past = Reminder(id = 1, title = "x", firstAt = now - 3_600_000, nextAt = now - 3_600_000, zone = "Asia/Tehran")
+        val done = ReminderLogic.complete(past, now)
+        assertTrue(done.done)
+        val back = ReminderLogic.reopen(done, now)
+        assertFalse(back.done)
+        assertEquals(0, back.completedCount)
+        assertTrue(back.needsAttention(now))
+        val future = Reminder(id = 2, title = "y", firstAt = now + 3_600_000, nextAt = now + 3_600_000, zone = "Asia/Tehran")
+        val again = ReminderLogic.reopen(ReminderLogic.miss(future, now), now)
+        assertFalse(again.done); assertFalse(again.missed); assertEquals(0, again.missedCount); assertFalse(again.needsAttention(now))
+    }
 }

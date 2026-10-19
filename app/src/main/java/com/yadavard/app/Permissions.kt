@@ -11,6 +11,7 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Cancel
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -72,17 +73,23 @@ object Phone {
 data class PermItem(val title: String, val hint: String, val ok: Boolean?, val action: String,
                     val confirmKey: String? = null, val fix: () -> Unit)
 
+/** Permissions are asked in steps so people are not met with a wall of requests. */
+enum class PermGroup { ESSENTIAL, EXTRA, DEVICE }
+
 /**
  * Everything a reminder needs to arrive on time and be heard. [ok] = null means "cannot be detected,
  * please check manually" (for example MIUI-only switches).
  */
 @Composable
-fun PermissionChecklist(tick: Int, onChanged: () -> Unit, compact: Boolean = false) {
+fun PermissionChecklist(tick: Int, onChanged: () -> Unit, compact: Boolean = false, group: PermGroup? = null) {
     val context = LocalContext.current
     val notify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { onChanged() }
     @Suppress("UNUSED_VARIABLE") val read = tick
     val fix = t("فعال کن", "Fix")
-    val items = buildList {
+    val items = buildList<Pair<PermGroup, PermItem>> {
+        fun add(item: PermItem) = add(PermGroup.ESSENTIAL to item)
+        fun extra(item: PermItem) = add(PermGroup.EXTRA to item)
+        fun device(item: PermItem) = add(PermGroup.DEVICE to item)
         add(PermItem(t("اجازهٔ اعلان", "Notifications"), t("بدون این، هیچ یادآوری نمایش داده نمی‌شود.", "Without it no reminder can be shown."),
             Notifier.allowed(context), fix) {
             if (Build.VERSION.SDK_INT >= 33) notify.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -92,11 +99,11 @@ fun PermissionChecklist(tick: Int, onChanged: () -> Unit, compact: Boolean = fal
             Scheduler.canExact(context), fix) {
             if (Build.VERSION.SDK_INT >= 31) Phone.open(context, Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}")))
         })
-        add(PermItem(t("زنگ تمام‌صفحه", "Full-screen alarms"), t("زنگ روی صفحهٔ قفل هم نمایش داده می‌شود.", "Alarms appear even on the lock screen."),
+        extra(PermItem(t("زنگ تمام‌صفحه", "Full-screen alarms"), t("زنگ روی صفحهٔ قفل هم نمایش داده می‌شود.", "Alarms appear even on the lock screen."),
             Notifier.canFullScreen(context), fix) {
             if (Build.VERSION.SDK_INT >= 34) Phone.open(context, Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:${context.packageName}")))
         })
-        add(PermItem(t("بدون محدودیت باتری", "No battery restriction"), t("سیستم برنامه را در پس‌زمینه نمی‌بندد.", "The system won't stop the app in the background."),
+        extra(PermItem(t("بدون محدودیت باتری", "No battery restriction"), t("سیستم برنامه را در پس‌زمینه نمی‌بندد.", "The system won't stop the app in the background."),
             Notifier.ignoringBattery(context), fix) {
             @SuppressLint("BatteryLife")
             val request = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${context.packageName}"))
@@ -106,21 +113,21 @@ fun PermissionChecklist(tick: Int, onChanged: () -> Unit, compact: Boolean = fal
             AlertSound.volumeOk(context, alarm = true), fix) { Phone.open(context, Intent(Settings.ACTION_SOUND_SETTINGS)) })
         add(PermItem(t("صدای اعلان", "Notification volume"), t("صدای اعلان گوشی صفر نباشد.", "The phone's notification volume must not be zero."),
             AlertSound.volumeOk(context, alarm = false), fix) { Phone.open(context, Intent(Settings.ACTION_SOUND_SETTINGS)) })
-        add(PermItem(t("نمایش روی سایر برنامه‌ها", "Display over other apps"),
+        extra(PermItem(t("نمایش روی سایر برنامه‌ها", "Display over other apps"),
             t("لازم است تا صفحهٔ زنگ وقتی گوشی باز است هم نمایش داده شود.", "Needed so the alarm screen can open while you use the phone."),
             Phone.canOverlay(context), fix) {
             Phone.open(context, Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
         })
         if (Phone.isXiaomi) {
-            add(PermItem(t("اجرای خودکار (شیائومی)", "Autostart (Xiaomi)"), t("در فهرست، «یادار» را روشن کن؛ بعد «انجام دادم» را بزن.", "Turn on Yadar in the list, then tap “Done”."),
+            device(PermItem(t("اجرای خودکار (شیائومی)", "Autostart (Xiaomi)"), t("در فهرست، «یادار» را روشن کن؛ بعد «انجام دادم» را بزن.", "Turn on Yadar in the list, then tap “Done”."),
                 Phone.xiaomiState(context, 10008, "autostart"), t("باز کن", "Open"), "autostart") {
                 Phone.open(context, Phone.miuiAutostart(), Phone.appDetails(context))
             })
-            add(PermItem(t("نمایش روی صفحهٔ قفل (شیائومی)", "Show on lock screen (Xiaomi)"), t("در «سایر مجوزها» این گزینه را مجاز کن.", "Allow it under “Other permissions”."),
+            device(PermItem(t("نمایش روی صفحهٔ قفل (شیائومی)", "Show on lock screen (Xiaomi)"), t("در «سایر مجوزها» این گزینه را مجاز کن.", "Allow it under “Other permissions”."),
                 Phone.xiaomiState(context, 10020, "lockscreen"), t("باز کن", "Open"), "lockscreen") {
                 Phone.open(context, Phone.miuiPermissions(context), Phone.appDetails(context))
             })
-            add(PermItem(t("پنجرهٔ بازشو در پس‌زمینه (شیائومی)", "Pop-ups in background (Xiaomi)"),
+            device(PermItem(t("پنجرهٔ بازشو در پس‌زمینه (شیائومی)", "Pop-ups in background (Xiaomi)"),
                 t("«نمایش پنجره‌های بازشو هنگام اجرا در پس‌زمینه» را مجاز کن؛ بدون آن صفحهٔ زنگ باز نمی‌شود.", "Allow “Display pop-up windows while running in the background”, or the alarm screen can't open."),
                 Phone.xiaomiState(context, 10021, "popup"), t("باز کن", "Open"), "popup") {
                 Phone.open(context, Phone.miuiPermissions(context), Phone.appDetails(context))
@@ -128,7 +135,7 @@ fun PermissionChecklist(tick: Int, onChanged: () -> Unit, compact: Boolean = fal
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 10.dp)) {
-        items.forEach { item ->
+        items.filter { group == null || it.first == group }.map { it.second }.forEach { item ->
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 Icon(when (item.ok) { true -> Icons.Rounded.CheckCircle; false -> Icons.Rounded.Cancel; null -> Icons.Rounded.Info }, null,
                     tint = when (item.ok) { true -> MaterialTheme.colorScheme.secondary; false -> MaterialTheme.colorScheme.error; null -> MaterialTheme.colorScheme.tertiary })
@@ -150,6 +157,27 @@ fun PermissionChecklist(tick: Int, onChanged: () -> Unit, compact: Boolean = fal
     }
 }
 
-fun allCriticalGranted(context: Context): Boolean = Notifier.allowed(context) && Scheduler.canExact(context) && Phone.canOverlay(context) &&
-    Notifier.canFullScreen(context) && Notifier.ignoringBattery(context) &&
+/** What reminders cannot work without: notifications, exact timing and audible volume. */
+fun allCriticalGranted(context: Context): Boolean = Notifier.allowed(context) && Scheduler.canExact(context) &&
     AlertSound.volumeOk(context, true) && AlertSound.volumeOk(context, false)
+
+/** Optional extras that make full-screen alarms and background delivery more reliable. */
+fun extrasGranted(context: Context): Boolean = Phone.canOverlay(context) && Notifier.canFullScreen(context) && Notifier.ignoringBattery(context)
+
+/** Shown under "full-screen alarm" in the editor when the extra permissions it needs are missing. */
+@Composable
+fun AlarmPermissionHint() {
+    val context = LocalContext.current
+    var tick by remember { mutableIntStateOf(0) }
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) { tick++ }
+    @Suppress("UNUSED_VARIABLE") val read = tick
+    if (Notifier.canFullScreen(context) && Phone.canOverlay(context)) return
+    Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.tertiaryContainer) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(t("برای اینکه زنگ روی صفحهٔ قفل و وقتی با گوشی کار می‌کنی هم باز شود، این اجازه‌ها لازم است:",
+                "For the alarm to open on the lock screen and while you use the phone, allow these:"),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
+            PermissionChecklist(tick, onChanged = { tick++ }, compact = true, group = PermGroup.EXTRA)
+        }
+    }
+}

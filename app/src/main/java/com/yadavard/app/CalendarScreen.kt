@@ -59,7 +59,7 @@ fun CalendarScreen(items: List<Reminder>, now: Long, padding: PaddingValues, sel
             }
         }
         item(key = "grid") {
-            Surface(shape = RoundedCornerShape(26.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, shadowElevation = 1.dp) {
+            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, shadowElevation = 1.dp) {
                 Box(Modifier.padding(10.dp)) {
                     MonthGrid(month, selected, onSelect, { month = it }, marks.first, importantDays = marks.second)
                 }

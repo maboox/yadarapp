@@ -54,18 +54,27 @@ object AssistantSession {
         _state.value = State(stage = if (file != null) Stage.TRANSCRIBING else Stage.THINKING, host = host, heard = text.orEmpty())
         job = scope.launch {
             val ai = OpenRouter(app)
+            // For the usage list: tokens charged during this request and how long the recording was.
+            val chargedBefore = Account.chargedTotal
+            val voiceSeconds = file?.let { ((it.length() - 44).coerceAtLeast(0) / 32_000L).toInt() } ?: 0
+            fun log(counts: Map<String, Int>, failed: Boolean = false) = runCatching {
+                UsageLog.add(app, UsageLog.Entry(System.currentTimeMillis(), Account.chargedTotal - chargedBefore, voiceSeconds, counts, failed))
+            }
             val heard = if (file != null) {
                 // Keep a copy so "retry" can resend the same recording.
                 val keep = runCatching { File(app.cacheDir, "assistant-last.wav").also { file.copyTo(it, overwrite = true) } }.getOrNull()
                 lastAudio = keep
                 try { ai.transcribe(file) } catch (e: Exception) {
+                    log(emptyMap(), failed = true)
                     fail(accountProblem(e) ?: (t("تبدیل صدا انجام نشد. ", "Could not transcribe. ") + (e.message ?: ""))); return@launch
                 }
             } else text.orEmpty()
             _state.value = _state.value.copy(stage = Stage.THINKING, heard = heard)
             val result = try { ai.assist(heard, history.toList()) } catch (e: Exception) {
+                log(emptyMap(), failed = true)
                 fail(accountProblem(e) ?: (t("دستیار پاسخ نداد. ", "The assistant did not answer. ") + (e.message ?: ""))); return@launch
             }
+            log(UsageLog.countsOf(result.actions, question = result.actions.isEmpty()))
             history.add(heard to result.reply)
             _state.value = _state.value.copy(stage = Stage.RESULT, reply = result.reply, actions = result.actions, shown = result.shown)
             if (result.actions.isEmpty()) {

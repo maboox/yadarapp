@@ -11,8 +11,8 @@ enum class AppLanguage { FA, EN }
 enum class AlertStyle { NOTIFICATION, ALARM }
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
-/** Accent palette of the app (the light/dark choice is [ThemeMode]). */
-enum class ThemeColor { VIOLET, OCEAN, FOREST, SUNSET }
+/** Look of the app: colours, backgrounds, header gradient and corners (light/dark is [ThemeMode]). */
+enum class ThemeColor { VIOLET, OCEAN, FOREST, SUNSET, BLOSSOM, PAPER, MIDNIGHT }
 
 data class Reminder(
     val id: Long = 0,
@@ -118,6 +118,19 @@ object ReminderLogic {
                 if (next == null) base.copy(done = true) else base.copy(nextAt = next)
             }
         }
+    }
+
+    /**
+     * Brings a finished reminder back to the active list (the user ticked it by mistake). Its time is kept:
+     * when that time has already passed it shows as needing attention.
+     */
+    fun reopen(r: Reminder, now: Long): Reminder {
+        if (!r.done) return r
+        val at = r.nextAt.takeIf { it > 0 } ?: r.firstAt
+        return r.copy(done = false, missed = false, completedAt = 0,
+            completedCount = if (r.missed) r.completedCount else (r.completedCount - 1).coerceAtLeast(0),
+            missedCount = if (r.missed) (r.missedCount - 1).coerceAtLeast(0) else r.missedCount,
+            nextAt = at, pendingAt = if (at in 1..now) at else 0, snoozeAt = 0, alertedAt = 0)
     }
 
     /** Skips the upcoming occurrence of a repeating reminder without counting it as done. */

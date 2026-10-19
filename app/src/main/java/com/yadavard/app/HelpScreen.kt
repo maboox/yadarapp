@@ -55,25 +55,30 @@ private fun topics() = listOf(
     Topic(Icons.Rounded.Toll, t("توکن و حساب", "Tokens and account"),
         t("همهٔ امکانات بدون حساب کار می‌کنند؛ فقط دستیار هوشمند با هوش مصنوعی کار می‌کند و توکن می‌خواهد. با «ورود با بازار» ۱۰ توکن هدیه می‌گیری. هر دستور معمولاً کمتر از ۱ توکن است. اول با هدیه امتحان کن، بعد اگر به کارت آمد بسته بخر.",
             "Everything works without an account; only the smart assistant uses AI and tokens. Sign in with Bazaar for 10 free tokens. A command usually costs under 1 token. Try it with the gift first, then buy a pack if it helps.")),
-    Topic(Icons.Rounded.Inventory2, t("پک و پشتیبان", "Packs and backup"),
-        t("چند یادآوری (مثلاً تولدهای خانواده) را به‌صورت «پک» برای دیگران بفرست. یادار بعد از هر تغییر یک پشتیبان خودکار در پوشهٔ Download/Yadar می‌گذارد.",
-            "Send reminders (e.g. family birthdays) as a pack. Yadar keeps an automatic backup in Download/Yadar after every change.")),
+    Topic(Icons.Rounded.Backup, t("پشتیبان‌گیری (مهم)", "Backup (important)"),
+        t("یادآوری‌ها و یادداشت‌ها فقط روی همین گوشی‌اند و روی سرور ذخیره نمی‌شوند. اگر گوشی عوض یا ریست شود یا برنامه پاک شود، فقط با نسخهٔ پشتیبان برمی‌گردند. یادار بعد از هر تغییر یک پشتیبان خودکار در Download/Yadar می‌گذارد؛ گاهی هم از «تنظیمات ← پشتیبان‌گیری» یک نسخه بگیر و جای امنی نگه دار. در گوشی جدید «بازیابی» را بزن.",
+            "Reminders and notes live only on this phone, not on a server. If you change or reset the phone or uninstall, only a backup brings them back. Yadar saves an automatic backup in Download/Yadar after every change; now and then also export one from Settings → Backup and keep it safe. On a new phone, tap Restore.")),
+    Topic(Icons.Rounded.Inventory2, t("پک یادآوری", "Reminder packs"),
+        t("چند یادآوری (مثلاً تولدهای خانواده) را به‌صورت «پک» برای دیگران بفرست تا با یک لمس به یادار خودشان اضافه کنند.",
+            "Send reminders (e.g. family birthdays) as a pack others can add with one tap.")),
 )
 
 /** Everything Yadar can do, with sentences to try. Opened from Settings. */
 @Composable
 fun HelpScreen(onClose: () -> Unit) {
-    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    // Edge to edge, so the insets below are measured once and the last card is never hidden behind the nav bar.
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().systemBarsPadding()) {
                 Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, t("بستن", "Close")) }
                     Text(t("راهنمای یادار", "Yadar guide"), style = MaterialTheme.typography.titleLarge)
                 }
-                LazyColumn(contentPadding = PaddingValues(16.dp, 4.dp, 16.dp, 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(16.dp, 4.dp, 16.dp, 64.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     topics().forEach { topic ->
                         item {
-                            Surface(shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
                                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.primaryContainer),

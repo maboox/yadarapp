@@ -84,7 +84,10 @@ private fun AlarmScreen(r: Reminder, defaultSnooze: Int, onDone: () -> Unit, onS
     val transition = rememberInfiniteTransition(label = "pulse")
     val pulse by transition.animateFloat(1f, 1.12f, infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "scale")
     val color = r.category.catColor()
-    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF1B1446), Color(0xFF3B2DB0), Color(0xFF5B4BDB))))) {
+    // Ignore taps for a moment after the screen appears, so a tap meant for something else is not taken as an answer.
+    var armed by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { kotlinx.coroutines.delay(800); armed = true }
+    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF0E0B1A)) + heroColors().take(2)))) {
         Column(Modifier.fillMaxSize().systemBarsPadding().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Spacer(Modifier.weight(0.6f))
             Box(Modifier.size(132.dp).scale(pulse).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
@@ -113,7 +116,7 @@ private fun AlarmScreen(r: Reminder, defaultSnooze: Int, onDone: () -> Unit, onS
             Spacer(Modifier.weight(1f))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(5, 10, 30, 60).forEach { m ->
-                    OutlinedButton(onClick = { onSnooze(m) }, colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                    OutlinedButton(onClick = { if (armed) onSnooze(m) }, colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
                         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.5f)),
                         contentPadding = PaddingValues(horizontal = 12.dp)) {
                         Text(if (m == 60) t("۱ ساعت", "1 h") else t("${n(m)} دقیقه", "$m min"), fontSize = 13.sp)
@@ -121,19 +124,21 @@ private fun AlarmScreen(r: Reminder, defaultSnooze: Int, onDone: () -> Unit, onS
                 }
             }
             Spacer(Modifier.height(14.dp))
-            Button(onClick = onDone, modifier = Modifier.fillMaxWidth().height(60.dp), shape = RoundedCornerShape(20.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF3B2DB0))) {
-                Icon(Icons.Rounded.Check, null); Spacer(Modifier.width(8.dp))
-                Text(t("انجام شد", "Done"), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            // The big button only stops the sound; "done" is a separate, deliberate choice.
+            Button(onClick = { if (armed) onClose() }, modifier = Modifier.fillMaxWidth().height(60.dp), shape = RoundedCornerShape(20.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = heroColors()[0])) {
+                Icon(Icons.Rounded.NotificationsOff, null); Spacer(Modifier.width(8.dp))
+                Text(t("قطع زنگ", "Stop ringing"), fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(10.dp))
-            Row {
-                TextButton(onClick = { onSnooze(defaultSnooze) }, colors = ButtonDefaults.textButtonColors(contentColor = Color.White)) {
-                    Icon(Icons.Rounded.Snooze, null); Spacer(Modifier.width(6.dp)); Text(t("تعویق", "Snooze"))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(onClick = { if (armed) onDone() }, modifier = Modifier.weight(1f).height(52.dp), shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White), border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f))) {
+                    Icon(Icons.Rounded.Check, null); Spacer(Modifier.width(6.dp)); Text(t("انجام شد", "Done"))
                 }
-                Spacer(Modifier.width(12.dp))
-                TextButton(onClick = onClose, colors = ButtonDefaults.textButtonColors(contentColor = Color.White.copy(alpha = 0.8f))) {
-                    Text(t("قطع زنگ", "Silence"))
+                OutlinedButton(onClick = { if (armed) onSnooze(defaultSnooze) }, modifier = Modifier.weight(1f).height(52.dp), shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White), border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f))) {
+                    Icon(Icons.Rounded.Snooze, null); Spacer(Modifier.width(6.dp)); Text(t("تعویق", "Snooze"))
                 }
             }
         }

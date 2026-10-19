@@ -63,6 +63,7 @@ object WidgetCommands {
     const val EDIT_DRAFT = "com.yadavard.app.widget.EDIT_DRAFT"
     const val OPEN_NOTE = "com.yadavard.app.widget.OPEN_NOTE"
     const val NEW_NOTE = "com.yadavard.app.widget.NEW_NOTE"
+    const val BUY = "com.yadavard.app.widget.BUY"
     const val EXTRA_DRAFT = "draft_json"
     const val EXTRA_ID = "reminder_id"
     const val EXTRA_DAY = "day_epoch"

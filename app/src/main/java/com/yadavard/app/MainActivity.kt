@@ -161,6 +161,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun miss(r: Reminder) = io { Repo.miss(context, r.id) }
     /** Undo of "done" / "not done": the earlier state comes back and the recorded outcome is forgotten. */
     fun undoOutcome(r: Reminder) = io { Repo.undoOutcome(context, r) }
+    fun reopen(r: Reminder) = io { Repo.reopen(context, r.id) }
     fun saveNote(n: Note) = io { Repo.saveNote(context, n) }
     fun deleteNote(n: Note) = io { Repo.deleteNote(context, n.id) }
     /** Restores an exact earlier state, used by "Undo". */
@@ -247,6 +248,7 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                 tab = Tab.CALENDAR
             }
             WidgetCommands.NEW_NOTE -> { tab = Tab.NOTES; noteEditor = Note(title = "") }
+            WidgetCommands.BUY -> { tab = Tab.SETTINGS; Account.buyRequested.value = true }
             WidgetCommands.OPEN_NOTE -> {
                 val id = c.getLongExtra(WidgetCommands.EXTRA_ID, 0)
                 tab = Tab.NOTES
@@ -305,6 +307,13 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                     val res = snackbar.showSnackbar(t("«${r.title}» حذف شد", "“${r.title}” deleted"), t("برگرداندن", "Undo"),
                         duration = SnackbarDuration.Long)
                     if (res == SnackbarResult.ActionPerformed) vm.restore(r)
+                }
+            },
+            reopen = { r ->
+                vm.reopen(r)
+                scope.launch {
+                    snackbar.currentSnackbarData?.dismiss()
+                    snackbar.showSnackbar(t("«${r.title}» به یادآوری‌ها برگشت", "“${r.title}” is back in your reminders"))
                 }
             },
             share = { r -> packExport = setOf(r.id) },
@@ -419,6 +428,7 @@ class ReminderActions(
     val snooze: (Reminder, Int) -> Unit,
     val skip: (Reminder) -> Unit,
     val miss: (Reminder) -> Unit,
+    val reopen: (Reminder) -> Unit,
     val share: (Reminder) -> Unit,
     val saved: (Reminder) -> Unit,
     val voice: () -> Unit,

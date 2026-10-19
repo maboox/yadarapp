@@ -239,15 +239,15 @@ object Notifier {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(!ring)
             .setSilent(true)
-            .addAction(R.drawable.ic_action_done, label(context, "انجام شد", "Done"), broadcast(context, ACTION_DONE, r.id))
-            .addAction(R.drawable.ic_action_snooze, label(context, "${Dates.digits(snooze.toString(), lang)} دقیقه بعد", "Snooze $snooze min"),
-                broadcast(context, ACTION_SNOOZE, r.id, snooze))
-        if (snooze != 60 && !(ring && !quiet)) builder.addAction(R.drawable.ic_action_snooze, label(context, "یک ساعت بعد", "1 hour"),
+        val ringing = ring && !quiet
+        // While it rings, "silence" comes first so a quick tap never marks the reminder done by mistake.
+        if (ringing) builder.addAction(R.drawable.ic_action_snooze, label(context, "قطع زنگ", "Silence"), broadcast(context, ACTION_SILENCE, r.id))
+        builder.addAction(R.drawable.ic_action_snooze, label(context, "${Dates.digits(snooze.toString(), lang)} دقیقه بعد", "Snooze $snooze min"),
+            broadcast(context, ACTION_SNOOZE, r.id, snooze))
+        builder.addAction(R.drawable.ic_action_done, label(context, "انجام شد", "Done"), broadcast(context, ACTION_DONE, r.id))
+        if (snooze != 60 && !ringing) builder.addAction(R.drawable.ic_action_snooze, label(context, "یک ساعت بعد", "1 hour"),
             broadcast(context, ACTION_SNOOZE, r.id, 60))
-        if (ring && !quiet) {
-            builder.setFullScreenIntent(fullScreen(context, r.id), true).setOngoing(true)
-            builder.addAction(R.drawable.ic_action_snooze, label(context, "قطع زنگ", "Silence"), broadcast(context, ACTION_SILENCE, r.id))
-        }
+        if (ringing) builder.setFullScreenIntent(fullScreen(context, r.id), true).setOngoing(true)
         return builder.build()
     }
 

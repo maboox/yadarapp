@@ -184,7 +184,7 @@ private fun pct(value: Int) = n(value) + if (AppDisplay.language == AppLanguage.
 
 @Composable
 private fun Tile(label: String, value: String, icon: ImageVector, color: Color, modifier: Modifier) {
-    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = modifier) {
+    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = modifier) {
         Column(Modifier.padding(12.dp)) {
             Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
             Spacer(Modifier.height(6.dp))

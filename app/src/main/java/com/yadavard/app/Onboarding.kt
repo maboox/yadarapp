@@ -112,10 +112,21 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                 Feature(Icons.Rounded.ThumbUp, t("اول امتحان کن؛ اگر به کارت آمد، بسته بخر", "Try it first; buy a pack only if it helps"))
             }
         },
+        Page(Icons.Rounded.Backup, listOf(Color(0xFF5E6F64), Color(0xFF9DB3A4)),
+            { t("اطلاعاتت مال خودت است", "Your data stays with you") },
+            { t("یادآوری‌ها و یادداشت‌ها فقط روی همین گوشی ذخیره می‌شوند، نه روی سرور. یعنی اگر گوشی عوض شود، برنامه پاک شود یا گوشی ریست شود، بدون نسخهٔ پشتیبان از دست می‌روند.",
+                "Reminders and notes are stored only on this phone, not on a server. If you change or reset the phone or uninstall the app, they are lost without a backup.") }) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Feature(Icons.Rounded.Download, t("یادار بعد از هر تغییر یک پشتیبان خودکار در پوشهٔ Download/Yadar می‌گذارد", "Yadar saves an automatic backup in Download/Yadar after every change"))
+                Feature(Icons.Rounded.Upload, t("گاهی از «تنظیمات ← پشتیبان‌گیری» یک نسخه بگیر و جای دیگری (مثلاً پیام‌رسان یا ایمیل) نگه دار", "Now and then export a copy from Settings → Backup and keep it somewhere else"))
+                Feature(Icons.Rounded.PhoneAndroid, t("در گوشی جدید با «بازیابی» همه‌چیز برمی‌گردد", "On a new phone, Restore brings everything back"))
+            }
+        },
         Page(Icons.Rounded.HealthAndSafety, listOf(Color(0xFF1F5FBF), Color(0xFF5AA0FF)),
-            { t("یک قدم آخر: دسترسی‌ها", "Last step: permissions") },
-            { t("برای اینکه یادآوری‌ها حتماً سر وقت و با صدا برسند، موارد زیر را فعال کن.", "Enable these so reminders always arrive on time and with sound.") }) {
-            PermissionChecklist(tick, onChanged = { tick++ }, compact = true)
+            { t("یک قدم آخر: اعلان", "Last step: notifications") },
+            { t("برای اینکه یادآوری‌ها سر وقت برسند، فقط همین دو مورد لازم است. اجازه‌های دیگر (مثل زنگ تمام‌صفحه) را هر وقت خواستی از «تنظیمات ← سلامت اعلان‌ها» بده.",
+                "Only these two are needed for reminders to arrive on time. Other permissions (like full-screen alarms) can be given later in Settings → Notification health.") }) {
+            PermissionChecklist(tick, onChanged = { tick++ }, compact = true, group = PermGroup.ESSENTIAL)
         },
     )
     val pager = rememberPagerState { pages.size }

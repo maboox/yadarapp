@@ -51,6 +51,7 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
     var reliable by remember { mutableStateOf(Prefs.reliableMode(context)) }
     var vibrate by remember { mutableStateOf(Prefs.vibrate(context)) }
     var soundTick by remember { mutableIntStateOf(0) }
+    var hidden by remember { mutableStateOf(false) }
     var pickingAlarmSound by remember { mutableStateOf(false) }
     val soundPicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) {
@@ -120,12 +121,31 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
 
         item {
             SettingsCard(t("سلامت اعلان‌ها", "Notification health"), Icons.Rounded.HealthAndSafety,
-                summary = if (allCriticalGranted(context)) t("همه‌چیز آماده است ✓", "All set ✓") else t("چند مورد نیاز به توجه دارد", "Some items need attention"),
+                summary = when {
+                    !allCriticalGranted(context) -> t("چند مورد ضروری نیاز به توجه دارد", "Some essentials need attention")
+                    !extrasGranted(context) -> t("ضروری‌ها آماده است ✓ • چند گزینهٔ اختیاری مانده", "Essentials ready ✓ • a few optional items left")
+                    else -> t("همه‌چیز آماده است ✓", "All set ✓")
+                },
                 collapsible = true, startExpanded = !allCriticalGranted(context)) {
                 Text(if (allCriticalGranted(context)) t("همه‌چیز آماده است؛ یادآوری‌ها سر وقت و با صدا می‌رسند ✓", "All set — reminders arrive on time and with sound ✓")
                     else t("موارد قرمز را درست کن تا هیچ یادآوری‌ای جا نماند.", "Fix the red items so no reminder is missed."),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                PermissionChecklist(tick, onChanged = onPermissionChanged)
+                Label(t("ضروری", "Essential"))
+                PermissionChecklist(tick, onChanged = onPermissionChanged, group = PermGroup.ESSENTIAL)
+                HorizontalDivider()
+                Label(t("برای زنگ‌ها و اطمینان بیشتر (اختیاری)", "For alarms and extra reliability (optional)"))
+                Text(t("اگر از «زنگ تمام‌صفحه» استفاده می‌کنی یا یادآوری‌ها گاهی دیر می‌رسند، این‌ها را هم فعال کن.",
+                    "Enable these if you use full-screen alarms or reminders sometimes arrive late."),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                PermissionChecklist(tick, onChanged = onPermissionChanged, group = PermGroup.EXTRA)
+                if (Phone.isXiaomi) {
+                    HorizontalDivider()
+                    Label(t("مخصوص گوشی‌های شیائومی", "Xiaomi phones"))
+                    Text(t("شیائومی برنامه‌ها را در پس‌زمینه سخت‌گیرانه می‌بندد؛ اگر یادآوری نرسید، این‌ها را هم بررسی کن.",
+                        "Xiaomi closes background apps aggressively; check these if a reminder doesn't arrive."),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    PermissionChecklist(tick, onChanged = onPermissionChanged, group = PermGroup.DEVICE)
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilledTonalButton(onClick = { Notifier.showTest(context) }, modifier = Modifier.weight(1f)) {
                         Icon(Icons.Rounded.NotificationsActive, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
@@ -168,7 +188,7 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
 
         item {
             SettingsCard(t("ظاهر و زبان", "Appearance"), Icons.Rounded.Palette,
-                summary = t("زبان، تقویم، پوسته و رنگ", "Language, calendar, theme and colour"), collapsible = true) {
+                summary = t("زبان، تقویم، حالت روشن/تیره و تم", "Language, calendar, light/dark and theme"), collapsible = true) {
                 Label(t("زبان", "Language"))
                 Segmented(listOf(AppLanguage.FA to "فارسی", AppLanguage.EN to "English"), AppDisplay.language) {
                     AppDisplay.language = it; Prefs.setLanguage(context, it)
@@ -178,28 +198,14 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
                 Segmented(listOf(CalendarSystem.PERSIAN to t("شمسی", "Persian"), CalendarSystem.GREGORIAN to t("میلادی", "Gregorian")), AppDisplay.calendar) {
                     AppDisplay.calendar = it; Prefs.setCalendar(context, it); WidgetUpdater.update(context)
                 }
-                Label(t("پوسته", "Theme"))
+                Label(t("روشن یا تیره", "Light or dark"))
                 Segmented(listOf(ThemeMode.SYSTEM to t("خودکار", "System"), ThemeMode.LIGHT to t("روشن", "Light"), ThemeMode.DARK to t("تیره", "Dark")),
                     AppDisplay.theme) { AppDisplay.theme = it; Prefs.setTheme(context, it) }
-                Label(t("رنگ", "Colour"))
-                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    ThemeColor.entries.forEach { c ->
-                        val selected = AppDisplay.color == c
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box(Modifier.size(42.dp).clip(CircleShape).background(themeSwatch(c))
-                                .border(if (selected) 3.dp else 0.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
-                                .clickable { AppDisplay.color = c; Prefs.setThemeColor(context, c) },
-                                contentAlignment = Alignment.Center) {
-                                if (selected) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(20.dp))
-                            }
-                            Spacer(Modifier.height(4.dp))
-                            Text(when (c) {
-                                ThemeColor.VIOLET -> t("بنفش", "Violet"); ThemeColor.OCEAN -> t("آبی", "Ocean")
-                                ThemeColor.FOREST -> t("سبز", "Forest"); ThemeColor.SUNSET -> t("نارنجی", "Sunset")
-                            }, style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-                }
+                Label(t("تم", "Theme style"))
+                ThemePicker(AppDisplay.color) { AppDisplay.color = it; Prefs.setThemeColor(context, it); WidgetUpdater.update(context) }
+                if (themeSpec(AppDisplay.color).alwaysDark) Text(t("«نیمه‌شب» همیشه تیره است (مناسب صفحه‌های OLED).",
+                    "“Midnight” is always dark (made for OLED screens)."), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -254,8 +260,17 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
         item { AiCard() }
 
         item {
-            SettingsCard(t("پشتیبان‌گیری", "Backup"), Icons.Rounded.Backup,
-                summary = t("${n(count)} یادآوری • نسخهٔ پشتیبان و بازیابی", "$count reminders • backup and restore"), collapsible = true) {
+            SettingsCard(t("پشتیبان‌گیری", "Backup"), Icons.Rounded.Backup, onIconHold = { hidden = true },
+                summary = t("${n(count)} یادآوری • داده‌ها فقط روی این گوشی است؛ پشتیبان بگیر", "$count reminders • data is only on this phone; back it up"), collapsible = true) {
+                Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.tertiaryContainer) {
+                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
+                        Icon(Icons.Rounded.WarningAmber, null, tint = MaterialTheme.colorScheme.onTertiaryContainer, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(t("اطلاعاتت فقط روی همین گوشی است و روی سرور نیست. اگر گوشی عوض یا ریست شود، فقط با نسخهٔ پشتیبان برمی‌گردد؛ گاهی یک نسخه بگیر و جای دیگری نگه دار.",
+                            "Your data is only on this phone, not on a server. After a phone change or reset only a backup brings it back; export one now and then and keep it elsewhere."),
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                    }
+                }
                 Text(t("${n(count)} یادآوری روی این گوشی ذخیره است. نسخه‌های جدید را روی همین نصب کن تا اطلاعات بماند. یادار بعد از هر تغییر یک نسخهٔ پشتیبان خودکار در پوشهٔ Download/Yadar می‌گذارد که با حذف برنامه هم پاک نمی‌شود؛ با «بازیابی» برش گردان. کلید هوش مصنوعی داخل پشتیبان نیست.",
                     "$count reminders on this phone. Install new versions over this one to keep your data. Yadar also saves an automatic backup to Download/Yadar after every change, which survives uninstalling; bring it back with Restore. Your AI key is not included."),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -272,15 +287,29 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
 
         item {
             val version = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: ""
-            Text(t("یادار نسخهٔ ${n(version)} • همهٔ داده‌ها فقط روی گوشی خودت", "Yadar $version • all data stays on your phone"),
+            Text(t("یادار نسخهٔ ${n(version)} • یادآوری‌ها و یادداشت‌ها فقط روی گوشی خودت", "Yadar $version • reminders and notes stay on your phone"),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth().padding(8.dp))
+        }
+    }
+    if (hidden) androidx.compose.ui.window.Dialog(onDismissRequest = { hidden = false },
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Column(Modifier.fillMaxSize().systemBarsPadding()) {
+                Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { hidden = false }) { Icon(Icons.Rounded.Close, t("بستن", "Close")) }
+                    Text(t("تنظیمات پنهان", "Hidden settings"), style = MaterialTheme.typography.titleLarge)
+                }
+                LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(16.dp, 4.dp, 16.dp, 48.dp)) {
+                    item { AiCard(advancedUnlocked = true) }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun AiCard() {
+private fun AiCard(advancedUnlocked: Boolean = false) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val ai = remember { AiSettings(context) }
@@ -298,12 +327,12 @@ private fun AiCard() {
 
     val account by Account.profile.collectAsState()
     var personal by remember { mutableStateOf(ai.personal) }
-    var advanced by rememberSaveable { mutableStateOf(ai.personal) }
+    var advanced by rememberSaveable { mutableStateOf(advancedUnlocked) }
     var baseUrl by remember { mutableStateOf(ai.baseUrl) }
     var server by remember { mutableStateOf(Account.server(context)) }
 
     SettingsCard(t("دستیار هوشمند", "Smart assistant"), Icons.Rounded.AutoAwesome,
-        summary = t("تنظیمات دستیار و گزینه‌های پیشرفته", "Assistant settings and advanced options"), collapsible = true) {
+        summary = t("دستیار برای ثبت سریع", "Assistant for quick add"), collapsible = !advancedUnlocked) {
         Text(t("ثبت سریع بدون اینترنت هم جمله‌های فارسی و انگلیسی را می‌فهمد. با ورود به حساب، دستیار یادار فعال می‌شود: با صدا یا متن یادآوری بساز، ویرایش کن، حذف کن، «انجام شد» بزن یا بپرس «این هفته چی دارم؟».",
             "Quick add works offline. Sign in to use the Yadar assistant: create, edit, delete and complete reminders by voice or text, and ask “what do I have this week?”."),
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -311,10 +340,7 @@ private fun AiCard() {
             Text(t("دستیار هوشمند برای متن ثبت سریع", "Use the assistant for typed quick add"), Modifier.weight(1f))
             Switch(useAi && account != null, { useAi = it; Prefs.setUseAi(context, it) }, enabled = account != null)
         }
-        TextButton(onClick = { advanced = !advanced }) {
-            Icon(if (advanced) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null)
-            Spacer(Modifier.width(4.dp)); Text(t("پیشرفته", "Advanced"))
-        }
+        // Own-key and server options live only in the hidden menu (hold the backup icon for 3 seconds).
         if (advanced) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -462,3 +488,38 @@ private fun <T> Segmented(options: List<Pair<T, String>>, selected: T, onSelect:
     }
 }
 
+
+/** Theme cards: each shows the theme's own background, card and header gradient. */
+@Composable
+private fun ThemePicker(selected: ThemeColor, onSelect: (ThemeColor) -> Unit) {
+    val dark = isDarkTheme()
+    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        items(themes, key = { it.id.name }) { spec ->
+            val scheme = appColors(dark || spec.alwaysDark, spec.id)
+            val isSelected = spec.id == selected
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.size(width = 86.dp, height = 116.dp).clip(RoundedCornerShape(spec.corner.dp * 0.7f))
+                    .background(scheme.background)
+                    .border(if (isSelected) 3.dp else 1.dp, if (isSelected) scheme.primary else scheme.outlineVariant, RoundedCornerShape(spec.corner.dp * 0.7f))
+                    .clickable { onSelect(spec.id) }.padding(7.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Box(Modifier.fillMaxWidth().height(30.dp).clip(RoundedCornerShape(spec.corner.dp * 0.4f))
+                            .background(androidx.compose.ui.graphics.Brush.linearGradient(spec.hero.map { Color(it) })))
+                        repeat(3) { i ->
+                            Row(Modifier.fillMaxWidth().height(16.dp).clip(RoundedCornerShape(spec.corner.dp * 0.3f)).background(scheme.surfaceContainerLow)
+                                .padding(horizontal = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.size(6.dp).clip(CircleShape).background(listOf(scheme.primary, scheme.secondary, scheme.tertiary)[i]))
+                                Spacer(Modifier.width(4.dp))
+                                Box(Modifier.fillMaxWidth(0.7f).height(3.dp).clip(CircleShape).background(scheme.onSurfaceVariant.copy(alpha = 0.4f)))
+                            }
+                        }
+                    }
+                    if (isSelected) Icon(Icons.Rounded.CheckCircle, null, tint = scheme.primary,
+                        modifier = Modifier.align(Alignment.BottomEnd).size(18.dp))
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(if (AppDisplay.language == AppLanguage.FA) spec.fa else spec.en, style = MaterialTheme.typography.labelMedium)
+            }
+        }
+    }
+}
