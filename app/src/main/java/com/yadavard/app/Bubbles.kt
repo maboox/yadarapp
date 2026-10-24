@@ -95,6 +95,7 @@ fun AssistantBubbles(state: AssistantSession.State, modifier: Modifier = Modifie
                 if (state.heard.isNotBlank()) UserBubble(state.heard)
                 if (state.reply.isNotBlank()) ReplyBubble(state.reply, closable = state.actions.isEmpty())
                 if (state.shown.isNotEmpty()) ShownBubbles(state.shown)
+                if (state.asking) AnswerBubble(state)
                 if (state.actions.isNotEmpty()) ActionBubbles(state.actions)
             }
             AssistantSession.Stage.DONE -> StatusBubble(state.message, busy = false, icon = Icons.Rounded.CheckCircle)
@@ -147,6 +148,42 @@ private fun ReplyBubble(text: String, closable: Boolean) {
             Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.weight(1f))
             if (closable) IconButton(onClick = { AssistantSession.dismiss() }, modifier = Modifier.size(28.dp)) {
                 Icon(Icons.Rounded.Close, t("بستن", "Close"), Modifier.size(16.dp))
+            }
+        }
+    }
+}
+
+/** The assistant asked something: tap a suggested answer, or answer by voice. The conversation continues. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AnswerBubble(state: AssistantSession.State) {
+    val context = LocalContext.current
+    var recording by remember { mutableStateOf(false) }
+    if (recording) {
+        VoiceCapture(onCancel = { recording = false },
+            onSend = { file -> recording = false; AssistantSession.startAudio(context, file, state.host) },
+            modifier = Modifier.fillMaxWidth())
+        return
+    }
+    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        state.choices.forEach { choice ->
+            Surface(onClick = { AssistantSession.startText(context, choice, state.host) }, shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer, shadowElevation = 4.dp) {
+                Text(choice, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp))
+            }
+        }
+        Surface(onClick = {
+            if (state.host == BubbleHost.OVERLAY) {
+                // The floating bubbles cannot use the microphone; the small recording screen answers instead.
+                context.startActivity(android.content.Intent(context, AssistantActivity::class.java)
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+            } else recording = true
+        }, shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.primary, shadowElevation = 4.dp) {
+            Row(Modifier.padding(horizontal = 14.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Mic, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimary)
+                Spacer(Modifier.width(6.dp))
+                Text(t("جواب با صدا", "Answer by voice"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimary)
             }
         }
     }

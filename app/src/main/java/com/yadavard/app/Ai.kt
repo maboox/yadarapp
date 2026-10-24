@@ -407,7 +407,7 @@ Reply language: ${if (lang == AppLanguage.FA) "Persian (Farsi), colloquial and s
 
 ${Assistant.context(context)}
 Decide what the user wants and return ONLY JSON, no prose:
-{"reply": "<what to say back, plain text, max 3 short sentences, no markdown or emojis>", "actions": [ ... ], "show": [ ... ]}
+{"reply": "<what to say back, plain text, max 3 short sentences, no markdown or emojis>", "actions": [ ... ], "show": [ ... ], "choices": [ ... ]}
 Action objects:
 - {"type":"create","reminder":{...}}  new reminder
 - {"type":"update","id":<id>,"changes":{...only the fields that change...}}
@@ -428,11 +428,12 @@ Reminder and change fields (omit when not mentioned):
 title, note, first_at (ISO-8601 local date-time WITH offset), unit (NONE|HOURS|DAYS|WEEKS|MONTHS|YEARS|AFTER_DONE_DAYS), every,
 weekdays (ISO 1=Monday..7=Sunday), month_day (1..31, -1 = last day), calendar (PERSIAN|GREGORIAN), until (yyyy-MM-dd Gregorian or null to remove),
 category (one key from: ${Categories.promptList(context)}; pick the best fit for new reminders, GENERAL if none fits), important (bool),
-alert_style ("ALARM" for alarm / ringing / full screen / wake me up / زنگ / آلارم / تمام صفحه; "NOTIFICATION" for a normal notification),
+alert_style ("ALARM" for alarm / ringing / full screen / wake me up / زنگ / آلارم / تمام صفحه; "NOTIFICATION" only when the user explicitly asks for a plain/silent notification; otherwise leave it out so the user's default is used),
 lead_minutes (advance notice), nag_minutes (keep reminding every N minutes until done).
 Rules:
 - Find existing reminders by meaning, not exact words. Use their #id. Never invent ids.
 - If the request is ambiguous (several reminders could match) or unclear, do NOT act: return no actions and ask a short question in "reply".
+- Whenever "reply" asks the user something, also give "choices": 2 to 4 very short answers they can tap (e.g. ["صبح","شب"] or the titles of the matching reminders). The user's next message is their answer to your question; then do what they asked originally.
 - For questions ("what do I have this week?", "what's tomorrow?", "when is the next birthday?", "what is in my shopping note?") return no actions, put the matching items in "show", and give a short summary in "reply" (the cards show the details, so do not list everything in the text). "Next week" means the 7 days after this week ends (weeks start on Saturday in Persian).
 - The user may ask for several things at once; return one action per thing.
 - Rescheduling ("move it to Friday 5pm") is an update with first_at. Changing to repeat is an update with unit/every/...
@@ -507,8 +508,11 @@ User: $text"""
                 }
             }
         }
+        val choices = json.optJSONArray("choices")?.let { arr ->
+            (0 until arr.length()).map { arr.optString(it).trim().take(60) }.filter { it.isNotBlank() && it != "null" }.distinct().take(4)
+        }.orEmpty().takeIf { actions.isEmpty() }.orEmpty()
         AssistantResult(text, reply.ifBlank { if (actions.isEmpty() && shown.isEmpty()) (if (fa()) "متوجه نشدم؛ دوباره بگو." else "Sorry, I didn't get that.") else "" },
-            actions, shown.distinctBy { (it.reminder?.id ?: -(it.note?.id ?: 0)) to it.at })
+            actions, shown.distinctBy { (it.reminder?.id ?: -(it.note?.id ?: 0)) to it.at }, choices)
     }
 
     suspend fun parse(text: String): Reminder = parseMany(text).first()
@@ -553,6 +557,9 @@ User: $text"""
     private fun JSONObject.str(name: String): String? = if (isNull(name)) null else optString(name).trim().takeIf { it.isNotBlank() && it != "null" }
     private fun JSONObject.int(name: String): Int? = if (isNull(name) || !has(name)) null else optString(name).trim().toDoubleOrNull()?.toInt()
 
+    private fun asksForNotification(text: String): Boolean =
+        Regex("اعلان|نوتیف|ناتیف|بی ?صدا|بی‌صدا|بدون (زنگ|صدا)|ساکت|notif|silent|quiet", RegexOption.IGNORE_CASE).containsMatchIn(text)
+
     private fun toReminder(json: JSONObject, text: String, zone: ZoneId, calendar: CalendarSystem): Reminder {
         val due = ZonedDateTime.parse(json.getString("first_at")).toInstant().toEpochMilli()
         val unit = runCatching { RepeatUnit.valueOf(json.str("unit")?.uppercase() ?: "NONE") }.getOrDefault(RepeatUnit.NONE)
@@ -561,7 +568,8 @@ User: $text"""
         val title = json.str("title")?.take(200) ?: text.trim().take(200)
         val alert = when (json.str("alert_style")?.uppercase()) {
             "ALARM" -> AlertStyle.ALARM
-            "NOTIFICATION" -> AlertStyle.NOTIFICATION
+            // Models sometimes add "NOTIFICATION" unasked; only honour it when the user said so.
+            "NOTIFICATION" -> if (asksForNotification(text)) AlertStyle.NOTIFICATION else Prefs.defaultAlert(context)
             else -> Prefs.defaultAlert(context)
         }
         val until = json.str("until")?.let { v ->

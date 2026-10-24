@@ -30,7 +30,7 @@ sealed class AssistantAction {
 data class ShownItem(val reminder: Reminder? = null, val note: Note? = null, val at: Long = 0)
 
 data class AssistantResult(val heard: String, val reply: String, val actions: List<AssistantAction>,
-                           val shown: List<ShownItem> = emptyList())
+                           val shown: List<ShownItem> = emptyList(), val choices: List<String> = emptyList())
 
 object Assistant {
     /**

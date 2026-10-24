@@ -66,7 +66,7 @@ class AlarmActivity : ComponentActivity() {
                 CompositionLocalProvider(LocalLayoutDirection provides
                     if (AppDisplay.language == AppLanguage.FA) LayoutDirection.Rtl else LayoutDirection.Ltr) {
                     AlarmScreen(reminder, Prefs.snoozeMinutes(this),
-                        onDone = { if (test) stopTest() else Repo.complete(this, reminderId); finish() },
+                        onDone = { if (test) stopTest() else Notifier.completeWithUndo(this, reminderId); finish() },
                         onSnooze = { minutes -> if (test) stopTest() else Repo.snooze(this, reminderId, minutes); finish() },
                         onClose = {
                             // Stop ringing but keep the reminder visible as pending.
@@ -87,6 +87,9 @@ private fun AlarmScreen(r: Reminder, defaultSnooze: Int, onDone: () -> Unit, onS
     // Ignore taps for a moment after the screen appears, so a tap meant for something else is not taken as an answer.
     var armed by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { kotlinx.coroutines.delay(800); armed = true }
+    // "Done" needs a second tap, so brushing the bottom of the screen never finishes the reminder.
+    var confirmDone by remember { mutableStateOf(false) }
+    LaunchedEffect(confirmDone) { if (confirmDone) { kotlinx.coroutines.delay(4000); confirmDone = false } }
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF0E0B1A)) + heroColors().take(2)))) {
         Column(Modifier.fillMaxSize().systemBarsPadding().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Spacer(Modifier.weight(0.6f))
@@ -132,9 +135,13 @@ private fun AlarmScreen(r: Reminder, defaultSnooze: Int, onDone: () -> Unit, onS
             }
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(onClick = { if (armed) onDone() }, modifier = Modifier.weight(1f).height(52.dp), shape = RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White), border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f))) {
-                    Icon(Icons.Rounded.Check, null); Spacer(Modifier.width(6.dp)); Text(t("انجام شد", "Done"))
+                OutlinedButton(onClick = { if (armed) { if (confirmDone) onDone() else confirmDone = true } },
+                    modifier = Modifier.weight(1f).height(52.dp), shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White,
+                        containerColor = if (confirmDone) Color.White.copy(alpha = 0.2f) else Color.Transparent),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f))) {
+                    Icon(Icons.Rounded.Check, null); Spacer(Modifier.width(6.dp))
+                    Text(if (confirmDone) t("دوباره بزن", "Tap again") else t("انجام شد", "Done"), maxLines = 1)
                 }
                 OutlinedButton(onClick = { if (armed) onSnooze(defaultSnooze) }, modifier = Modifier.weight(1f).height(52.dp), shape = RoundedCornerShape(18.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White), border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f))) {

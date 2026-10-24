@@ -34,7 +34,13 @@ object AssistantSession {
         val actions: List<AssistantAction> = emptyList(),
         val shown: List<ShownItem> = emptyList(),
         val message: String = "",
-    )
+        /** Quick answers when the assistant asked something; tapping one (or answering by voice) continues. */
+        val choices: List<String> = emptyList(),
+    ) {
+        /** The assistant is waiting for the user's answer to a question. */
+        val asking: Boolean get() = stage == Stage.RESULT && actions.isEmpty() &&
+            (choices.isNotEmpty() || reply.trimEnd().let { it.endsWith("؟") || it.endsWith("?") })
+    }
 
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state
@@ -76,10 +82,11 @@ object AssistantSession {
             }
             log(UsageLog.countsOf(result.actions, question = result.actions.isEmpty()))
             history.add(heard to result.reply)
-            _state.value = _state.value.copy(stage = Stage.RESULT, reply = result.reply, actions = result.actions, shown = result.shown)
+            _state.value = _state.value.copy(stage = Stage.RESULT, reply = result.reply, actions = result.actions, shown = result.shown,
+                choices = result.choices)
             if (result.actions.isEmpty()) {
-                // Answers to questions stay for a while (longer with item cards), then the bubble goes away by itself.
-                delay(if (result.shown.isEmpty()) 30_000 else 90_000)
+                // Answers stay for a while (longer with item cards or a question to answer), then the bubble goes away by itself.
+                delay(if (_state.value.asking) 180_000 else if (result.shown.isEmpty()) 30_000 else 90_000)
                 if (_state.value.stage == Stage.RESULT && _state.value.actions.isEmpty()) dismiss()
             }
         }
