@@ -56,6 +56,10 @@ object Prefs {
     fun vibrate(context: Context): Boolean = prefs(context).getBoolean("vibrate", true)
     fun setVibrate(context: Context, value: Boolean) = prefs(context).edit().putBoolean("vibrate", value).apply()
 
+    /** What the user likes to be called; optional and only ever kept on the phone. */
+    fun userName(context: Context): String = prefs(context).getString("user_name", "").orEmpty()
+    fun setUserName(context: Context, value: String) = prefs(context).edit().putString("user_name", value.trim().take(30)).apply()
+
     fun onboarded(context: Context): Boolean = prefs(context).getBoolean("onboarded", false)
     fun setOnboarded(context: Context) = prefs(context).edit().putBoolean("onboarded", true).apply()
 

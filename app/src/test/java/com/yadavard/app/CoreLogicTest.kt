@@ -235,6 +235,12 @@ class CoreLogicTest {
         assertEquals("1. a\n2. " to 8, NoteText.continueList("1. a", "1. a\n", 5))
         assertEquals("x\n" to 2, NoteText.continueList("x\n☐ ", "x\n☐ \n", 5))
         assertNull(NoteText.continueList("plain", "plain\n", 6))
+        val list = "خرید\n☐ شیر\n☑ نان"
+        assertEquals(5, NoteText.boxTappedAt(list, 5)) // before the box
+        assertEquals(5, NoteText.boxTappedAt(list, 6)) // on the box
+        assertNull(NoteText.boxTappedAt(list, 7))      // on the text after it
+        assertNull(NoteText.boxTappedAt(list, 2))      // plain line
+        assertEquals(11, NoteText.boxTappedAt(list, 12))
     }
 
     @Test fun reopenDone() {

@@ -111,6 +111,19 @@ object NoteText {
         return (new.substring(0, cursor) + next + new.substring(cursor)) to cursor + next.length
     }
 
+    /**
+     * When [offset] is on the ☐ / ☑ mark (or just before it) of a checklist line, the start offset of that line;
+     * otherwise null. Used so a tap on the box in the editor ticks it.
+     */
+    fun boxTappedAt(text: String, offset: Int): Int? {
+        if (offset < 0 || offset > text.length) return null
+        val start = text.lastIndexOf('\n', offset - 1) + 1
+        val end = text.indexOf('\n', start).let { if (it < 0) text.length else it }
+        val line = text.substring(start, end)
+        if (!(line.startsWith("☐") || line.startsWith("☑"))) return null
+        return if (offset - start <= 1) start else null
+    }
+
     /** Index of the line that contains character [offset]. */
     fun lineAt(text: String, offset: Int): Int = text.take(offset.coerceIn(0, text.length)).count { it == '\n' }
 }

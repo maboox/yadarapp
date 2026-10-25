@@ -164,7 +164,14 @@ fun NoteEditor(note: Note?, onClose: (Note?) -> Unit, onDelete: (Note) -> Unit) 
                 }
                 TextField(field, { value ->
                     val limited = if (value.text.length > 20_000) value.copy(text = value.text.take(20_000)) else value
-                    field = NoteText.continueList(field.text, limited.text, limited.selection.start)
+                    // A tap on the ☐ / ☑ at the start of a line ticks or unticks it.
+                    val tapped = if (limited.text == field.text && limited.selection.collapsed && limited.selection != field.selection)
+                        NoteText.boxTappedAt(limited.text, limited.selection.start) else null
+                    field = if (tapped != null) {
+                        val line = NoteText.lineAt(limited.text, limited.selection.start)
+                        val text = NoteText.toggle(limited.text, line)
+                        TextFieldValue(text, TextRange((tapped + 2).coerceAtMost(text.length)))
+                    } else NoteText.continueList(field.text, limited.text, limited.selection.start)
                         ?.let { (text, cursor) -> TextFieldValue(text, TextRange(cursor)) } ?: limited
                 }, Modifier.fillMaxWidth().weight(1f).padding(horizontal = 4.dp),
                     placeholder = { Text(t("بنویس…", "Write…")) },

@@ -120,7 +120,6 @@ object Notifier {
     const val ACTION_SNOOZE = "com.yadavard.app.action.SNOOZE"
     const val ACTION_OPEN = "com.yadavard.app.action.OPEN"
     const val ACTION_SILENCE = "com.yadavard.app.action.SILENCE"
-    const val ACTION_UNDO = "com.yadavard.app.action.UNDO"
     const val EXTRA_ID = "reminder_id"
     const val EXTRA_MINUTES = "minutes"
     private const val TEST_NOTIFICATION_ID = 999_999_001
@@ -285,43 +284,6 @@ object Notifier {
             .build())
     }
 
-    private fun undoId(id: Long) = 500_000_000 + (id % 100_000_000).toInt()
-    private fun undoPrefs(context: Context) = context.applicationContext.getSharedPreferences("undo", Context.MODE_PRIVATE)
-
-    /**
-     * "Done" from the alarm screen or a notification button happens outside the app, often by an accidental
-     * touch. A repeating reminder then quietly moves to its next time, so it seems to vanish. Keep the earlier
-     * state and offer an undo for a while.
-     */
-    fun completeWithUndo(context: Context, id: Long) {
-        val before = Repo.get(context, id) ?: return
-        if (before.done) return
-        Repo.complete(context, id) ?: return
-        undoPrefs(context).edit().putString(id.toString(), Backup.toJson(before).toString()).apply()
-        ensureChannels(context)
-        post(context, undoId(id), NotificationCompat.Builder(context, CHANNEL_QUIET)
-            .setSmallIcon(R.drawable.ic_stat_reminder).setColor(0xFF5B4BDB.toInt())
-            .setContentTitle(label(context, "انجام شد ✓ ", "Done ✓ ") + before.title)
-            .setContentText(label(context, "اشتباهی زدی؟ «برگرداندن» را بزن.", "By mistake? Tap Undo."))
-            .setContentIntent(open(context, id)).setAutoCancel(true).setTimeoutAfter(15 * 60_000L)
-            .addAction(R.drawable.ic_action_snooze, label(context, "برگرداندن", "Undo"), broadcast(context, ACTION_UNDO, id))
-            .build())
-    }
-
-    /** Restores the state saved by [completeWithUndo]. */
-    fun undo(context: Context, id: Long) {
-        context.getSystemService(NotificationManager::class.java).cancel(undoId(id))
-        val prefs = undoPrefs(context)
-        val saved = prefs.getString(id.toString(), null) ?: return
-        prefs.edit().remove(id.toString()).apply()
-        val before = runCatching { Backup.fromJson(org.json.JSONObject(saved)) }.getOrNull() ?: return
-        // Only when nothing else changed it since.
-        if (Repo.get(context, id) == null) return
-        Repo.undoOutcome(context, before)
-        // Back to needing attention, silently.
-        Repo.get(context, id)?.takeIf { it.pendingAt > 0 }?.let { post(context, mainId(id), buildAlert(context, it, it.pendingAt, ring = false, quiet = true)) }
-    }
-
     fun showTest(context: Context) {
         ensureChannels(context)
         post(context, TEST_NOTIFICATION_ID, NotificationCompat.Builder(context, CHANNEL_REMINDERS)
@@ -389,8 +351,7 @@ class ActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val id = intent.getLongExtra(Notifier.EXTRA_ID, 0)
         when (intent.action) {
-            Notifier.ACTION_DONE -> if (id == AlertService.TEST_ID) Notifier.cancel(context, id) else Notifier.completeWithUndo(context, id)
-            Notifier.ACTION_UNDO -> Notifier.undo(context, id)
+            Notifier.ACTION_DONE -> if (id == AlertService.TEST_ID) Notifier.cancel(context, id) else Repo.complete(context, id)
             Notifier.ACTION_SILENCE -> if (id == AlertService.TEST_ID) Notifier.cancel(context, id)
                 else AlertService.stop(id, remove = false, quietRepost = true)
             Notifier.ACTION_SNOOZE -> if (id == AlertService.TEST_ID) Notifier.cancel(context, id) else Repo.snooze(context, id,

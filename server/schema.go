@@ -228,6 +228,48 @@ func ensureSchema(app core.App) error {
 		return err
 	}
 
+	// One small row per signed-in user, refreshed at most once a day by the app: just totals, never content.
+	if _, err := ensureCollection(app, "user_stats", func(c *core.Collection) {
+		addField(c, &core.RelationField{Name: "user", CollectionId: users.Id, MaxSelect: 1, CascadeDelete: true})
+		addField(c, &core.NumberField{Name: "reminders", Help: "یادآوری‌های فعلی"})
+		addField(c, &core.NumberField{Name: "notes"})
+		addField(c, &core.NumberField{Name: "done", Help: "انجام‌شده‌ها در کل"})
+		addField(c, &core.NumberField{Name: "missed"})
+		addField(c, &core.NumberField{Name: "ai_requests", Help: "درخواست‌های دستیار در ۳۰ روز اخیر"})
+		addField(c, &core.NumberField{Name: "days_used", Help: "تعداد روزهایی که برنامه باز شده"})
+		addField(c, &core.NumberField{Name: "stars", Help: "امتیازی که کاربر داده؛ ۰ یعنی هنوز نداده"})
+		addField(c, &core.TextField{Name: "version", Max: 20})
+		addField(c, &core.TextField{Name: "language", Max: 10})
+		addField(c, &core.TextField{Name: "theme", Max: 20})
+		addField(c, &core.AutodateField{Name: "created", OnCreate: true})
+		addField(c, &core.AutodateField{Name: "updated", OnCreate: true, OnUpdate: true})
+		if !hasIndex(c, "idx_user_stats_user") {
+			c.AddIndex("idx_user_stats_user", true, "user", "")
+		}
+	}); err != nil {
+		return err
+	}
+
+	// A ready-made summary for the admin panel (Collections → stats_summary): how much people use the app.
+	if existing, _ := app.FindCollectionByNameOrId("stats_summary"); existing == nil {
+		view := core.NewViewCollection("stats_summary")
+		view.ViewQuery = `SELECT 'all' AS id,
+			COUNT(*) AS users,
+			SUM(CASE WHEN updated >= date('now','-7 day') THEN 1 ELSE 0 END) AS active_7d,
+			ROUND(AVG(reminders),1) AS avg_reminders,
+			MAX(reminders) AS max_reminders,
+			ROUND(AVG(notes),1) AS avg_notes,
+			ROUND(AVG(done),1) AS avg_done,
+			ROUND(AVG(ai_requests),1) AS avg_ai_30d,
+			ROUND(AVG(days_used),1) AS avg_days_used,
+			SUM(CASE WHEN stars > 0 THEN 1 ELSE 0 END) AS rated,
+			ROUND(AVG(CASE WHEN stars > 0 THEN stars END),2) AS avg_stars
+			FROM user_stats`
+		if err := app.Save(view); err != nil {
+			return err
+		}
+	}
+
 	if _, err := ensureCollection(app, "gifts", func(c *core.Collection) {
 		addField(c, &core.TextField{Name: "device", Max: 100})
 		addField(c, &core.TextField{Name: "ip", Max: 60})

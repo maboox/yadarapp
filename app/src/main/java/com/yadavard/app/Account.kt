@@ -232,6 +232,11 @@ object Account {
         }
     }
 
+    /** Totals only (see the server's user_stats); never reminder text. */
+    suspend fun sendStats(context: Context, body: JSONObject) = withContext(Dispatchers.IO) {
+        call(context, "POST", "/api/yadar/stats", body)
+    }
+
     suspend fun setName(context: Context, name: String) = withContext(Dispatchers.IO) {
         store(context, call(context, "POST", "/api/yadar/me", JSONObject().put("name", name)))
     }

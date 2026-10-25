@@ -403,7 +403,7 @@ User said: $text"""
         val today = Dates.formatDate(now.toLocalDate(), CalendarSystem.PERSIAN, AppLanguage.FA, withWeekday = true)
         val prompt = """You are «یادار», a friendly reminder assistant inside an Android app. The user talks to you (usually in Persian).
 Current local time: $now (${now.dayOfWeek}), time zone $zone. Today in the Persian calendar: $today. Default calendar: $calendar.
-Reply language: ${if (lang == AppLanguage.FA) "Persian (Farsi), colloquial and short" else "English, short"}.
+Reply language: ${if (lang == AppLanguage.FA) "Persian (Farsi), colloquial and short" else "English, short"}.${Prefs.userName(context).takeIf { it.isNotBlank() }?.let { "\nThe user likes to be called \"$it\"; use the name now and then, not in every reply." }.orEmpty()}
 
 ${Assistant.context(context)}
 Decide what the user wants and return ONLY JSON, no prose:

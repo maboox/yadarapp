@@ -42,6 +42,7 @@ fun OnboardingScreen(onFinish: () -> Unit) {
     var tick by remember { mutableIntStateOf(0) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { tick++ }
 
+    var name by remember { mutableStateOf(Prefs.userName(context)) }
     val pages = listOf(
         Page(Icons.Rounded.NotificationsActive, listOf(Color(0xFF3B2DB0), Color(0xFF8F7BFF)),
             { t("به یادار خوش آمدی", "Welcome to Yadar") },
@@ -54,6 +55,14 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                     }, { Text(label) })
                 }
             }
+        },
+        Page(Icons.Rounded.Face, listOf(Color(0xFFB8436B), Color(0xFFF08AA8)),
+            { t("چی صدات کنم؟", "What should I call you?") },
+            { t("اگر دوست داری، اسمت را بنویس تا یادار با اسم صدایت کند. لازم نیست؛ هر وقت خواستی از تنظیمات عوضش کن.",
+                "If you like, type your name so Yadar can greet you. It is optional and you can change it in Settings.") }) {
+            OutlinedTextField(name, { name = it.take(30); Prefs.setUserName(context, name) }, singleLine = true,
+                modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
+                placeholder = { Text(t("اسم یا لقب", "Name or nickname")) })
         },
         Page(Icons.Rounded.AutoAwesome, listOf(Color(0xFF0F7F70), Color(0xFF3FC9B0)),
             { t("فقط بگو یا بنویس", "Just say or type it") },

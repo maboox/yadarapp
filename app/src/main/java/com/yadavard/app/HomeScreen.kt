@@ -77,17 +77,25 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
                 Column(Modifier.weight(1f)) {
                     val hour = Instant.ofEpochMilli(now).atZone(zone).hour
+                    val name = Prefs.userName(context)
+                    val comma = if (name.isBlank()) "" else t("، $name", ", $name")
                     Text(when (hour) {
-                        in 5..11 -> t("صبح بخیر ☀️", "Good morning ☀️")
-                        in 12..16 -> t("ظهر بخیر 🌤", "Good afternoon 🌤")
-                        in 17..20 -> t("عصر بخیر 🌇", "Good evening 🌇")
-                        else -> t("شب بخیر 🌙", "Good night 🌙")
+                        in 5..11 -> t("صبح بخیر$comma ☀️", "Good morning$comma ☀️")
+                        in 12..16 -> t("ظهر بخیر$comma 🌤", "Good afternoon$comma 🌤")
+                        in 17..20 -> t("عصر بخیر$comma 🌇", "Good evening$comma 🌇")
+                        else -> t("شب بخیر$comma 🌙", "Good night$comma 🌙")
                     }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(Dates.formatDate(today, AppDisplay.calendar, AppDisplay.language, withWeekday = true),
                         style = MaterialTheme.typography.headlineSmall)
                     val other = if (AppDisplay.calendar == CalendarSystem.PERSIAN) CalendarSystem.GREGORIAN else CalendarSystem.PERSIAN
                     Text(Dates.formatDate(today, other, AppDisplay.language), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    // One friendly line about today, so the top of the screen says something useful.
+                    if (items.isNotEmpty()) Text(when {
+                        sections.attention.isNotEmpty() -> t("${n(sections.attention.size)} مورد منتظر توجه توست", "${sections.attention.size} waiting for you")
+                        sections.todayCount > 0 -> t("امروز ${n(sections.todayCount)} کار داری", "${sections.todayCount} to do today")
+                        else -> t("امروز کاری نداری؛ خوش بگذره 🌿", "Nothing today — enjoy 🌿")
+                    }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 2.dp))
                 }
                 FilledTonalIconButton(onClick = { searching = !searching; if (!searching) query = "" }) {
                     Icon(if (searching) Icons.Rounded.Close else Icons.Rounded.Search, t("جست‌وجو", "Search"))

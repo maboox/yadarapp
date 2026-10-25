@@ -49,6 +49,7 @@ import java.time.LocalDate
 class MainActivity : ComponentActivity() {
     private val command = mutableStateOf<Intent?>(null)
     private val onboarded = mutableStateOf(true)
+    private val askRating = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,12 +57,21 @@ class MainActivity : ComponentActivity() {
         AppDisplay.load(this)
         Notifier.ensureChannels(this)
         onboarded.value = Prefs.onboarded(this)
+        if (onboarded.value) {
+            Engagement.noteLaunch(this)
+            // Only on a fresh start, so it appears the next time the user comes back, not in the middle of work.
+            if (savedInstanceState == null) askRating.value = Engagement.shouldAskRating(this)
+            lifecycleScope.launch { Engagement.sendStats(this@MainActivity) }
+        }
         command.value = intent?.takeIf { it.action != Intent.ACTION_MAIN }
         setContent {
             YadarTheme {
                 CompositionLocalProvider(LocalLayoutDirection provides
                     if (AppDisplay.language == AppLanguage.FA) LayoutDirection.Rtl else LayoutDirection.Ltr) {
-                    if (onboarded.value) AppRoot(command.value) { command.value = null }
+                    if (onboarded.value) {
+                        AppRoot(command.value) { command.value = null }
+                        if (askRating.value) RatingDialog { askRating.value = false }
+                    }
                     else OnboardingScreen { Prefs.setOnboarded(this); onboarded.value = true }
                 }
             }

@@ -66,7 +66,7 @@ class AlarmActivity : ComponentActivity() {
                 CompositionLocalProvider(LocalLayoutDirection provides
                     if (AppDisplay.language == AppLanguage.FA) LayoutDirection.Rtl else LayoutDirection.Ltr) {
                     AlarmScreen(reminder, Prefs.snoozeMinutes(this),
-                        onDone = { if (test) stopTest() else Notifier.completeWithUndo(this, reminderId); finish() },
+                        onDone = { if (test) stopTest() else Repo.complete(this, reminderId); finish() },
                         onSnooze = { minutes -> if (test) stopTest() else Repo.snooze(this, reminderId, minutes); finish() },
                         onClose = {
                             // Stop ringing but keep the reminder visible as pending.

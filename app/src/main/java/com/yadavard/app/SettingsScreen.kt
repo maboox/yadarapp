@@ -189,6 +189,10 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
         item {
             SettingsCard(t("ظاهر و زبان", "Appearance"), Icons.Rounded.Palette,
                 summary = t("زبان، تقویم، حالت روشن/تیره و تم", "Language, calendar, light/dark and theme"), collapsible = true) {
+                Label(t("چی صدایت کنیم؟", "What should we call you?"))
+                var userName by remember { mutableStateOf(Prefs.userName(context)) }
+                OutlinedTextField(userName, { userName = it.take(30); Prefs.setUserName(context, userName) }, Modifier.fillMaxWidth(),
+                    singleLine = true, placeholder = { Text(t("اسم یا لقب (اختیاری)", "Name or nickname (optional)")) })
                 Label(t("زبان", "Language"))
                 Segmented(listOf(AppLanguage.FA to "فارسی", AppLanguage.EN to "English"), AppDisplay.language) {
                     AppDisplay.language = it; Prefs.setLanguage(context, it)

@@ -32,6 +32,7 @@ func registerRoutes(se *core.ServeEvent) {
 	auth.POST("/ai/chat", handleChat)
 	auth.POST("/ai/transcribe", handleTranscribe)
 	auth.GET("/packs", handlePacks)
+	auth.POST("/stats", handleStats)
 	auth.POST("/purchase", handlePurchase)
 	auth.POST("/purchase/consumed", handlePurchaseConsumed)
 }
