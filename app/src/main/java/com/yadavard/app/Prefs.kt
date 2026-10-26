@@ -60,6 +60,10 @@ object Prefs {
     fun userName(context: Context): String = prefs(context).getString("user_name", "").orEmpty()
     fun setUserName(context: Context, value: String) = prefs(context).edit().putString("user_name", value.trim().take(30)).apply()
 
+    /** The user's mascot: a small JSON with the chosen parts. */
+    fun mascotJson(context: Context): String? = prefs(context).getString("mascot", null)
+    fun setMascotJson(context: Context, value: String) = prefs(context).edit().putString("mascot", value).apply()
+
     fun onboarded(context: Context): Boolean = prefs(context).getBoolean("onboarded", false)
     fun setOnboarded(context: Context) = prefs(context).edit().putBoolean("onboarded", true).apply()
 

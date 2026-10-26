@@ -14,8 +14,8 @@ android {
         applicationIdSuffix = ".plus"
         minSdk = 26
         targetSdk = 35
-        versionCode = 42
-        versionName = "3.3.0"
+        versionCode = 43
+        versionName = "3.4.0"
     }
     // Test builds use one fixed, public key so each new APK installs over the previous one.
     // Store builds use the private Bazaar key from CI secrets (see .github/workflows/android.yml); when it is not
@@ -55,6 +55,12 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
+    // «قطعه‌های تست» of the mascot (inspired by well-known characters) are only shipped in the debug and the public
+    // test release builds. The Bazaar (store) build never includes them.
+    sourceSets {
+        getByName("debug").assets.srcDir("src/testparts/assets")
+        getByName("release").assets.srcDir("src/testparts/assets")
+    }
     packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
     lint { abortOnError = false; checkReleaseBuilds = false }
 }
@@ -64,6 +70,7 @@ dependencies {
     implementation(composeBom)
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("com.github.cafebazaar.Poolakey:poolakey:2.2.0")
+    implementation("com.caverock:androidsvg-aar:1.4")
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")

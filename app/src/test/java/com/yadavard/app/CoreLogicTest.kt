@@ -227,7 +227,11 @@ class CoreLogicTest {
         val edited = NoteText.edit(body, check = listOf("نان"), remove = listOf("پنیر"))
         assertEquals("خرید\n☐ شیر\n☑ نان سنگک", edited)
         assertEquals("خرید\n☐ شیر\n☐ نان سنگک", NoteText.edit(edited, uncheck = listOf("نان سنگک")))
-        assertEquals("خرید\n☑ شیر\n☑ نان سنگک", NoteText.toggle(edited, 1))
+        // a ticked item goes to the end of its checklist, an unticked one comes back above the ticked ones
+        assertEquals("خرید\n☑ نان سنگک\n☑ شیر", NoteText.toggle(edited, 1))
+        assertEquals("a\n☐ y\n☑ x" to 2, NoteText.toggleMove("a\n☐ x\n☐ y", 1))
+        assertEquals("☐ a\n☐ c\n☑ b" to 1, NoteText.toggleMove("☐ a\n☑ b\n☑ c", 2))
+        assertEquals("☐ x\n☑ z\n☑ y" to 2, NoteText.toggleMove("☐ x\n☑ z\n☐ y", 2))
         assertEquals("☐ a", NoteText.setKind("a", 0, NoteText.Kind.TODO))
         assertEquals("a", NoteText.setKind("☐ a", 0, NoteText.Kind.TODO))
         assertEquals("1. x\n2. y", NoteText.setKind("1. x\ny", 1, NoteText.Kind.NUMBER))

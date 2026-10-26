@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 -50 360 398" width="360" height="398"><defs>
+    <linearGradient id="gb" x1=".15" y1="0" x2=".85" y2="1"><stop offset="0" stop-color="#fff2f7"/><stop offset=".45" stop-color="#ffc9dd"/><stop offset="1" stop-color="#f294b8"/></linearGradient>
+    <linearGradient id="gs" x1="0" y1="0" x2="1" y2="0"><stop offset=".4" stop-color="#3a1fa0" stop-opacity="0"/><stop offset="1" stop-color="#3a1fa0" stop-opacity=".2"/></linearGradient>
+    <linearGradient id="gl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc9dd"/><stop offset="1" stop-color="#e074a0"/></linearGradient>
+    <linearGradient id="gg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#eb84ac"/><stop offset="1" stop-color="#bc4e7c"/></linearGradient>
+    <radialGradient id="gw" cx=".3" cy=".25" r=".85"><stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <linearGradient id="gy" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe98a"/><stop offset="1" stop-color="#f2b200"/></linearGradient>
+    <linearGradient id="gp" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9a80f7"/><stop offset="1" stop-color="#5136c4"/></linearGradient>
+    <linearGradient id="gh" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a874f7"/><stop offset="1" stop-color="#5a32c6"/></linearGradient>
+    <linearGradient id="gq" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d79b5a"/><stop offset="1" stop-color="#8a5426"/></linearGradient>
+    <linearGradient id="gc" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff6f98"/><stop offset="1" stop-color="#b52a5a"/></linearGradient>
+    <linearGradient id="gk" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4a4568"/><stop offset="1" stop-color="#1b1830"/></linearGradient>
+    <linearGradient id="gr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff5a5f"/><stop offset="1" stop-color="#b3202c"/></linearGradient>
+    <linearGradient id="gi" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6fcff"/><stop offset="1" stop-color="#b8def4"/></linearGradient>
+    <linearGradient id="gt" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f0f3fa"/><stop offset="1" stop-color="#8f98b2"/></linearGradient>
+    <linearGradient id="gn" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6fe08f"/><stop offset="1" stop-color="#1f8f48"/></linearGradient>
+    <linearGradient id="gz" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b3bbcf"/><stop offset="1" stop-color="#5a6278"/></linearGradient>
+    <linearGradient id="gj" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6fe08f"/><stop offset="1" stop-color="#2a8f4a"/></linearGradient>
+    <linearGradient id="gm" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6dc8a"/><stop offset="1" stop-color="#c79a3c"/></linearGradient>
+    <clipPath id="cb"><path d="M150 62 C100 62 64 108 62 170 C60 214 48 242 36 266 Q150 296 264 266 C252 242 240 214 238 170 C236 108 200 62 150 62Z"/></clipPath>
+  </defs><g class="legs">
+      <rect x="104" y="256" width="28" height="50" rx="13" fill="url(#gg)" stroke="#4d3cae" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/><rect x="168" y="256" width="28" height="50" rx="13" fill="url(#gg)" stroke="#4d3cae" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/>
+      <ellipse cx="110" cy="312" rx="23" ry="12" fill="url(#gg)" stroke="#4d3cae" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/><ellipse cx="190" cy="312" rx="23" ry="12" fill="url(#gg)" stroke="#4d3cae" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/>
+      <ellipse cx="102" cy="308" rx="9" ry="3.6" fill="#fff" opacity=".28"/><ellipse cx="182" cy="308" rx="9" ry="3.6" fill="#fff" opacity=".28"/></g></svg>

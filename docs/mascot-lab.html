@@ -75,6 +75,11 @@ svg[data-state=celebrate] .fx-conf{display:inline}
     <div class="chips" id="c-item"></div>
     <h3>لباس و پشتی</h3>
     <div class="chips" id="c-outfit"></div>
+    <h3>⚠️ تست: الهام‌گرفته از شخصیت‌ها (فقط آزمایش خصوصی)</h3>
+    <div class="chips" id="c-thead"></div>
+    <div class="chips" id="c-tglasses" style="margin-top:6px"></div>
+    <div class="chips" id="c-titem" style="margin-top:6px"></div>
+    <div class="chips" id="c-toutfit" style="margin-top:6px"></div>
     <h3>رنگ بدنه</h3>
     <div class="chips" id="c-color"></div>
     <h3>چیزی که برنامه ذخیره می‌کند (فقط همین!)</h3>
@@ -89,6 +94,10 @@ svg[data-state=celebrate] .fx-conf{display:inline}
 <h2>چند نمونه</h2>
 <p class="note">همه با همان بدنه و فقط با عوض کردن چند عدد ساخته شده‌اند. هر کدام یک «ست» است.</p>
 <div class="gal" id="gal"></div>
+
+<h2>نمونه‌های تست (الهام‌گرفته از شخصیت‌ها)</h2>
+<p class="note">فقط برای آزمایش خصوصی. در نسخهٔ بازار گذاشته نمی‌شوند و قبل از هر انتشاری باید تأیید حقوقی شوند.</p>
+<div class="gal" id="gal2"></div>
 
 <h2>انیمیشن‌ها چطور کار می‌کنند؟</h2>
 <div class="card">
@@ -120,7 +129,7 @@ talk:      mouth = .3 + .7*abs(sin(t*11))    // mouth opens and closes
 
 <script>
 /* ============================ مسکات: قطعه‌ها ============================ */
-const OL = '#3b2a8c';              // رنگ خط دور (نرم‌تر از قبل)
+const OL = '#4d3cae';              // رنگ خط دور (نرم‌تر از قبل)
 const PAL = {                      // رنگ‌های بدنه
   lav:   {n:'یاسی',  b1:'#f6f2ff', b2:'#cfc2ff', b3:'#a08af0', lip:'#8a72e2', leg1:'#8f78ec', leg2:'#6149c9', arm:'#c3b4fa', chk:'#6a4fd8', sw:'#b8a6ff'},
   mint:  {n:'نعنایی', b1:'#f0fff9', b2:'#b9f2da', b3:'#74d5ac', lip:'#52bc90', leg1:'#60cb9f', leg2:'#33987a', arm:'#a8e8cc', chk:'#1f9c6f', sw:'#8fe3be'},
@@ -167,7 +176,7 @@ const FACES = {
 };
 
 /* ---------- کلاه و مو: همه مستقیم در مختصات بدنه کشیده شده‌اند (بالای گنبد = y 62، لبهٔ گنبد در y=105 حدود x=82 و x=218) ---------- */
-const S = `stroke="${OL}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"`;
+const S = `stroke="${OL}" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"`;
 const gloss = (d,o=.35) => `<path d="${d}" fill="none" stroke="#fff" stroke-opacity="${o}" stroke-width="4" stroke-linecap="round"/>`;
 const HEADS = {
   none:  {n:'بدون', svg:()=>''},
@@ -265,7 +274,7 @@ const ITEMS = {
   none:  {n:'بدون', svg:()=>''},
   star:  {n:'ستاره', svg:(u)=>`<polygon points="${star(0,-22,24,10)}" fill="url(#gy${u})" ${S}/><path d="M-4 -30 L-9 -34" stroke="#fff" stroke-opacity=".7" stroke-width="3" stroke-linecap="round"/><path d="M-30 -48 L-36 -54M30 -48 L36 -54M0 -56 V-64" stroke="#ffb400" stroke-width="3.5" stroke-linecap="round"/>`},
   horn:  {n:'شیپور', svg:(u)=>`<path d="M-6 -8 L26 -26 Q38 -10 26 8 L-6 0Z" fill="url(#gy${u})" ${S}/><ellipse cx="29" cy="-9" rx="7" ry="17" fill="#ffe27a" ${S}/><rect x="-16" y="-8" width="12" height="8" rx="3" fill="#e09b12" ${S}/><path d="M8 -16 V0" stroke="#fff" stroke-opacity=".5" stroke-width="3"/>`},
-  cup:   {n:'قهوه', svg:()=>`<path d="M-15 -26 H15 L11 2 Q10 8 3 8 H-3 Q-10 8 -11 2Z" fill="#fff" ${S}/><path d="M15 -20 Q30 -20 28 -9 Q26 0 12 -2" fill="none" ${S}/><path d="M-12 -22 H12" stroke="#7a4a2a" stroke-width="5" stroke-linecap="round"/><g><path class="steam" d="M-5 -34 Q-9 -42 -3 -48"/><path class="steam" d="M5 -34 Q1 -42 7 -48"/></g>`},
+  cup:   {n:'قهوه', svg:()=>`<path d="M-15 -26 H15 L11 2 Q10 8 3 8 H-3 Q-10 8 -11 2Z" fill="#fff" ${S}/><path d="M15 -20 Q30 -20 28 -9 Q26 0 12 -2" fill="none" ${S}/><path d="M-12 -22 H12" stroke="#7a4a2a" stroke-width="5" stroke-linecap="round"/><g><path class="steam" fill="none" stroke="#9a8fd0" stroke-width="3" stroke-linecap="round" d="M-5 -34 Q-9 -42 -3 -48"/><path class="steam" fill="none" stroke="#9a8fd0" stroke-width="3" stroke-linecap="round" d="M5 -34 Q1 -42 7 -48"/></g>`},
   phone: {n:'گوشی', svg:(u)=>`<rect x="-13" y="-40" width="26" height="46" rx="7" fill="url(#gp${u})" ${S}/><rect x="-9" y="-35" width="18" height="34" rx="3" fill="#efeaff"/><path d="M-5 -18 L-1 -13 L6 -24" fill="none" stroke="#6a4fd8" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>`},
   pad:   {n:'دفترچه', svg:()=>`<g transform="rotate(8)"><rect x="-18" y="-46" width="36" height="46" rx="5" fill="#fff" ${S}/><path d="M-10 -34 H10M-10 -26 H10M-10 -18 H4" stroke="#b7aee0" stroke-width="3" stroke-linecap="round"/><path d="M-12 -48 V-42M-4 -48 V-42M4 -48 V-42M12 -48 V-42" stroke="#33217a" stroke-width="3.5" stroke-linecap="round"/></g><g transform="translate(18 -4) rotate(28)"><rect x="-4" y="-34" width="8" height="30" fill="#ffd94a" ${S}/><path d="M-4 -4 L0 6 L4 -4Z" fill="#ffe7c4" ${S}/><rect x="-4" y="-38" width="8" height="5" rx="2" fill="#ff8fb4" ${S}/></g>`},
   clip:  {n:'چک‌لیست', svg:(u)=>`<rect x="-20" y="-52" width="40" height="52" rx="6" fill="#c98a4a" ${S}/><rect x="-15" y="-45" width="30" height="40" rx="3" fill="#fff"/><rect x="-8" y="-56" width="16" height="9" rx="3" fill="#9aa0b8" ${S}/>
@@ -296,65 +305,152 @@ const OUTFITS = {
          front:(u)=>`<path d="M82 180 Q96 230 70 270" fill="none" stroke="${OL}" stroke-width="12" stroke-linecap="round"/><path d="M82 180 Q96 230 70 270" fill="none" stroke="url(#gc${u})" stroke-width="7" stroke-linecap="round"/>`},
   wings: {n:'بال', back:(u)=>`<path d="M70 190 Q-8 130 -14 190 Q-6 232 36 222 Q-2 240 24 262 Q60 262 74 228Z" fill="#fff" ${S}/><path d="M230 190 Q308 130 314 190 Q306 232 264 222 Q302 240 276 262 Q240 262 226 228Z" fill="#fff" ${S}/><path d="M6 186 Q22 214 44 216M294 186 Q278 214 256 216" stroke="#d9d0f7" stroke-width="3.5" fill="none" stroke-linecap="round"/>`, front:()=>''},
 };
-/* ============================ ساخت SVG یک مسکات ============================ */
+/* ============================================================================================
+   قطعه‌های «تست»: الهام‌گرفته از شخصیت‌های معروف. فقط برای آزمایش خصوصی؛ قبل از انتشار حذف یا تأیید حقوقی شود.
+   در برنامه فقط در نسخه‌های آزمایشی (debug/release عمومی) هستند و در نسخهٔ بازار (store) گذاشته نمی‌شوند.
+   ============================================================================================ */
+const BODYPATH = 'M150 62 C100 62 64 108 62 170 C60 214 48 242 36 266 Q150 296 264 266 C252 242 240 214 238 170 C236 108 200 62 150 62Z';
+const bodyClip = (id, y) => `<clipPath id="${id}"><path d="${BODYPATH}"/></clipPath>`;
+const braid = (x,y0,y1,c1,c2,ribbon) => { let o=`<path d="M${x} ${y0} Q${x-6} ${(y0+y1)/2} ${x} ${y1}" stroke="${OL}" stroke-width="22" fill="none" stroke-linecap="round" opacity=".0"/>`;
+  for (let y=y0, i=0; y<y1; y+=14, i++) o+=`<ellipse cx="${x+(i%2?4:-4)}" cy="${y}" rx="11" ry="9" fill="${i%2?c1:c2}" ${S}/>`;
+  return o+`<circle cx="${x}" cy="${y1+4}" r="8" fill="${ribbon}" ${S}/>`; };
+const THEADS = {
+  batcowl: {n:'کلاه خفاشی', svg:(u)=>`<path d="M92 70 L84 12 L126 54Z" fill="url(#gk${u})" ${S}/><path d="M208 70 L216 12 L174 54Z" fill="url(#gk${u})" ${S}/>
+      <path d="M66 140 C58 72 96 48 150 48 C204 48 242 72 234 140 Q224 114 200 118 L188 128 Q150 112 112 128 L100 118 Q76 114 66 140Z" fill="url(#gk${u})" ${S}/>
+      <path d="M96 76 Q110 60 138 56" stroke="#fff" stroke-opacity=".25" stroke-width="4" fill="none" stroke-linecap="round"/>`},
+  mariocap:{n:'کلاه قرمز', svg:(u)=>`<path d="M80 112 C76 48 224 48 220 112 Q150 126 80 112Z" fill="url(#gr${u})" ${S}/><path d="M72 110 Q150 132 228 110 L232 124 Q150 150 68 124Z" fill="#b81f2a" ${S}/>
+      <circle cx="150" cy="84" r="19" fill="#fff" ${S}/><path d="M140 84 L148 92 L162 76" fill="none" stroke="#d9262f" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>${gloss('M98 80 Q110 62 134 58',.4)}`},
+  spider:  {n:'نقاب تارعنکبوتی', svg:(u)=>`<defs>${bodyClip('tm'+u)}</defs><g clip-path="url(#tm${u})"><rect x="0" y="40" width="300" height="176" fill="url(#gr${u})"/>
+      <g stroke="#7a1018" stroke-width="2.2" fill="none" opacity=".75">${[0,1,2,3,4,5,6,7].map(i=>{const a=rad(i*45+22);return `<path d="M150 150 L${(150+Math.cos(a)*140).toFixed(1)} ${(150+Math.sin(a)*140).toFixed(1)}"/>`}).join('')}
+      <path d="M118 150 Q150 138 182 150M96 150 Q150 128 204 150M72 150 Q150 116 228 150"/><path d="M118 150 Q150 164 182 150M96 150 Q150 172 204 150M72 150 Q150 180 228 150"/></g>
+      <path d="M40 214 Q150 232 260 214 L260 240 L40 240Z" fill="#2a49b8"/></g>
+      <path d="M92 150 Q104 124 138 136 Q146 160 124 176 Q98 172 92 150Z" fill="#fff" stroke="#111" stroke-width="3.5" stroke-linejoin="round"/><path d="M208 150 Q196 124 162 136 Q154 160 176 176 Q202 172 208 150Z" fill="#fff" stroke="#111" stroke-width="3.5" stroke-linejoin="round"/>`},
+  ironhelm:{n:'کلاه‌خود آهنی', svg:(u)=>`<defs>${bodyClip('ih'+u)}</defs><g clip-path="url(#ih${u})"><rect x="0" y="40" width="300" height="176" fill="url(#gr${u})"/></g>
+      <path d="M76 124 Q150 96 224 124 L218 190 Q150 222 82 190Z" fill="url(#gy${u})" ${S}/><path d="M96 136 Q150 118 204 136 L200 172 Q150 196 100 172Z" fill="#fff" fill-opacity=".14"/>
+      <path d="M100 150 L142 156 L138 166 L102 160Z" fill="#cdf6ff" stroke="#2a1f5e" stroke-width="2.5"/><path d="M200 150 L158 156 L162 166 L198 160Z" fill="#cdf6ff" stroke="#2a1f5e" stroke-width="2.5"/>
+      <path d="M150 112 V196M120 184 Q150 196 180 184" stroke="${OL}" stroke-width="2.6" fill="none" opacity=".6"/>${gloss('M96 90 Q110 70 138 66',.35)}`},
+  straw:   {n:'کلاه حصیری', svg:(u)=>`<ellipse cx="150" cy="102" rx="92" ry="21" fill="url(#gm${u})" ${S}/><path d="M96 102 C92 52 208 52 204 102Z" fill="url(#gm${u})" ${S}/>
+      <path d="M97 90 Q150 108 203 90 L204 104 Q150 122 96 104Z" fill="#d93a3a" ${S}/><path d="M60 100 Q150 124 240 100M110 70 Q150 86 190 70" stroke="#b58a30" stroke-width="2.4" fill="none" opacity=".6"/>
+      <path d="M108 170 L116 190M104 178 H114 M107 184 H117" stroke="#3b2a8c" stroke-width="2.8" stroke-linecap="round" fill="none"/>`},
+  leaf:    {n:'سربند نینجا', svg:(u)=>`<path d="M62 118 Q150 98 238 118 L238 140 Q150 120 62 140Z" fill="#2c4fa8" ${S}/><rect x="116" y="108" width="68" height="30" rx="8" fill="#d6dcec" ${S}/>
+      <path d="M150 124 m-9 0 a9 9 0 0 1 18 0 a5.5 5.5 0 0 1 -11 0 a2.5 2.5 0 0 1 5 0" fill="none" stroke="#2a3a78" stroke-width="3" stroke-linecap="round"/><path d="M232 126 L262 112 L254 134 L272 148 L238 142Z" fill="#2c4fa8" ${S}/>
+      <path d="M84 176 L64 170M84 186 L62 186M84 196 L64 202M216 176 L236 170M216 186 L238 186M216 196 L236 202" stroke="#2a1f5e" stroke-width="3" stroke-linecap="round"/>`},
+  ice:     {n:'موی یخی و بافت', svg:(u)=>`<path d="M68 132 C56 70 100 44 150 44 C208 44 246 74 232 132 C222 100 198 92 172 102 C150 84 104 92 86 112 C78 118 72 124 68 132Z" fill="url(#gi${u})" ${S}/>
+      ${braid(66,126,250,'#cdeaff','#a9d6f2','#6ec6ff')}<path d="M118 70 L126 50 L136 64 L150 40 L164 64 L174 50 L182 70Z" fill="#dff6ff" ${S}/>${gloss('M96 74 Q112 56 140 52',.6)}`},
+  thor:    {n:'کلاه‌خود بالدار', svg:(u)=>`<path d="M80 114 C76 52 224 52 220 114 Q150 128 80 114Z" fill="url(#gt${u})" ${S}/><path d="M80 104 Q150 120 220 104" stroke="#8b94ac" stroke-width="3" fill="none"/>
+      <path d="M84 92 Q38 82 18 38 Q52 56 70 64 Q40 62 30 92 Q62 82 82 104Z" fill="#fff" ${S}/><path d="M216 92 Q262 82 282 38 Q248 56 230 64 Q260 62 270 92 Q238 82 218 104Z" fill="#fff" ${S}/>${gloss('M100 84 Q112 66 138 62',.55)}`},
+  link:    {n:'کلاه سبز بلند', svg:(u)=>`<path d="M82 114 C74 48 182 28 230 68 C256 92 268 128 262 168 C246 134 220 114 190 108 Q140 100 82 114Z" fill="url(#gn${u})" ${S}/>
+      <path d="M82 112 Q140 98 190 106" stroke="#fff" stroke-opacity=".3" stroke-width="3.5" fill="none" stroke-linecap="round"/><path d="M130 62 Q170 56 210 78" stroke="#1d7a3c" stroke-width="3" fill="none" opacity=".5"/>`},
+  wizardgray:{n:'کلاه خاکستری بلند', svg:(u)=>`<path d="M92 106 C102 70 124 24 164 -30 C174 -38 190 -32 196 -18 C190 -12 184 -8 182 2 C190 40 200 76 208 106Z" fill="url(#gz${u})" ${S}/><ellipse cx="150" cy="104" rx="86" ry="17" fill="url(#gz${u})" ${S}/>
+      <path d="M94 92 Q150 114 206 92 L208 104 Q150 128 92 104Z" fill="#6c7490" ${S}/>${gloss('M104 90 C112 66 128 38 150 6',.35)}`},
+  joker:   {n:'موی سبز', svg:(u)=>`<path d="M72 130 C62 70 94 40 150 44 C206 40 238 70 228 130 C214 102 202 110 190 98 C176 114 164 100 150 110 C136 100 124 114 110 98 C98 110 86 102 72 130Z" fill="url(#gj${u})" ${S}/>
+      <path d="M116 56 Q106 26 130 16 Q126 36 140 46M170 50 Q180 24 160 12 Q170 34 154 44" fill="none" stroke="#3fbf5f" stroke-width="6" stroke-linecap="round"/>${gloss('M96 80 Q110 60 138 56',.4)}`},
+  wed:     {n:'موی مشکی و بافت', svg:(u)=>`<path d="M70 130 C62 70 100 46 150 46 C200 46 238 70 230 130 L218 100 Q186 112 150 106 Q114 112 82 100Z" fill="url(#gk${u})" ${S}/>
+      ${braid(62,130,246,'#2a2640','#1b1830','#fff')}${braid(238,130,246,'#2a2640','#1b1830','#fff')}${gloss('M100 70 Q118 58 144 56',.25)}`},
+  goku:    {n:'موی سیخی', svg:(u)=>`<path d="M78 114 L62 56 L100 84 L98 26 L130 70 L150 14 L170 70 L202 26 L200 84 L238 56 L222 114 Q150 92 78 114Z" fill="url(#gk${u})" ${S}/><path d="M112 64 L124 48M150 56 V34M188 64 L176 48" stroke="#fff" stroke-opacity=".28" stroke-width="3.5" stroke-linecap="round"/>`},
+  curl:    {n:'موی مشکی با فر', svg:(u)=>`<path d="M78 112 C74 56 226 56 222 112 C206 88 176 82 150 92 C124 82 94 88 78 112Z" fill="url(#gk${u})" ${S}/><path d="M146 86 C132 92 136 112 154 108 C166 104 164 90 152 90" fill="url(#gk${u})" ${S}/>${gloss('M98 80 Q112 64 136 60',.3)}`},
+};
+const TGLASSES = {
+  stache:{n:'سبیل', svg:()=>`<path d="M150 180 Q130 166 106 182 Q124 198 150 190 Q176 198 194 182 Q170 166 150 180Z" fill="#3a2418" ${S}/><path d="M118 180 Q128 176 138 180" stroke="#fff" stroke-opacity=".25" stroke-width="3" fill="none" stroke-linecap="round"/>`},
+  beard:{n:'ریش بلند', svg:()=>`<path d="M72 172 Q76 214 98 244 Q150 306 202 244 Q224 214 228 172 Q214 190 192 188 Q172 180 150 184 Q128 180 108 188 Q86 190 72 172Z" fill="#fff" ${S}/><path d="M120 214 Q150 240 180 214M110 234 Q150 266 190 234" fill="none" stroke="#d6d0ee" stroke-width="3.5" stroke-linecap="round"/><path d="M134 186 Q150 196 166 186" fill="none" stroke="#2a1f5e" stroke-width="4.5" stroke-linecap="round"/>`},
+  jsmile:{n:'لبخند بزرگ', svg:()=>`<path d="M88 176 Q150 236 212 176 Q150 208 88 176Z" fill="#d62839" ${S}/><path d="M88 176 Q76 168 70 150M212 176 Q224 168 230 150" stroke="#d62839" stroke-width="5" fill="none" stroke-linecap="round"/>`},
+};
+const TOUTFITS = {
+  scape: {n:'شنل و سپر قهرمان', back:(u)=>`<path d="M62 150 Q22 230 8 280 Q30 300 50 286 Q70 306 92 290 Q112 312 150 300 Q188 312 208 290 Q230 306 250 286 Q270 300 292 280 Q278 230 238 150Z" fill="url(#gc${u})" ${S}/>`,
+         front:(u)=>`<path d="M118 208 L182 208 L174 250 L150 272 L126 250Z" fill="url(#gy${u})" ${S}/><path d="M126 214 L174 214 L168 246 L150 262 L132 246Z" fill="url(#gc${u})"/><polygon points="${star(150,238,13,6)}" fill="#fff"/>`},
+  bat:   {n:'شنل و نشان خفاش', back:(u)=>`<path d="M62 150 Q22 230 8 284 Q22 306 44 290 Q60 312 86 292 Q112 312 150 300 Q188 312 214 292 Q240 312 256 290 Q278 306 292 284 Q278 230 238 150Z" fill="url(#gk${u})" ${S}/>`,
+         front:(u)=>`<ellipse cx="150" cy="238" rx="32" ry="18" fill="url(#gy${u})" ${S}/><path d="M122 236 Q134 224 144 232 L150 222 L156 232 Q166 224 178 236 Q166 240 162 248 Q156 242 150 250 Q144 242 138 248 Q134 240 122 236Z" fill="#1e1b2e"/>`},
+  collar:{n:'لباس مشکی و یقه', back:()=>'', front:(u)=>`<defs>${bodyClip('cl'+u)}</defs><g clip-path="url(#cl${u})"><rect x="0" y="198" width="300" height="120" fill="url(#gk${u})"/></g>
+      <path d="M104 202 L150 244 L196 202 L178 196 L150 220 L122 196Z" fill="#fff" ${S}/><path d="M146 214 L150 244 L154 214Z" fill="#fff" ${S}/>`},
+};
+const TITEMS = {
+  hammer:{n:'چکش', svg:(u)=>`<rect x="-4" y="-46" width="8" height="58" rx="4" fill="#8a5a2a" ${S}/><rect x="-28" y="-72" width="56" height="30" rx="7" fill="url(#gt${u})" ${S}/><path d="M-16 -66 V-48M16 -66 V-48" stroke="#6c7490" stroke-width="3"/><path d="M-22 -68 H18" stroke="#fff" stroke-opacity=".5" stroke-width="3" stroke-linecap="round"/>`},
+  shield:{n:'سپر گرد', svg:(u)=>`<circle cx="0" cy="-28" r="28" fill="#d93a3a" ${S}/><circle cx="0" cy="-28" r="21" fill="#fff"/><circle cx="0" cy="-28" r="15" fill="#d93a3a"/><circle cx="0" cy="-28" r="10" fill="#2a49b8"/><polygon points="${star(0,-28,8,3.4)}" fill="#fff"/>`},
+  ball:  {n:'توپ قرمز و سفید', svg:()=>`<circle cx="0" cy="-20" r="18" fill="#fff" ${S}/><path d="M-18 -20 A18 18 0 0 1 18 -20Z" fill="#e8404a" stroke="${OL}" stroke-width="2.8" stroke-linejoin="round"/><path d="M-18 -20 H18" stroke="${OL}" stroke-width="3.4"/><circle cx="0" cy="-20" r="6" fill="#fff" ${S}/>`},
+  saber: {n:'شمشیر نورانی', svg:()=>`<rect x="-9" y="-100" width="18" height="74" rx="9" fill="#7ef0ff" opacity=".35"/><rect x="-4" y="-98" width="8" height="70" rx="4" fill="#d6fbff" stroke="#35c8e8" stroke-width="2.4"/><rect x="-6" y="-28" width="12" height="38" rx="3" fill="#8a90a8" ${S}/><path d="M-6 -20 H6M-6 -12 H6M-6 -4 H6" stroke="#4a5068" stroke-width="2.4"/>`},
+  wand:  {n:'عصای جادو', svg:(u)=>`<path d="M-4 8 L16 -50" stroke="#6a3f1c" stroke-width="7" stroke-linecap="round"/><path d="M-4 8 L16 -50" stroke="#a8692f" stroke-width="3" stroke-linecap="round"/><polygon points="${star(20,-62,12,5)}" fill="url(#gy${u})" ${S}/><path d="M36 -76 l4 -6M4 -72 l-6 -4M22 -88 v-8" stroke="#ffb400" stroke-width="3" stroke-linecap="round"/>`},
+};
+
+/* ============================ ساخت SVG: هر لایه جدا (برای خروجی به برنامه هم همین‌ها استفاده می‌شود) ============================ */
 let UID = 0;
-// ترتیب لایه‌ها از پایین به بالا
-const LAYERS = ['پاها و سایه','لباسِ پشت','بدنه و زنگوله','تیک شکم','لباسِ جلو','چهره','عینک','کلاه و مو','دست‌ها','آیتم دست'];
-function mascotMarkup(o, uid){
-  const p = PAL[o.color] || PAL.lav, u = uid;
-  const L = o.upto ?? 99;
-  const show = i => i <= L;
-  const body = 'M150 62 C100 62 64 108 62 170 C60 214 48 242 36 266 Q150 296 264 266 C252 242 240 214 238 170 C236 108 200 62 150 62Z';
-  const out = OUTFITS[o.outfit] || OUTFITS.none;
-  // دست: یک کپسول که از داخل بدن شروع می‌شود، پس به بدن چسبیده است. مفصل شانه داخل بدن است.
-  const arm = (x, cls) => `<g class="${cls}">
-      <g stroke="${OL}" stroke-width="3" stroke-linecap="round"><line x1="${x}" y1="206" x2="${x}" y2="246" stroke-width="30" stroke="${OL}"/><circle cx="${x}" cy="248" r="17" fill="${OL}" stroke="none"/></g>
-      <line x1="${x}" y1="206" x2="${x}" y2="246" stroke="${p.arm}" stroke-width="24" stroke-linecap="round"/><circle cx="${x}" cy="248" r="14" fill="${p.arm}"/>
-      <path d="M${x-6} 214 V240" stroke="#fff" stroke-opacity=".5" stroke-width="4" stroke-linecap="round"/><circle cx="${x+4}" cy="252" r="4" fill="#000" opacity=".06"/></g>`;
-  return `<svg viewBox="-30 -50 360 398" xmlns="http://www.w3.org/2000/svg" data-state="idle">
-  <defs>
+const LAYERS = ['لباسِ پشت','پاها','دست‌ها','بدنه و زنگوله','تیک شکم','لباسِ جلو','چهره','عینک','کلاه و مو','آیتم دست'];
+const VIEWBOX = '-30 -50 360 398';
+const find = (dicts, id) => { for (const d of dicts) if (d[id]) return d[id]; return null; };
+
+function defsSvg(p, u){
+  return `<defs>
     <linearGradient id="gb${u}" x1=".15" y1="0" x2=".85" y2="1"><stop offset="0" stop-color="${p.b1}"/><stop offset=".45" stop-color="${p.b2}"/><stop offset="1" stop-color="${p.b3}"/></linearGradient>
-    <linearGradient id="gs${u}" x1="0" y1="0" x2="1" y2="0"><stop offset=".4" stop-color="#3a1fa0" stop-opacity="0"/><stop offset="1" stop-color="#3a1fa0" stop-opacity=".22"/></linearGradient>
+    <linearGradient id="gs${u}" x1="0" y1="0" x2="1" y2="0"><stop offset=".4" stop-color="#3a1fa0" stop-opacity="0"/><stop offset="1" stop-color="#3a1fa0" stop-opacity=".2"/></linearGradient>
     <linearGradient id="gl${u}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${p.b2}"/><stop offset="1" stop-color="${p.lip}"/></linearGradient>
     <linearGradient id="gg${u}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${p.leg1}"/><stop offset="1" stop-color="${p.leg2}"/></linearGradient>
+    <radialGradient id="gw${u}" cx=".3" cy=".25" r=".85"><stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
     <linearGradient id="gy${u}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe98a"/><stop offset="1" stop-color="#f2b200"/></linearGradient>
     <linearGradient id="gp${u}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9a80f7"/><stop offset="1" stop-color="#5136c4"/></linearGradient>
     <linearGradient id="gh${u}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a874f7"/><stop offset="1" stop-color="#5a32c6"/></linearGradient>
     <linearGradient id="gq${u}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d79b5a"/><stop offset="1" stop-color="#8a5426"/></linearGradient>
     <linearGradient id="gc${u}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff6f98"/><stop offset="1" stop-color="#b52a5a"/></linearGradient>
-    <filter id="bl${u}"><feGaussianBlur stdDeviation="1.8"/></filter>
-    <clipPath id="cb${u}"><path d="${body}"/></clipPath>
-  </defs>
+    <linearGradient id="gk${u}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4a4568"/><stop offset="1" stop-color="#1b1830"/></linearGradient>
+    <linearGradient id="gr${u}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff5a5f"/><stop offset="1" stop-color="#b3202c"/></linearGradient>
+    <linearGradient id="gi${u}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6fcff"/><stop offset="1" stop-color="#b8def4"/></linearGradient>
+    <linearGradient id="gt${u}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f0f3fa"/><stop offset="1" stop-color="#8f98b2"/></linearGradient>
+    <linearGradient id="gn${u}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6fe08f"/><stop offset="1" stop-color="#1f8f48"/></linearGradient>
+    <linearGradient id="gz${u}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b3bbcf"/><stop offset="1" stop-color="#5a6278"/></linearGradient>
+    <linearGradient id="gj${u}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6fe08f"/><stop offset="1" stop-color="#2a8f4a"/></linearGradient>
+    <linearGradient id="gm${u}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6dc8a"/><stop offset="1" stop-color="#c79a3c"/></linearGradient>
+    <clipPath id="cb${u}"><path d="${BODYPATH}"/></clipPath>
+  </defs>`;
+}
 
-  <ellipse class="shadow" cx="150" cy="325" rx="86" ry="11" fill="#241b4d" opacity=".16"/>
-  <g class="bounce">
-   ${show(1)?`<g class="legs">
+const LAYER = {
+  legs:(p,u)=>`<g class="legs">
       <rect x="104" y="256" width="28" height="50" rx="13" fill="url(#gg${u})" ${S}/><rect x="168" y="256" width="28" height="50" rx="13" fill="url(#gg${u})" ${S}/>
       <ellipse cx="110" cy="312" rx="23" ry="12" fill="url(#gg${u})" ${S}/><ellipse cx="190" cy="312" rx="23" ry="12" fill="url(#gg${u})" ${S}/>
-      <path d="M97 309 Q105 303 116 305M184 305 Q195 303 203 309" stroke="#fff" stroke-opacity=".35" stroke-width="3" fill="none" stroke-linecap="round"/></g>`:''}
-   <g class="wob">
-    ${show(2)?`<g class="outBack">${out.back(u)}</g>`:''}
-    ${show(3)?`${(!o.head||o.head==='none'||o.upto)?`<circle cx="150" cy="49" r="12" fill="none" stroke="${OL}" stroke-width="10"/><circle cx="150" cy="49" r="12" fill="none" stroke="${p.b3}" stroke-width="4.5"/>`:''}
-      <path d="${body}" fill="url(#gb${u})"/>
+      <ellipse cx="102" cy="308" rx="9" ry="3.6" fill="#fff" opacity=".28"/><ellipse cx="182" cy="308" rx="9" ry="3.6" fill="#fff" opacity=".28"/></g>`,
+  // دست: از پشت بدن بیرون می‌آید، پس محل اتصالش زیر خط دور بدن پنهان است (مثل طرح اصلی)
+  arm:(p,u,x,cls)=>`<g class="${cls}"><line x1="${x}" y1="196" x2="${x}" y2="238" stroke="${OL}" stroke-width="31" stroke-linecap="round"/><circle cx="${x}" cy="240" r="17.5" fill="${OL}"/>
+      <line x1="${x}" y1="196" x2="${x}" y2="238" stroke="${p.arm}" stroke-width="25" stroke-linecap="round"/><circle cx="${x}" cy="240" r="14.5" fill="${p.arm}"/>
+      <ellipse cx="${x-4}" cy="234" rx="4.5" ry="8" fill="url(#gw${u})" opacity=".9"/></g>`,
+  handle:(p,u)=>`<circle cx="150" cy="49" r="12" fill="none" stroke="${OL}" stroke-width="10"/><circle cx="150" cy="49" r="12" fill="none" stroke="${p.b3}" stroke-width="4.5"/>`,
+  body:(p,u)=>`<path d="${BODYPATH}" fill="url(#gb${u})"/>
       <g clip-path="url(#cb${u})">
         <rect x="0" y="40" width="300" height="270" fill="url(#gs${u})"/>
         <path d="M10 252 Q150 288 290 252 L290 320 L10 320Z" fill="url(#gl${u})"/>
-        <path d="M44 256 Q150 292 256 256" stroke="#fff" stroke-opacity=".42" stroke-width="3.5" fill="none" stroke-linecap="round" filter="url(#bl${u})"/>
-        <path d="M92 106 C100 86 118 76 138 74 C122 86 110 102 106 126 C103 148 104 172 108 196 C94 174 86 136 92 106Z" fill="#fff" opacity=".6" filter="url(#bl${u})"/>
-        <circle cx="94" cy="214" r="5" fill="#fff" opacity=".5"/><circle cx="92" cy="227" r="2.6" fill="#fff" opacity=".4"/>
+        <path d="M44 256 Q150 292 256 256" stroke="#fff" stroke-opacity=".3" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+        <path d="M92 106 C100 86 118 76 138 74 C122 86 110 102 106 126 C103 148 104 172 108 196 C94 174 86 136 92 106Z" fill="url(#gw${u})"/>
+        <circle cx="94" cy="214" r="5" fill="#fff" opacity=".45"/><circle cx="92" cy="227" r="2.6" fill="#fff" opacity=".35"/>
       </g>
-      <path d="${body}" fill="none" stroke="${OL}" stroke-width="3.4" stroke-linejoin="round"/>`:''}
-    ${show(4)?`<g class="belly"><path d="M129 226 L146 243 L178 210" fill="none" stroke="${p.chk}" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M130 222 L146 238 L176 207" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g>`:''}
-    ${show(5)?`<g class="outFront">${out.front(u)}</g>`:''}
-    ${show(6)?`<g class="face">${(FACES[o.face]||FACES.happy).svg()}</g>`:''}
-    ${show(7)?`<g class="glasses">${(GLASSES[o.glasses]||GLASSES.none).svg(u)}</g>`:''}
-    ${show(8)?`<g class="head">${(HEADS[o.head]||HEADS.none).svg(u)}</g>`:''}
-    ${show(9)?arm(84,'armL')+arm(216,'armR'):''}
+      <path d="${BODYPATH}" fill="none" stroke="${OL}" stroke-width="3" stroke-linejoin="round"/>`,
+  belly:(p,u)=>`<g class="belly"><path d="M129 226 L146 243 L178 210" fill="none" stroke="${p.chk}" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M130 222 L146 238 L176 207" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g>`,
+};
+const ALLOUT = [OUTFITS, TOUTFITS], ALLHEAD = [HEADS, THEADS], ALLGLASS = [GLASSES, TGLASSES], ALLITEM = [ITEMS, TITEMS];
+
+function mascotMarkup(o, uid){
+  const p = PAL[o.color] || PAL.lav, u = uid;
+  const L = o.upto ?? 99, show = i => i <= L;
+  const out = find(ALLOUT, o.outfit) || OUTFITS.none;
+  const head = find(ALLHEAD, o.head) || HEADS.none;
+  const glasses = find(ALLGLASS, o.glasses) || GLASSES.none;
+  const item = find(ALLITEM, o.item) || ITEMS.none;
+  const face = FACES[o.face] || FACES.happy;
+  return `<svg viewBox="${VIEWBOX}" xmlns="http://www.w3.org/2000/svg" data-state="idle">
+  ${defsSvg(p,u)}
+  <ellipse class="shadow" cx="150" cy="325" rx="86" ry="11" fill="#241b4d" opacity=".16"/>
+  <g class="bounce">
+   <g class="wob">
+    ${show(1)?`<g class="outBack">${out.back(u)}</g>`:''}
+    ${show(2)?LAYER.legs(p,u):''}
+    ${show(3)?LAYER.arm(p,u,76,'armL')+LAYER.arm(p,u,224,'armR'):''}
+    ${show(4)?`${(!o.head||o.head==='none'||o.upto)?LAYER.handle(p,u):''}${LAYER.body(p,u)}`:''}
+    ${show(5)?LAYER.belly(p,u):''}
+    ${show(6)?`<g class="outFront">${out.front(u)}</g>`:''}
+    ${show(7)?`<g class="face">${face.svg()}</g>`:''}
+    ${show(8)?`<g class="glasses">${glasses.svg(u)}</g>`:''}
+    ${show(9)?`<g class="head">${head.svg(u)}</g>`:''}
     <g class="fx fx-waves"><path class="wv" d="M30 120 Q8 160 30 200"/><path class="wv" d="M10 106 Q-22 160 10 214"/><path class="wv" d="M270 120 Q292 160 270 200"/><path class="wv" d="M290 106 Q322 160 290 214"/></g>
     <g class="bulb" transform="translate(250 24) scale(0)">${BULB(u)}</g>
    </g>
-   ${show(10)?`<g class="itemWrap"><g class="item">${(ITEMS[o.item]||ITEMS.none).svg(u)}</g></g>`:''}
+   ${show(10)?`<g class="itemWrap"><g class="item">${item.svg(u)}</g></g>`:''}
    <g class="fx fx-zzz"><text class="zz" x="206" y="44" font-size="28">z</text><text class="zz" x="224" y="22" font-size="21">z</text><text class="zz" x="236" y="2" font-size="16">z</text></g>
   </g>
   <g class="fx fx-conf">${Array.from({length:16},(_,i)=>{const c=['#ffd94a','#ff8fb4','#6fd1a8','#78b4f2','#9a82ee'][i%5];
@@ -364,21 +460,21 @@ function mascotMarkup(o, uid){
 
 /* ============================ حرکت: همهٔ فرمول‌ها اینجاست ============================ */
 const STATES = {
-  idle:     {n:'ایستاده',   face:null,     f:(t,s)=>({dy:Math.sin(t*2)*2.2, sy:1+Math.sin(t*2)*.012, aL:16+Math.sin(t*2+1)*3, aR:-16-Math.sin(t*2+2)*3})},
-  wave:     {n:'سلام',      face:'happy',  f:(t,s)=>({dy:Math.sin(t*2)*2, sy:1, wob:Math.sin(t*3)*1.6, aL:124+Math.sin(t*9)*14, aR:-14})},
-  think:    {n:'فکر می‌کنم', face:'think',  f:(t,s)=>({dy:Math.sin(t*1.6)*1.5, sy:1, wob:-5+Math.sin(t*1.4)*1, aL:16, aR:-16, bulb:Math.min(1, Math.max(0,(s-1.6)*3))})},
-  talk:     {n:'حرف می‌زنم', face:'happy',  f:(t,s)=>({dy:Math.sin(t*2)*2, sy:1, aL:16, aR:-40+Math.sin(t*4)*16, wob:Math.sin(t*3.2)*1.4, mouth:.25+.75*Math.abs(Math.sin(t*11)*Math.sin(t*3.1+1))})},
-  ring:     {n:'زنگ می‌زنم', face:'wow',    f:(t,s)=>({dy:-2, sy:1, wob:Math.sin(t*34)*7, aL:70, aR:-70, mouth:.8+.2*Math.sin(t*18)})},
-  celebrate:{n:'جشن',       face:'joy',    f:(t,s)=>{const b=Math.abs(Math.sin(t*4.4)); return {dy:-b*38, sy:1+(1-b)*-.0+ (b<.12?-.1*(1-b/.12):0), sx:b<.12?1+.07*(1-b/.12):1, aL:132+Math.sin(t*12)*10, aR:-132-Math.sin(t*12+1)*10, wob:Math.sin(t*4.4)*3}}},
-  sleep:    {n:'خواب',      face:'sleepy', f:(t,s)=>({dy:Math.sin(t*1.2)*1.4, sy:1+Math.sin(t*1.2)*.022, wob:4, aL:8, aR:-8, mouth:.55+.35*Math.sin(t*1.2)})},
+  idle:     {n:'ایستاده',   face:null,     f:(t,s)=>({dy:Math.sin(t*2)*2.2, sy:1+Math.sin(t*2)*.012, aL:36+Math.sin(t*2+1)*3, aR:-36-Math.sin(t*2+2)*3})},
+  wave:     {n:'سلام',      face:'happy',  f:(t,s)=>({dy:Math.sin(t*2)*2, sy:1, wob:Math.sin(t*3)*1.6, aL:120+Math.sin(t*9)*14, aR:-36})},
+  think:    {n:'فکر می‌کنم', face:'think',  f:(t,s)=>({dy:Math.sin(t*1.6)*1.5, sy:1, wob:-5+Math.sin(t*1.4)*1, aL:36, aR:-36, bulb:Math.min(1, Math.max(0,(s-1.6)*3))})},
+  talk:     {n:'حرف می‌زنم', face:'happy',  f:(t,s)=>({dy:Math.sin(t*2)*2, sy:1, aL:36, aR:-60+Math.sin(t*4)*16, wob:Math.sin(t*3.2)*1.4, mouth:.25+.75*Math.abs(Math.sin(t*11)*Math.sin(t*3.1+1))})},
+  ring:     {n:'زنگ می‌زنم', face:'wow',    f:(t,s)=>({dy:-2, sy:1, wob:Math.sin(t*34)*7, aL:75, aR:-75, mouth:.8+.2*Math.sin(t*18)})},
+  celebrate:{n:'جشن',       face:'joy',    f:(t,s)=>{const b=Math.abs(Math.sin(t*4.4)); return {dy:-b*38, sy:1+(1-b)*-.0+ (b<.12?-.1*(1-b/.12):0), sx:b<.12?1+.07*(1-b/.12):1, aL:135+Math.sin(t*12)*10, aR:-135-Math.sin(t*12+1)*10, wob:Math.sin(t*4.4)*3}}},
+  sleep:    {n:'خواب',      face:'sleepy', f:(t,s)=>({dy:Math.sin(t*1.2)*1.4, sy:1+Math.sin(t*1.2)*.022, wob:4, aL:24, aR:-24, mouth:.55+.35*Math.sin(t*1.2)})},
 };
-const HOLD = -72;   // زاویهٔ دست راست وقتی آیتم دارد
+const HOLD = -82;   // زاویهٔ دست راست وقتی آیتم دارد
 
 class Mascot {
   constructor(host, opts, animate){
     this.o = Object.assign({color:'lav',face:'happy',head:'none',glasses:'none',item:'none',outfit:'none'}, opts);
     this.state = 'idle'; this.t0 = 0;
-    this.cur = {dy:0,sx:1,sy:1,wob:0,aL:16,aR:-16,mouth:1,bulb:0,lx:0,ly:0,blink:1};
+    this.cur = {dy:0,sx:1,sy:1,wob:0,aL:36,aR:-36,mouth:1,bulb:0,lx:0,ly:0,blink:1};
     this.mount(host);
     if (animate) this.loop();
     else this.apply(this.target(0, 99));
@@ -401,7 +497,7 @@ class Mascot {
   target(t, s){
     const st = STATES[this.state], p = st.f(t, s);
     const hold = this.o.item !== 'none' && ['idle','think','talk'].includes(this.state);
-    return Object.assign({dy:0,sx:1,sy:1,wob:0,aL:16,aR:-16,mouth:1,bulb:0}, p, hold ? {aR:HOLD+Math.sin(t*2.2)*3} : {});
+    return Object.assign({dy:0,sx:1,sy:1,wob:0,aL:36,aR:-36,mouth:1,bulb:0}, p, hold ? {aR:HOLD+Math.sin(t*2.2)*3} : {});
   }
   apply(p){
     const r = this.r; if (!r.bounce) return;
@@ -410,9 +506,9 @@ class Mascot {
     r.shadow.setAttribute('transform', `translate(150 325) scale(${k(1+p.dy*.012)} 1) translate(-150 -325)`);
     r.shadow.setAttribute('opacity', k(.16*(1+p.dy*.012)));
     r.wob.setAttribute('transform', `rotate(${k(p.wob)} 150 285)`);
-    if (r.armL) r.armL.setAttribute('transform', `rotate(${k(p.aL)} 84 206)`);
-    if (r.armR) r.armR.setAttribute('transform', `rotate(${k(p.aR)} 216 206)`);
-    if (r.itemWrap){ const a = rad(p.aR), hx = 216 - Math.sin(a)*48, hy = 206 + Math.cos(a)*48;
+    if (r.armL) r.armL.setAttribute('transform', `rotate(${k(p.aL)} 76 196)`);
+    if (r.armR) r.armR.setAttribute('transform', `rotate(${k(p.aR)} 224 196)`);
+    if (r.itemWrap){ const a = rad(p.aR), hx = 224 - Math.sin(a)*44, hy = 196 + Math.cos(a)*44;
       r.itemWrap.setAttribute('transform', `translate(${k(hx)} ${k(hy)}) rotate(${k(p.wob*.5)}) scale(1.35)`); }
     if (r.bulb) r.bulb.setAttribute('transform', `translate(250 24) scale(${k(p.bulb)})`);
     if (r.face){
@@ -455,7 +551,7 @@ function chips(id, items, key, extra){
   box._key = key;
 }
 function mark(){
-  for (const [id,key,cur] of [['c-face','face',state.face],['c-head','head',state.head],['c-glasses','glasses',state.glasses],['c-item','item',state.item],['c-outfit','outfit',state.outfit],['c-state','',main.state]])
+  for (const [id,key,cur] of [['c-face','face',state.face],['c-head','head',state.head],['c-glasses','glasses',state.glasses],['c-item','item',state.item],['c-outfit','outfit',state.outfit],['c-thead','head',state.head],['c-tglasses','glasses',state.glasses],['c-titem','item',state.item],['c-toutfit','outfit',state.outfit],['c-state','',main.state]])
     document.querySelectorAll('#'+id+' .chip').forEach(b=>b.classList.toggle('on', b.dataset.k===cur));
   document.querySelectorAll('#c-color .sw').forEach(b=>b.classList.toggle('on', b.dataset.k===state.color));
   document.getElementById('json').textContent = JSON.stringify(state).replace(/,/g, ',\n ').replace('{','{\n ').replace('}','\n}');
@@ -467,6 +563,10 @@ chips('c-head', HEADS, 'head', k=>{ state.head=k; refresh(); });
 chips('c-glasses', GLASSES, 'glasses', k=>{ state.glasses=k; refresh(); });
 chips('c-item', ITEMS, 'item', k=>{ state.item=k; refresh(); });
 chips('c-outfit', OUTFITS, 'outfit', k=>{ state.outfit=k; refresh(); });
+chips('c-thead', THEADS, 'head', k=>{ state.head=k; refresh(); });
+chips('c-tglasses', TGLASSES, 'glasses', k=>{ state.glasses=k; refresh(); });
+chips('c-titem', TITEMS, 'item', k=>{ state.item=k; refresh(); });
+chips('c-toutfit', TOUTFITS, 'outfit', k=>{ state.outfit=k; refresh(); });
 { const box=document.getElementById('c-color');
   Object.entries(PAL).forEach(([k,v])=>{ const b=document.createElement('button'); b.className='sw'; b.title=v.n; b.dataset.k=k; b.style.background=v.sw;
     b.onclick=()=>{ state.color=k; refresh(); mark(); }; box.appendChild(b); }); }
@@ -508,6 +608,28 @@ const presets = [
 ];
 { const box=document.getElementById('gal');
   presets.forEach(p=>{ const d=document.createElement('div'); d.className='step'; d.innerHTML=`<div></div><b>${p.n}</b>`; box.appendChild(d);
+    new Mascot(d.firstChild, p.o, false); }); }
+
+const testPresets = [
+  {n:'خفاش‌نما',  o:{face:'cool', head:'batcowl', outfit:'bat', color:'lav'}},
+  {n:'کلاه‌قرمزی', o:{face:'happy', head:'mariocap', glasses:'stache', color:'lav'}},
+  {n:'تارعنکبوتی', o:{face:'wow', head:'spider', color:'lav'}},
+  {n:'آهنی',      o:{face:'calm', head:'ironhelm', color:'gold'}},
+  {n:'حصیری',     o:{face:'laugh', head:'straw', color:'lav'}},
+  {n:'نینجا',     o:{face:'happy', head:'leaf', color:'lav'}},
+  {n:'یخی',       o:{face:'calm', head:'ice', color:'sky'}},
+  {n:'تندر',      o:{face:'cool', head:'thor', item:'hammer', color:'lav'}},
+  {n:'سبزپوش',    o:{face:'happy', head:'link', item:'shield', color:'lav'}},
+  {n:'جادوگر پیر', o:{face:'calm', head:'wizardgray', glasses:'beard', color:'lav'}},
+  {n:'خنده‌دار',   o:{face:'wow', head:'joker', glasses:'jsmile', color:'lav'}},
+  {n:'چهارشنبه',  o:{face:'calm', head:'wed', outfit:'collar', color:'lav'}},
+  {n:'سیخی',      o:{face:'happy', head:'goku', color:'peach'}},
+  {n:'ابرقهرمان', o:{face:'happy', head:'curl', outfit:'scape', color:'sky'}},
+  {n:'توپ‌باز',    o:{face:'joy', head:'mariocap', item:'ball', color:'lav'}},
+  {n:'شمشیری',      o:{face:'cool', head:'curl', item:'saber', color:'lav'}},
+];
+{ const box=document.getElementById('gal2');
+  testPresets.forEach(p=>{ const d=document.createElement('div'); d.className='step'; d.innerHTML=`<div></div><b>${p.n}</b>`; box.appendChild(d);
     new Mascot(d.firstChild, p.o, false); }); }
 </script>
 </body>

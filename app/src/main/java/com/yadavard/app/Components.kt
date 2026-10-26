@@ -247,9 +247,10 @@ fun SectionHeader(title: String, count: Int? = null, color: Color = MaterialThem
 }
 
 @Composable
-fun EmptyState(icon: ImageVector, title: String, subtitle: String, modifier: Modifier = Modifier) {
+fun EmptyState(icon: ImageVector, title: String, subtitle: String, modifier: Modifier = Modifier, mascot: MascotState? = null) {
     Column(modifier.fillMaxWidth().padding(vertical = 36.dp, horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(84.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
+        if (mascot != null) MascotView(rememberMascotConfig(), mascot, size = 150.dp)
+        else Box(Modifier.size(84.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
             Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp))
         }
         Spacer(Modifier.height(14.dp))

@@ -214,6 +214,13 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
         }
 
         item {
+            SettingsCard(t("مسکات من", "My mascot"), Icons.Rounded.Face,
+                summary = t("رنگ، چهره، کلاه، عینک، آیتم و لباس مسکات", "Colour, face, hat, glasses, item and outfit"), collapsible = true) {
+                MascotCustomizer()
+            }
+        }
+
+        item {
             SettingsCard(t("پیش‌فرض‌های یادآوری", "Reminder defaults"), Icons.Rounded.Tune,
                 summary = t("تعویق، نوع یادآوری، زودتر و مدت زنگ", "Snooze, alert type, advance notice, ring time"), collapsible = true) {
                 Label(t("مدت تعویق", "Snooze length"))

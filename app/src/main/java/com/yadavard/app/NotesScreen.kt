@@ -23,12 +23,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import java.time.LocalDate
@@ -169,12 +175,14 @@ fun NoteEditor(note: Note?, onClose: (Note?) -> Unit, onDelete: (Note) -> Unit) 
                         NoteText.boxTappedAt(limited.text, limited.selection.start) else null
                     field = if (tapped != null) {
                         val line = NoteText.lineAt(limited.text, limited.selection.start)
-                        val text = NoteText.toggle(limited.text, line)
-                        TextFieldValue(text, TextRange((tapped + 2).coerceAtMost(text.length)))
+                        val (text, newLine) = NoteText.toggleMove(limited.text, line)
+                        val start = text.split('\n').take(newLine).sumOf { it.length + 1 }
+                        TextFieldValue(text, TextRange((start + 2).coerceAtMost(text.length)))
                     } else NoteText.continueList(field.text, limited.text, limited.selection.start)
                         ?.let { (text, cursor) -> TextFieldValue(text, TextRange(cursor)) } ?: limited
                 }, Modifier.fillMaxWidth().weight(1f).padding(horizontal = 4.dp),
                     placeholder = { Text(t("بنویس…", "Write…")) },
+                    visualTransformation = remember(accent) { CheckGlyphs(accent) },
                     colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent,
                         focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent))
             }
@@ -208,12 +216,13 @@ fun NoteBody(body: String, accent: Color, maxLines: Int = Int.MAX_VALUE, onToggl
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         lines.take(maxLines).forEachIndexed { index, raw ->
             val line = NoteText.parse(raw)
-            Row(verticalAlignment = Alignment.Top) {
+            Row(verticalAlignment = if (NoteText.Kind.TODO == line.kind || NoteText.Kind.DONE == line.kind) Alignment.CenterVertically else Alignment.Top) {
                 when (line.kind) {
-                    NoteText.Kind.TODO, NoteText.Kind.DONE -> Icon(
-                        if (line.kind == NoteText.Kind.DONE) Icons.Rounded.CheckBox else Icons.Rounded.CheckBoxOutlineBlank, null,
-                        tint = accent, modifier = Modifier.padding(end = 6.dp).size(20.dp).clip(RoundedCornerShape(4.dp))
-                            .then(if (onToggle != null) Modifier.clickable { onToggle(index) } else Modifier))
+                    NoteText.Kind.TODO, NoteText.Kind.DONE -> Box(Modifier.size(38.dp).clip(CircleShape)
+                        .then(if (onToggle != null) Modifier.clickable { onToggle(index) } else Modifier), contentAlignment = Alignment.Center) {
+                        Icon(if (line.kind == NoteText.Kind.DONE) Icons.Rounded.CheckBox else Icons.Rounded.CheckBoxOutlineBlank, null,
+                            tint = accent, modifier = Modifier.size(28.dp))
+                    }
                     NoteText.Kind.BULLET -> Text("•", color = accent, modifier = Modifier.padding(horizontal = 4.dp),
                         style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                     NoteText.Kind.NUMBER -> Text(n(line.number) + ".", color = accent, modifier = Modifier.padding(end = 4.dp),
@@ -226,5 +235,20 @@ fun NoteBody(body: String, accent: Color, maxLines: Int = Int.MAX_VALUE, onToggl
             }
         }
         if (lines.size > maxLines) Text("…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** Makes the ☐ / ☑ at the start of a checklist line large and coloured, so it is easy to see and to tap. */
+private class CheckGlyphs(private val accent: Color) : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val s = text.text
+        val b = AnnotatedString.Builder(text)
+        var i = 0
+        while (i < s.length) {
+            val end = s.indexOf('\n', i).let { if (it < 0) s.length else it }
+            if (end > i && (s[i] == '☐' || s[i] == '☑')) b.addStyle(SpanStyle(fontSize = 28.sp, color = accent), i, i + 1)
+            i = end + 1
+        }
+        return TransformedText(b.toAnnotatedString(), OffsetMapping.Identity)
     }
 }

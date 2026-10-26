@@ -1,0 +1,141 @@
+{
+ "heads": [
+  {
+   "id": "batcowl",
+   "n": "کلاه خفاشی",
+   "test": true
+  },
+  {
+   "id": "mariocap",
+   "n": "کلاه قرمز",
+   "test": true
+  },
+  {
+   "id": "spider",
+   "n": "نقاب تارعنکبوتی",
+   "test": true
+  },
+  {
+   "id": "ironhelm",
+   "n": "کلاه‌خود آهنی",
+   "test": true
+  },
+  {
+   "id": "straw",
+   "n": "کلاه حصیری",
+   "test": true
+  },
+  {
+   "id": "leaf",
+   "n": "سربند نینجا",
+   "test": true
+  },
+  {
+   "id": "ice",
+   "n": "موی یخی و بافت",
+   "test": true
+  },
+  {
+   "id": "thor",
+   "n": "کلاه‌خود بالدار",
+   "test": true
+  },
+  {
+   "id": "link",
+   "n": "کلاه سبز بلند",
+   "test": true
+  },
+  {
+   "id": "wizardgray",
+   "n": "کلاه خاکستری بلند",
+   "test": true
+  },
+  {
+   "id": "joker",
+   "n": "موی سبز",
+   "test": true
+  },
+  {
+   "id": "wed",
+   "n": "موی مشکی و بافت",
+   "test": true
+  },
+  {
+   "id": "goku",
+   "n": "موی سیخی",
+   "test": true
+  },
+  {
+   "id": "curl",
+   "n": "موی مشکی با فر",
+   "test": true
+  }
+ ],
+ "glasses": [
+  {
+   "id": "stache",
+   "n": "سبیل",
+   "test": true
+  },
+  {
+   "id": "beard",
+   "n": "ریش بلند",
+   "test": true
+  },
+  {
+   "id": "jsmile",
+   "n": "لبخند بزرگ",
+   "test": true
+  }
+ ],
+ "items": [
+  {
+   "id": "hammer",
+   "n": "چکش",
+   "test": true
+  },
+  {
+   "id": "shield",
+   "n": "سپر گرد",
+   "test": true
+  },
+  {
+   "id": "ball",
+   "n": "توپ قرمز و سفید",
+   "test": true
+  },
+  {
+   "id": "saber",
+   "n": "شمشیر نورانی",
+   "test": true
+  },
+  {
+   "id": "wand",
+   "n": "عصای جادو",
+   "test": true
+  }
+ ],
+ "outfits": [
+  {
+   "id": "scape",
+   "n": "شنل و سپر قهرمان",
+   "back": true,
+   "front": true,
+   "test": true
+  },
+  {
+   "id": "bat",
+   "n": "شنل و نشان خفاش",
+   "back": true,
+   "front": true,
+   "test": true
+  },
+  {
+   "id": "collar",
+   "n": "لباس مشکی و یقه",
+   "back": false,
+   "front": true,
+   "test": true
+  }
+ ]
+}

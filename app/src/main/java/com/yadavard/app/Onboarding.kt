@@ -152,7 +152,8 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally) {
                     Spacer(Modifier.height(12.dp))
-                    Box(Modifier.size(if (index == pages.lastIndex) 110.dp else 168.dp).clip(RoundedCornerShape(48.dp))
+                    if (index <= 1) MascotView(rememberMascotConfig(), if (index == 0) MascotState.WAVE else MascotState.TALK, size = 190.dp)
+                    else Box(Modifier.size(if (index == pages.lastIndex) 110.dp else 168.dp).clip(RoundedCornerShape(48.dp))
                         .background(Brush.linearGradient(page.colors)), contentAlignment = Alignment.Center) {
                         Icon(page.icon, null, tint = Color.White, modifier = Modifier.size(if (index == pages.lastIndex) 54.dp else 80.dp))
                     }

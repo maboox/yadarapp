@@ -38,6 +38,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -97,6 +99,18 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
                         else -> t("امروز کاری نداری؛ خوش بگذره 🌿", "Nothing today — enjoy 🌿")
                     }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 2.dp))
                 }
+                run {
+                    // The mascot greets you; tap it to make it wave. It sleeps at night.
+                    var waving by remember { mutableStateOf(false) }
+                    LaunchedEffect(waving) { if (waving) { delay(2400); waving = false } }
+                    val hourNow = Instant.ofEpochMilli(now).atZone(zone).hour
+                    MascotView(rememberMascotConfig(), when {
+                        waving -> MascotState.WAVE
+                        hourNow !in 5..21 -> MascotState.SLEEP
+                        sections.attention.isNotEmpty() -> MascotState.THINK
+                        else -> MascotState.IDLE
+                    }, Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { waving = true }, size = 76.dp)
+                }
                 FilledTonalIconButton(onClick = { searching = !searching; if (!searching) query = "" }) {
                     Icon(if (searching) Icons.Rounded.Close else Icons.Rounded.Search, t("جست‌وجو", "Search"))
                 }
@@ -151,9 +165,9 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
         if (items.isEmpty()) item(key = "empty") {
             EmptyState(Icons.Rounded.NotificationsActive, t("هنوز یادآوری‌ای نداری", "No reminders yet"),
                 t("بالا بنویس «فردا ساعت ۹ تماس با مامان» یا دکمهٔ «یادآوری جدید» را بزن.",
-                    "Type “call mom tomorrow at 9” above or tap “New reminder”."))
+                    "Type “call mom tomorrow at 9” above or tap “New reminder”."), mascot = MascotState.WAVE)
         } else if (sections.isEmpty) item(key = "nothing") {
-            EmptyState(Icons.Rounded.SearchOff, t("موردی پیدا نشد", "Nothing found"), t("فیلتر یا جست‌وجو را تغییر بده.", "Try another filter or search."))
+            EmptyState(Icons.Rounded.SearchOff, t("موردی پیدا نشد", "Nothing found"), t("فیلتر یا جست‌وجو را تغییر بده.", "Try another filter or search."), mascot = MascotState.THINK)
         }
         fun section(key: String, title: String, entries: List<Entry>, color: Color? = null, showDate: Boolean = true) {
             if (entries.isEmpty()) return

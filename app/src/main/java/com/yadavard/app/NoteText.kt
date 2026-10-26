@@ -66,20 +66,52 @@ object NoteText {
         remove.forEach { item ->
             find(item, setOf(Kind.TODO, Kind.DONE, Kind.BULLET, Kind.NUMBER, Kind.TEXT))?.let { removed += it }
         }
-        return lines.filterIndexed { i, _ -> i !in removed }.joinToString("\n") { render(it) }
+        val kept = lines.filterIndexed { i, _ -> i !in removed }
+        return (if (check.isNotEmpty() || uncheck.isNotEmpty()) sinkDone(kept) else kept).joinToString("\n") { render(it) }
     }
 
-    /** Flips line [index] between to-do and done. */
-    fun toggle(body: String, index: Int): String {
+    private fun isCheck(kind: Kind) = kind == Kind.TODO || kind == Kind.DONE
+
+    /**
+     * Flips line [index] between to-do and done and moves it: a ticked item goes to the end of its checklist,
+     * an unticked one comes back just above the ticked ones. Returns the new text and the line's new index.
+     */
+    fun toggleMove(body: String, index: Int): Pair<String, Int> {
         val lines = body.split('\n').toMutableList()
-        if (index !in lines.indices) return body
+        if (index !in lines.indices) return body to index
         val line = parse(lines[index])
-        lines[index] = render(when (line.kind) {
+        val flipped = when (line.kind) {
             Kind.TODO -> line.copy(kind = Kind.DONE)
             Kind.DONE -> line.copy(kind = Kind.TODO)
-            else -> return body
-        })
-        return lines.joinToString("\n")
+            else -> return body to index
+        }
+        lines.removeAt(index)
+        var start = index
+        while (start > 0 && isCheck(parse(lines[start - 1]).kind)) start--
+        var end = index
+        while (end < lines.size && isCheck(parse(lines[end]).kind)) end++
+        val target = if (flipped.kind == Kind.DONE) end
+            else (start until end).firstOrNull { parse(lines[it]).kind == Kind.DONE } ?: end
+        lines.add(target, render(flipped))
+        return lines.joinToString("\n") to target
+    }
+
+    /** Flips line [index] (see [toggleMove]). */
+    fun toggle(body: String, index: Int): String = toggleMove(body, index).first
+
+    /** Inside every run of checklist lines, to-do items first and ticked ones after them (order kept otherwise). */
+    private fun sinkDone(lines: List<Line>): List<Line> {
+        val out = mutableListOf<Line>()
+        var i = 0
+        while (i < lines.size) {
+            if (!isCheck(lines[i].kind)) { out += lines[i]; i++; continue }
+            var j = i
+            while (j < lines.size && isCheck(lines[j].kind)) j++
+            val run = lines.subList(i, j)
+            out += run.filter { it.kind == Kind.TODO } + run.filter { it.kind == Kind.DONE }
+            i = j
+        }
+        return out
     }
 
     /** Toolbar: gives line [index] the list style [kind], or plain text when it already has it. */
