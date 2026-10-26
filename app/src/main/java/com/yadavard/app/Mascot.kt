@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.caverock.androidsvg.SVG
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import kotlin.math.PI
@@ -41,7 +42,7 @@ import kotlin.math.exp
 import kotlin.math.sin
 
 /*
- * The Yadar mascot: a little living bell. Every part (body, legs, arms, face, hat, glasses, item, outfit) is a small
+ * The Yadimo mascot: a little living bell. Every part (body, legs, arms, face, hat, glasses, item, outfit) is a small
  * SVG layer file in assets (made by tools/export-mascot.js from docs/mascot-lab.html). The layers are drawn on top of
  * each other and moved by a few formulas of time, so the same parts give every mood and every combination.
  */
@@ -69,16 +70,34 @@ enum class MascotState { IDLE, WAVE, THINK, TALK, RING, CELEBRATE, SLEEP }
 object MascotStore {
     var config by mutableStateOf(MascotConfig())
         private set
+    /** Off by default; every screen falls back to its plain icon while this is false. */
+    var enabled by mutableStateOf(false)
+        private set
     private var loaded = false
 
     fun ensure(context: Context) {
-        if (!loaded) { config = MascotConfig.fromJson(Prefs.mascotJson(context)); loaded = true }
+        if (!loaded) {
+            config = MascotConfig.fromJson(Prefs.mascotJson(context)); enabled = Prefs.mascotEnabled(context); loaded = true
+        }
     }
 
     fun set(context: Context, value: MascotConfig) {
-        config = value; loaded = true
+        ensure(context)
+        config = value
         Prefs.setMascotJson(context, value.toJson())
     }
+
+    fun setEnabled(context: Context, value: Boolean) {
+        ensure(context)
+        enabled = value
+        Prefs.setMascotEnabled(context, value)
+    }
+}
+
+@Composable
+fun rememberMascotEnabled(): Boolean {
+    MascotStore.ensure(LocalContext.current)
+    return MascotStore.enabled
 }
 
 @Composable
@@ -350,13 +369,16 @@ fun MascotView(config: MascotConfig, state: MascotState, modifier: Modifier = Mo
     // load the pictures off the main thread first, then keep drawing frames
     LaunchedEffect(config, faceId, bmpScale) {
         withContext(Dispatchers.Default) {
-            // also the faces of the other moods, so a mood change never shows an empty face
-            val faces = listOf(faceId, config.face, "happy", "think", "wow", "joy", "sleepy").distinct()
-            (assetPaths(config, faceId) + faces.flatMap { assetPaths(config, it).filter { p -> p.contains("/face_") } }).distinct()
-                .forEach { MascotArt.bitmap(ctx, it, bmpScale) }
+            assetPaths(config, faceId).forEach { MascotArt.bitmap(ctx, it, bmpScale) }
+            // a moment later, also the faces of the other moods, so a mood change never shows an empty face
+            delay(500)
+            listOf(config.face, "happy", "think", "wow", "joy", "sleepy").distinct().forEach { f ->
+                assetPaths(config, f).filter { p -> p.contains("/face_") }.forEach { MascotArt.bitmap(ctx, it, bmpScale) }
+            }
         }
     }
-    LaunchedEffect(Unit) { while (true) withFrameNanos { frame = it } }
+    // 30 frames a second is plenty for this and half the work
+    LaunchedEffect(Unit) { var lastDrawn = 0L; while (true) withFrameNanos { if (it - lastDrawn >= 30_000_000L) { frame = it; lastDrawn = it } } }
     ComposeCanvas(modifier.size(size, size * (VB_H / VB_W))) {
         val f = frame
         if (anim.base == Long.MIN_VALUE) anim.base = f
@@ -395,7 +417,7 @@ fun MascotCustomizer() {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
             .background(Brush.verticalGradient(listOf(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.surfaceContainerHigh))),
-            contentAlignment = Alignment.Center) { MascotView(cfg, state, Modifier.padding(vertical = 8.dp), size = 200.dp) }
+            contentAlignment = Alignment.Center) { MascotView(cfg, state, Modifier.padding(vertical = 8.dp), size = 150.dp) }
         Text(t("حالت (فقط برای دیدن)", "Mood (preview only)"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(MascotState.entries.toList()) { s -> FilterChip(state == s, { state = s }, { Text(stateLabel(s)) }) }

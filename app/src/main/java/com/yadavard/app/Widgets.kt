@@ -177,7 +177,7 @@ object WidgetUpdater {
 
         for (widgetId in all.getValue(QuickWidgetProvider::class.java)) {
             val v = layout(R.layout.widget_quick, R.layout.widget_quick_ltr)
-            v.setTextViewText(R.id.quick_header, l("✦ یادار", "✦ Yadar"))
+            v.setTextViewText(R.id.quick_header, l("✦ یادیمو", "✦ Yadimo"))
             v.setTextViewText(R.id.quick_description,
                 if (todayList.isEmpty()) l("امروز کاری نداری؛ چیزی اضافه کن", "Nothing today — add something")
                 else l("امروز ${num(todayList.size)} یادآوری داری", "${todayList.size} reminders today"))
@@ -209,7 +209,7 @@ object WidgetUpdater {
             }
             v.setTextViewText(R.id.today_footer, if (todayList.size > todayRows.size)
                 l("${num(todayList.size - todayRows.size)} مورد دیگر ←", "${todayList.size - todayRows.size} more →")
-                else l("باز کردن یادار ←", "Open Yadar →"))
+                else l("باز کردن یادیمو ←", "Open Yadimo →"))
             v.setOnClickPendingIntent(R.id.today_footer, activity(context, widgetId, 8, WidgetCommands.HOME))
             manager.updateAppWidget(widgetId, v)
         }
@@ -284,7 +284,7 @@ object WidgetUpdater {
                 v.setTextViewText(R.id.note_body, if (note == null) l("یادداشتی نیست. لمس کن تا یکی بسازی.", "No note yet. Tap to write one.")
                     else noteSpans(note.body))
                 v.setTextViewText(R.id.note_footer, if (note == null) "" else
-                    l("یادار • ", "Yadar • ") + Dates.friendlyDay(Dates.localDate(note.updatedAt, zone), today, cal, lang) + " " +
+                    l("یادیمو • ", "Yadimo • ") + Dates.friendlyDay(Dates.localDate(note.updatedAt, zone), today, cal, lang) + " " +
                         Dates.formatTime(note.updatedAt, zone, lang))
                 v.setOnClickPendingIntent(R.id.note_root, if (note == null) activity(context, widgetId, 0, WidgetCommands.NEW_NOTE)
                     else activity(context, widgetId, 0, WidgetCommands.OPEN_NOTE, note.id))

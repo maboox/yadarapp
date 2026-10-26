@@ -71,7 +71,7 @@ class AiSettings(context: Context) {
 
     /**
      * "Use my own AI": requests go straight from the phone to the user's own provider with their key and use no
-     * Yadar tokens. Off by default; people who already saved a key before accounts existed keep using it.
+     * Yadimo tokens. Off by default; people who already saved a key before accounts existed keep using it.
      */
     var personal: Boolean
         get() = prefs.getBoolean("personal", hasKey())
@@ -224,7 +224,7 @@ class OpenRouter(private val context: Context) {
      * (for example Whisper) use the transcription endpoint, falling back to a multimodal model if that fails.
      */
     suspend fun transcribe(file: java.io.File): String = withContext(Dispatchers.IO) {
-        // Signed-in users without their own key: the Yadar server transcribes and deducts tokens.
+        // Signed-in users without their own key: the Yadimo server transcribes and deducts tokens.
         if (!settings.personal) return@withContext try { Account.transcribe(context, file).trim()
             .ifBlank { error(if (fa()) "صدایی تشخیص داده نشد" else "No speech recognized") } } finally { file.delete() }
         if (!Account.isLoggedIn(context)) { Account.loginRequested.value = true; file.delete()
@@ -267,14 +267,14 @@ class OpenRouter(private val context: Context) {
     }
 
     private fun transcriptionEndpoint(file: java.io.File, model: String): String {
-        val boundary = "Yadar${System.currentTimeMillis()}"
+        val boundary = "Yadimo${System.currentTimeMillis()}"
         val conn = (URL(settings.baseUrl + "/audio/transcriptions").openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"; doOutput = true; connectTimeout = 20_000; readTimeout = 90_000
             setRequestProperty("Authorization", "Bearer ${requireKey()}")
             // A redirect would silently drop the Authorization header (and turn POST into GET).
             instanceFollowRedirects = false
             setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
-            setRequestProperty("X-Title", "Yadar")
+            setRequestProperty("X-Title", "Yadimo")
         }
         try {
             conn.outputStream.use { out ->
@@ -306,7 +306,7 @@ class OpenRouter(private val context: Context) {
      * made simple requests take minutes; models that cannot turn it off are retried with their default.
      */
     private fun complete(body: JSONObject, timeout: Int): String {
-        // Without an own key, the Yadar server answers (it picks the model and deducts tokens).
+        // Without an own key, the Yadimo server answers (it picks the model and deducts tokens).
         if (!settings.personal) return Account.chat(context, body)
         if (!Account.isLoggedIn(context)) { Account.loginRequested.value = true
             throw LoggedOutException(if (fa()) "برای استفاده از هوش مصنوعی وارد حسابت شو" else "Sign in to use the assistant") }
@@ -317,7 +317,7 @@ class OpenRouter(private val context: Context) {
                 // A redirect would silently drop the Authorization header (and turn POST into GET).
                 instanceFollowRedirects = false
                 setRequestProperty("Content-Type", "application/json")
-                setRequestProperty("X-Title", "Yadar")
+                setRequestProperty("X-Title", "Yadimo")
             }
             try {
                 conn.outputStream.use { it.write(payload.toString().toByteArray(StandardCharsets.UTF_8)) }
@@ -392,7 +392,7 @@ User said: $text"""
     }
 
     /**
-     * The Yadar assistant: understands requests to create, change, delete, complete or postpone reminders
+     * The Yadimo assistant: understands requests to create, change, delete, complete or postpone reminders
      * and questions about the schedule. [history] holds earlier (user text, assistant reply) turns.
      */
     suspend fun assist(text: String, history: List<Pair<String, String>> = emptyList()): AssistantResult = withContext(Dispatchers.IO) {
@@ -401,7 +401,7 @@ User said: $text"""
         val calendar = Prefs.calendar(context)
         val lang = Prefs.language(context)
         val today = Dates.formatDate(now.toLocalDate(), CalendarSystem.PERSIAN, AppLanguage.FA, withWeekday = true)
-        val prompt = """You are «یادار», a friendly reminder assistant inside an Android app. The user talks to you (usually in Persian).
+        val prompt = """You are «یادیمو», a friendly reminder assistant inside an Android app. The user talks to you (usually in Persian).
 Current local time: $now (${now.dayOfWeek}), time zone $zone. Today in the Persian calendar: $today. Default calendar: $calendar.
 Reply language: ${if (lang == AppLanguage.FA) "Persian (Farsi), colloquial and short" else "English, short"}.${Prefs.userName(context).takeIf { it.isNotBlank() }?.let { "\nThe user likes to be called \"$it\"; use the name now and then, not in every reply." }.orEmpty()}
 

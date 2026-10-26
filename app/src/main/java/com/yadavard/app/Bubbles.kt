@@ -114,7 +114,7 @@ private fun BubbleSurface(color: Color = MaterialTheme.colorScheme.surfaceContai
 private fun StatusBubble(text: String, busy: Boolean, icon: ImageVector = Icons.Rounded.AutoAwesome) {
     BubbleSurface {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (busy) MascotView(rememberMascotConfig(), MascotState.THINK, size = 44.dp)
+            if (busy) { if (rememberMascotEnabled()) MascotView(rememberMascotConfig(), MascotState.THINK, size = 36.dp) else CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.5.dp) }
             else Icon(icon, null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(10.dp))
             Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
@@ -143,9 +143,11 @@ private fun UserBubble(text: String) {
 private fun ReplyBubble(text: String, closable: Boolean) {
     BubbleSurface(MaterialTheme.colorScheme.primaryContainer) {
         Row(Modifier.padding(start = 14.dp, end = 6.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.Top) {
-            MascotView(rememberMascotConfig(), MascotState.TALK, size = 40.dp)
+            val mascotOn = rememberMascotEnabled()
+            if (mascotOn) MascotView(rememberMascotConfig(), MascotState.TALK, size = 34.dp)
+            else Icon(Icons.Rounded.AutoAwesome, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp).padding(top = 2.dp))
             Spacer(Modifier.width(8.dp))
-            Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.weight(1f).padding(top = 6.dp))
+            Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.weight(1f).padding(top = if (mascotOn) 4.dp else 0.dp))
             if (closable) IconButton(onClick = { AssistantSession.dismiss() }, modifier = Modifier.size(28.dp)) {
                 Icon(Icons.Rounded.Close, t("بستن", "Close"), Modifier.size(16.dp))
             }

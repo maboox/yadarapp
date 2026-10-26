@@ -12,7 +12,7 @@ import ir.cafebazaar.poolakey.exception.BazaarNotFoundException
 import ir.cafebazaar.poolakey.request.PurchaseRequest
 
 /**
- * Token packs through Cafe Bazaar (Poolakey). The local signature check is off on purpose: the Yadar server
+ * Token packs through Cafe Bazaar (Poolakey). The local signature check is off on purpose: the Yadimo server
  * verifies every purchase with Bazaar's API before adding tokens, and consumes it there.
  */
 object Billing {
@@ -29,7 +29,7 @@ object Billing {
         else -> t("ارتباط با بازار برقرار نشد. ", "Could not connect to Bazaar. ") + (e.message ?: e.javaClass.simpleName)
     }
 
-    /** Starts Bazaar's payment screen for [sku]; [payload] is the Yadar user id, checked again by the server. */
+    /** Starts Bazaar's payment screen for [sku]; [payload] is the Yadimo user id, checked again by the server. */
     fun buy(activity: ComponentActivity, sku: String, payload: String, onResult: (Result) -> Unit) {
         val payment = payment(activity)
         var connection: Connection? = null
@@ -54,7 +54,7 @@ object Billing {
     }
 
     /**
-     * Hands a finished purchase to the Yadar server, then consumes it on Bazaar when the server asks the app to
+     * Hands a finished purchase to the Yadimo server, then consumes it on Bazaar when the server asks the app to
      * (so the pack can be bought again). Returns the tokens added.
      */
     suspend fun redeem(context: Context, info: PurchaseInfo): Double {

@@ -1,4 +1,4 @@
-// Yadar server: phone login, token balances and an AI proxy in front of OpenAI-compatible providers
+// Yadimo server: phone login, token balances and an AI proxy in front of OpenAI-compatible providers
 // (Liara, AvalAI, OpenRouter…). Built on PocketBase, whose admin panel (/_/) manages users, plans,
 // models, providers and settings.
 package main
@@ -44,7 +44,7 @@ func main() {
 // configureApp applies the app name, proxy headers (Liara sits behind a proxy) and rate limits.
 func configureApp(app core.App) error {
 	s := app.Settings()
-	s.Meta.AppName = "Yadar"
+	s.Meta.AppName = "Yadimo"
 	s.TrustedProxy.Headers = []string{"X-Forwarded-For", "X-Real-IP"}
 	s.TrustedProxy.UseLeftmostIP = true
 	s.RateLimits.Enabled = true

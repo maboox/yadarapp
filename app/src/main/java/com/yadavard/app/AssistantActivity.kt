@@ -57,8 +57,8 @@ class AssistantActivity : ComponentActivity() {
         LaunchedEffect(Unit) {
             when {
                 !hasKey -> runCatching { speech.launch(speechIntent(this@AssistantActivity)) }.onFailure {
-                    Toast.makeText(this@AssistantActivity, t("تشخیص گفتار در دسترس نیست. برای دستیار هوشمند در تنظیمات یادار وارد حسابت شو.",
-                        "Speech recognition is unavailable. Sign in in Yadar settings to use the smart assistant."), Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@AssistantActivity, t("تشخیص گفتار در دسترس نیست. برای دستیار هوشمند در تنظیمات یادیمو وارد حسابت شو.",
+                        "Speech recognition is unavailable. Sign in in Yadimo settings to use the smart assistant."), Toast.LENGTH_LONG).show()
                     finish()
                 }
                 ContextCompat.checkSelfPermission(this@AssistantActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED -> recording = true

@@ -93,7 +93,12 @@ private fun AlarmScreen(r: Reminder, defaultSnooze: Int, onDone: () -> Unit, onS
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF0E0B1A)) + heroColors().take(2)))) {
         Column(Modifier.fillMaxSize().systemBarsPadding().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Spacer(Modifier.weight(0.6f))
-            MascotView(rememberMascotConfig(), MascotState.RING, size = 190.dp)
+            if (rememberMascotEnabled()) MascotView(rememberMascotConfig(), MascotState.RING, size = 150.dp)
+            else Box(Modifier.size(132.dp).scale(pulse).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(96.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.Alarm, null, tint = Color.White, modifier = Modifier.size(52.dp))
+                }
+            }
             Spacer(Modifier.height(28.dp))
             Text(Dates.formatTime(r.pendingAt, r.zoneId, AppDisplay.language), color = Color.White, fontSize = 56.sp, fontWeight = FontWeight.Bold)
             Text(Dates.formatDate(Dates.localDate(r.pendingAt, r.zoneId), AppDisplay.calendar, AppDisplay.language, withWeekday = true),

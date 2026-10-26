@@ -114,7 +114,7 @@ class ThemeSpec(
 )
 
 val themes = listOf(
-    ThemeSpec(ThemeColor.VIOLET, "یادار", "Yadar", 0xFF5B4BDB, 0xFFB9B0FF, 0xFF0F9D8A, 0xFFE07A2E,
+    ThemeSpec(ThemeColor.VIOLET, "یادیمو", "Yadimo", 0xFF5B4BDB, 0xFFB9B0FF, 0xFF0F9D8A, 0xFFE07A2E,
         0xFFF6F5FB, 0xFFFFFFFF, 0xFF110F1A, 0xFF1B1926, listOf(0xFF3B2DB0, 0xFF5B4BDB, 0xFF8F7BFF)),
     ThemeSpec(ThemeColor.OCEAN, "اقیانوس", "Ocean", 0xFF1667C7, 0xFF8EC2FF, 0xFF00897B, 0xFF7B5CD6,
         0xFFEFF5FB, 0xFFFFFFFF, 0xFF0B1220, 0xFF132033, listOf(0xFF0B3D91, 0xFF1667C7, 0xFF35B6E5), corner = 26),
@@ -137,7 +137,7 @@ private fun mix(a: Color, b: Color, t: Float) = Color(
 
 private fun onColor(c: Color) = if (c.luminance() > 0.5f) Color(0xFF111111) else Color.White
 
-/** The full light or dark colour scheme of a theme; the original Yadar theme keeps its hand-tuned colours. */
+/** The full light or dark colour scheme of a theme; the original Yadimo theme keeps its hand-tuned colours. */
 fun appColors(dark: Boolean, id: ThemeColor): ColorScheme {
     val spec = themeSpec(id)
     if (id == ThemeColor.VIOLET) return if (dark) DarkColors else LightColors

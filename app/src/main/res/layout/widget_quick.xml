@@ -2,7 +2,7 @@
     android:id="@+id/quick_root" android:layout_width="match_parent" android:layout_height="match_parent"
     android:orientation="vertical" android:layoutDirection="rtl" android:padding="14dp" android:background="@drawable/widget_accent_bg">
     <TextView android:id="@+id/quick_header" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="✦ یادار" android:textColor="#FFFFFF" android:textSize="15sp" android:textStyle="bold"
+        android:text="✦ یادیمو" android:textColor="#FFFFFF" android:textSize="15sp" android:textStyle="bold"
         android:textAlignment="viewStart" />
     <TextView android:id="@+id/quick_description" android:layout_width="match_parent" android:layout_height="wrap_content"
         android:layout_marginTop="2dp" android:text="بگو یا بنویس؛ یادت می‌مونه" android:textColor="#E5DFFF"

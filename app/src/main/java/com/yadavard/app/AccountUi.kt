@@ -97,8 +97,8 @@ fun AccountCard() {
                     Text(t("جزئیات مصرف ›", "Usage ›"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                 }
             }
-            if (AiSettings(context).personal) Text(t("الان از هوش مصنوعی خودت (کلید شخصی) استفاده می‌کنی و توکن یادار کم نمی‌شود.",
-                "You are using your own AI key, so no Yadar tokens are used."),
+            if (AiSettings(context).personal) Text(t("الان از هوش مصنوعی خودت (کلید شخصی) استفاده می‌کنی و توکن یادیمو کم نمی‌شود.",
+                "You are using your own AI key, so no Yadimo tokens are used."),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (!p.unlimited) Button(onClick = { buying = true }, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Rounded.AddShoppingCart, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
@@ -144,7 +144,7 @@ fun BazaarButton(modifier: Modifier = Modifier.fillMaxWidth(), enabled: Boolean 
     }
 }
 
-/** One-tap Bazaar sign-in: the installed Bazaar app asks the user once and hands Yadar their account id. */
+/** One-tap Bazaar sign-in: the installed Bazaar app asks the user once and hands Yadimo their account id. */
 class BazaarSignIn {
     var busy by mutableStateOf(false)
     var error by mutableStateOf("")
@@ -228,7 +228,7 @@ fun LoginDialog(startWithPhone: Boolean = false, onDone: () -> Unit) {
         icon = {
             Icon(Icons.Rounded.AutoAwesome, null, Modifier.combinedClickable(onClick = {}, onLongClick = { usePhone = true }))
         },
-        title = { Text(t("دستیار هوشمند یادار", "Yadar smart assistant")) },
+        title = { Text(t("دستیار هوشمند یادیمو", "Yadimo smart assistant")) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 AssistantPerks()
@@ -274,8 +274,8 @@ fun PacksDialog(onDone: () -> Unit) {
                             onDone()
                         }
                         .onFailure {
-                            error = (it.message ?: "") + "\n" + t("پرداختت ثبت شده و دفعهٔ بعد که یادار را باز کنی دوباره بررسی می‌شود.",
-                                "Your payment is saved and will be checked again next time you open Yadar.")
+                            error = (it.message ?: "") + "\n" + t("پرداختت ثبت شده و دفعهٔ بعد که یادیمو را باز کنی دوباره بررسی می‌شود.",
+                                "Your payment is saved and will be checked again next time you open Yadimo.")
                         }
                     busy = false
                 }
@@ -366,7 +366,7 @@ private fun PhoneLoginDialog(onDone: () -> Unit, onBack: () -> Unit) {
 
     AlertDialog(onDismissRequest = { if (!busy) onDone() },
         icon = { Icon(Icons.Rounded.PhoneAndroid, null) },
-        title = { Text(t("ورود به یادار", "Sign in to Yadar")) },
+        title = { Text(t("ورود به یادیمو", "Sign in to Yadimo")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (codeLength == 0) {

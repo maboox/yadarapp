@@ -99,7 +99,7 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
                         else -> t("امروز کاری نداری؛ خوش بگذره 🌿", "Nothing today — enjoy 🌿")
                     }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 2.dp))
                 }
-                run {
+                if (rememberMascotEnabled()) run {
                     // The mascot greets you; tap it to make it wave. It sleeps at night.
                     var waving by remember { mutableStateOf(false) }
                     LaunchedEffect(waving) { if (waving) { delay(2400); waving = false } }
@@ -109,7 +109,7 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
                         hourNow !in 5..21 -> MascotState.SLEEP
                         sections.attention.isNotEmpty() -> MascotState.THINK
                         else -> MascotState.IDLE
-                    }, Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { waving = true }, size = 76.dp)
+                    }, Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { waving = true }, size = 56.dp)
                 }
                 FilledTonalIconButton(onClick = { searching = !searching; if (!searching) query = "" }) {
                     Icon(if (searching) Icons.Rounded.Close else Icons.Rounded.Search, t("جست‌وجو", "Search"))
@@ -318,7 +318,7 @@ private fun QuickAddCard(text: String, onText: (String) -> Unit, now: Long, acti
     var busy by remember { mutableStateOf(false) }
     val account by Account.profile.collectAsState()
     val useAi = remember(account != null) { Prefs.useAi(context) && Ai.ready(context) }
-    // Running out of Yadar tokens turns the card red with a top-up hint.
+    // Running out of Yadimo tokens turns the card red with a top-up hint.
     val lowTokens = account?.let { !it.unlimited && it.balance <= Account.LOW_BALANCE } == true && !AiSettings(context).personal
     val custom = remember(Categories.all.size) { Categories.customPairs(context) }
     // Typing must never crash the app, whatever the parser thinks of a half-written sentence.
@@ -371,7 +371,7 @@ private fun QuickAddCard(text: String, onText: (String) -> Unit, now: Long, acti
                     Spacer(Modifier.width(8.dp))
                     Text(t("یادآوری سریع", "Quick add"), color = Color.White, style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.weight(1f))
-                    // With Yadar tokens the badge shows the balance, so people see what is left.
+                    // With Yadimo tokens the badge shows the balance, so people see what is left.
                     val badge = account?.takeIf { !AiSettings(context).personal }?.let { if (it.unlimited) "AI ∞" else "AI · " + tokensLabel(it.balance) } ?: "AI"
                     if (useAi) Text(badge, color = Color.White.copy(alpha = 0.8f), fontSize = 11.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color.White.copy(alpha = 0.18f)).padding(horizontal = 6.dp, vertical = 1.dp))

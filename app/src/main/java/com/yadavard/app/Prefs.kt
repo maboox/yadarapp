@@ -61,6 +61,9 @@ object Prefs {
     fun setUserName(context: Context, value: String) = prefs(context).edit().putString("user_name", value.trim().take(30)).apply()
 
     /** The user's mascot: a small JSON with the chosen parts. */
+    /** The mascot is an optional extra, off until it is switched on in the hidden settings. */
+    fun mascotEnabled(context: Context): Boolean = prefs(context).getBoolean("mascot_enabled", false)
+    fun setMascotEnabled(context: Context, value: Boolean) = prefs(context).edit().putBoolean("mascot_enabled", value).apply()
     fun mascotJson(context: Context): String? = prefs(context).getString("mascot", null)
     fun setMascotJson(context: Context, value: String) = prefs(context).edit().putString("mascot", value).apply()
 

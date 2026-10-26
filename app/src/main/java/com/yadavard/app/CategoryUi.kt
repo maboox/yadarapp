@@ -46,8 +46,8 @@ fun CategoriesCard() {
     var deleting by remember { mutableStateOf<CategoryDef?>(null) }
     SettingsCard(t("دسته‌بندی‌ها", "Categories"), Icons.Rounded.Category,
         summary = t("دسته‌های پیش‌فرض و دلخواه", "Built-in and custom categories"), collapsible = true) {
-        Text(t("دسته‌های خودت را بساز (مثلاً دارو، باشگاه، دکتر بچه). یادار از روی متن، دستهٔ مناسب را خودش انتخاب می‌کند؛ اگر نشد «عمومی» می‌گذارد.",
-            "Create your own categories. Yadar picks the right one from the text by itself, or “General” if unsure."),
+        Text(t("دسته‌های خودت را بساز (مثلاً دارو، باشگاه، دکتر بچه). یادیمو از روی متن، دستهٔ مناسب را خودش انتخاب می‌کند؛ اگر نشد «عمومی» می‌گذارد.",
+            "Create your own categories. Yadimo picks the right one from the text by itself, or “General” if unsure."),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Categories.all.forEach { c ->

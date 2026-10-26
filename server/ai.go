@@ -236,7 +236,7 @@ func postJSON(ctx context.Context, p provider, path string, body map[string]any)
 	}
 	req.Header.Set("Authorization", "Bearer "+p.Key)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Title", "Yadar")
+	req.Header.Set("X-Title", "Yadimo")
 	return doRequest(req)
 }
 

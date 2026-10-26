@@ -65,7 +65,7 @@ object Engagement {
         prefs(context).edit().putInt("stars", stars.coerceIn(1, 5)).putLong("last_sent", 0).apply()
     }
 
-    /** Opens Yadar's page in Bazaar (its rating box), or the web page when Bazaar is missing. */
+    /** Opens Yadimo's page in Bazaar (its rating box), or the web page when Bazaar is missing. */
     fun openStore(context: Context) {
         val pkg = context.packageName
         val intent = Intent(Intent.ACTION_EDIT, Uri.parse("bazaar://details?id=$pkg")).setPackage(BAZAAR)
@@ -97,17 +97,17 @@ object Engagement {
     }
 }
 
-/** "How many stars would you give Yadar?" High ratings go to the store page, low ones just get a thank-you. */
+/** "How many stars would you give Yadimo?" High ratings go to the store page, low ones just get a thank-you. */
 @Composable
 fun RatingDialog(onClose: () -> Unit) {
     val context = LocalContext.current
     var stars by remember { mutableIntStateOf(0) }
     AlertDialog(onDismissRequest = { Engagement.askedLater(context); onClose() },
-        title = { Text(t("یادار چطور بود؟", "How do you like Yadar?")) },
+        title = { Text(t("یادیمو چطور بود؟", "How do you like Yadimo?")) },
         text = {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(t("چند ستاره به یادار می‌دهی؟ نظرت به ما کمک می‌کند آن را بهتر کنیم.",
-                    "How many stars would you give Yadar? Your opinion helps us improve it."), textAlign = TextAlign.Center)
+                Text(t("چند ستاره به یادیمو می‌دهی؟ نظرت به ما کمک می‌کند آن را بهتر کنیم.",
+                    "How many stars would you give Yadimo? Your opinion helps us improve it."), textAlign = TextAlign.Center)
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Spacer(Modifier.weight(1f))
                     (1..5).forEach { i ->
@@ -123,7 +123,7 @@ fun RatingDialog(onClose: () -> Unit) {
             TextButton(enabled = stars > 0, onClick = {
                 Engagement.rate(context, stars)
                 if (stars > 3) Engagement.openStore(context)
-                else Toast.makeText(context, t("ممنون از نظرت 🙏 تلاش می‌کنیم یادار را بهتر کنیم.", "Thank you 🙏 we will keep improving Yadar."), Toast.LENGTH_LONG).show()
+                else Toast.makeText(context, t("ممنون از نظرت 🙏 تلاش می‌کنیم یادیمو را بهتر کنیم.", "Thank you 🙏 we will keep improving Yadimo."), Toast.LENGTH_LONG).show()
                 onClose()
             }) { Text(t("ثبت", "Send")) }
         },

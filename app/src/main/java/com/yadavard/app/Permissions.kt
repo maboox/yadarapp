@@ -119,7 +119,7 @@ fun PermissionChecklist(tick: Int, onChanged: () -> Unit, compact: Boolean = fal
             Phone.open(context, Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
         })
         if (Phone.isXiaomi) {
-            device(PermItem(t("اجرای خودکار (شیائومی)", "Autostart (Xiaomi)"), t("در فهرست، «یادار» را روشن کن؛ بعد «انجام دادم» را بزن.", "Turn on Yadar in the list, then tap “Done”."),
+            device(PermItem(t("اجرای خودکار (شیائومی)", "Autostart (Xiaomi)"), t("در فهرست، «یادیمو» را روشن کن؛ بعد «انجام دادم» را بزن.", "Turn on Yadimo in the list, then tap “Done”."),
                 Phone.xiaomiState(context, 10008, "autostart"), t("باز کن", "Open"), "autostart") {
                 Phone.open(context, Phone.miuiAutostart(), Phone.appDetails(context))
             })

@@ -151,7 +151,7 @@ func handleBazaarStart(e *core.RequestEvent) error {
 	q := e.Request.URL.Query()
 	challenge := strings.ToLower(strings.TrimSpace(q.Get("challenge")))
 	if !hex64.MatchString(challenge) {
-		return page(e, http.StatusBadRequest, "درخواست نامعتبر است", "از داخل برنامهٔ یادار دوباره «ورود با بازار» را بزن.", "")
+		return page(e, http.StatusBadRequest, "درخواست نامعتبر است", "از داخل برنامهٔ یادیمو دوباره «ورود با بازار» را بزن.", "")
 	}
 	cfg := loadBazaar(e.App)
 	if cfg.ClientID == "" || cfg.ClientSecret == "" {
@@ -199,12 +199,12 @@ func handleBazaarCallback(e *core.RequestEvent) error {
 		login, _ = app.FindFirstRecordByData("logins", "state", state)
 	}
 	if login == nil || time.Now().UnixMilli() > int64(login.GetFloat("expires")) {
-		return page(e, http.StatusBadRequest, "این ورود منقضی شده", "به برنامهٔ یادار برگرد و دوباره «ورود با بازار» را بزن.", "")
+		return page(e, http.StatusBadRequest, "این ورود منقضی شده", "به برنامهٔ یادیمو برگرد و دوباره «ورود با بازار» را بزن.", "")
 	}
 	scheme := login.GetString("app")
 	code := q.Get("code")
 	if q.Get("error") != "" || code == "" {
-		return page(e, http.StatusOK, "ورود انجام نشد", "اجازهٔ ورود داده نشد. به یادار برگرد و اگر خواستی دوباره امتحان کن.", scheme)
+		return page(e, http.StatusOK, "ورود انجام نشد", "اجازهٔ ورود داده نشد. به یادیمو برگرد و اگر خواستی دوباره امتحان کن.", scheme)
 	}
 	// Bazaar's own example unescapes the code once more.
 	if strings.Contains(code, "%") {
@@ -220,13 +220,13 @@ func handleBazaarCallback(e *core.RequestEvent) error {
 		log.Println("bazaar login:", err)
 		// The reason is Bazaar's own answer (never our secret), shown small so a screenshot is enough to diagnose.
 		return page(e, http.StatusBadGateway, "ارتباط با بازار برقرار نشد",
-			"به یادار برگرد و دوباره امتحان کن.\n\nجزئیات: "+err.Error(), scheme)
+			"به یادیمو برگرد و دوباره امتحان کن.\n\nجزئیات: "+err.Error(), scheme)
 	}
 	login.Set("account_id", accountID)
 	if err := app.Save(login); err != nil {
 		return err
 	}
-	return page(e, http.StatusOK, "ورود انجام شد ✓", "حالا به برنامهٔ یادار برگرد.", scheme)
+	return page(e, http.StatusOK, "ورود انجام شد ✓", "حالا به برنامهٔ یادیمو برگرد.", scheme)
 }
 
 // bazaarAccountID trades the one-time code for an access token and reads the user's stable Bazaar account id.
@@ -316,7 +316,7 @@ func handleBazaarClaim(e *core.RequestEvent) error {
 // Bazaar does not document the id's format; accept any printable ASCII without spaces.
 var accountIDPattern = regexp.MustCompile(`^[\x21-\x7E]{4,200}$`)
 
-// handleBazaarAppLogin signs in with the account id the Bazaar app hands to Yadar (in-app login). The server
+// handleBazaarAppLogin signs in with the account id the Bazaar app hands to Yadimo (in-app login). The server
 // cannot check that id with Bazaar, so the free signup tokens are limited to one per device and a few per
 // network address a day; tokens bought on Bazaar are always checked separately.
 func handleBazaarAppLogin(e *core.RequestEvent) error {
@@ -428,10 +428,10 @@ func page(e *core.RequestEvent, status int, title, text, scheme string) error {
 	back := ""
 	if scheme != "" {
 		link := html.EscapeString(scheme + "://bazaar-login")
-		back = `<a class="btn" href="` + link + `">بازگشت به یادار</a><script>setTimeout(function(){location.href="` + link + `"},600)</script>`
+		back = `<a class="btn" href="` + link + `">بازگشت به یادیمو</a><script>setTimeout(function(){location.href="` + link + `"},600)</script>`
 	}
 	doc := `<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>یادار</title><style>body{font-family:Vazirmatn,Tahoma,sans-serif;background:#f6f4ff;color:#1d1b20;display:flex;min-height:100vh;margin:0;align-items:center;justify-content:center}
+<title>یادیمو</title><style>body{font-family:Vazirmatn,Tahoma,sans-serif;background:#f6f4ff;color:#1d1b20;display:flex;min-height:100vh;margin:0;align-items:center;justify-content:center}
 .card{background:#fff;border-radius:24px;padding:32px 24px;max-width:360px;margin:16px;text-align:center;box-shadow:0 4px 24px #0001}
 h1{font-size:22px;margin:0 0 12px}p{line-height:1.8;color:#49454f;white-space:pre-line;overflow-wrap:anywhere}.btn{display:inline-block;margin-top:16px;background:#6750a4;color:#fff;
 padding:12px 28px;border-radius:999px;text-decoration:none}</style></head><body><div class="card"><h1>` + html.EscapeString(title) +

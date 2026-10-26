@@ -21,7 +21,7 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 
 /**
- * Yadar plays its own alert sounds instead of relying on notification-channel sounds,
+ * Yadimo plays its own alert sounds instead of relying on notification-channel sounds,
  * which some phones (for example MIUI) silence by default or ignore.
  */
 object AlertSound {

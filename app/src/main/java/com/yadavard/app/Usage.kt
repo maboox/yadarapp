@@ -113,7 +113,7 @@ object LowBalance {
             val left = tokensLabel(profile.balance)
             val n = NotificationCompat.Builder(context, Notifier.CHANNEL_QUIET)
                 .setSmallIcon(R.drawable.ic_stat_reminder)
-                .setContentTitle(t("توکن‌های یادار رو به اتمام است", "Your Yadar tokens are running out"))
+                .setContentTitle(t("توکن‌های یادیمو رو به اتمام است", "Your Yadimo tokens are running out"))
                 .setContentText(t("$left توکن مانده؛ برای ادامهٔ دستیار هوشمند شارژ کن.", "$left tokens left; top up to keep using the assistant."))
                 .setContentIntent(open).setAutoCancel(true)
                 .build()

@@ -110,7 +110,7 @@ object Scheduler {
 }
 
 object Notifier {
-    // v3 channels are silent: Yadar plays sound and vibration itself (see AlertSound / AlertService),
+    // v3 channels are silent: Yadimo plays sound and vibration itself (see AlertSound / AlertService),
     // because some phones mute channel sounds of newly installed apps.
     const val CHANNEL_REMINDERS = "yadar_reminders_v3"
     const val CHANNEL_ALARMS = "yadar_alarms_v3"
@@ -144,7 +144,7 @@ object Notifier {
         listOf("reminders", "yadar_reminders_v2", "yadar_alarms_v2").forEach { manager.deleteNotificationChannel(it) }
         manager.createNotificationChannel(NotificationChannel(CHANNEL_REMINDERS, label("یادآوری‌ها", "Reminders"),
             NotificationManager.IMPORTANCE_HIGH).apply {
-            description = label("اعلان موعد یادآوری‌ها (صدا را خود یادار پخش می‌کند)", "Due reminders (Yadar plays the sound itself)")
+            description = label("اعلان موعد یادآوری‌ها (صدا را خود یادیمو پخش می‌کند)", "Due reminders (Yadimo plays the sound itself)")
             setSound(null, null); enableVibration(false)
             enableLights(true); lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         })
@@ -198,7 +198,7 @@ object Notifier {
 
     fun testReminder(context: Context): Reminder {
         val now = System.currentTimeMillis()
-        return Reminder(id = AlertService.TEST_ID, title = label(context, "آزمون زنگ یادار", "Yadar alarm test"),
+        return Reminder(id = AlertService.TEST_ID, title = label(context, "آزمون زنگ یادیمو", "Yadimo alarm test"),
             note = label(context, "اگر صدا را می‌شنوی، زنگ‌ها درست کار می‌کنند.", "If you hear this, alarms work."),
             firstAt = now, pendingAt = now, alertedAt = now, alertStyle = AlertStyle.ALARM)
     }
@@ -206,7 +206,7 @@ object Notifier {
     fun serviceNotification(context: Context): Notification {
         ensureChannels(context)
         return NotificationCompat.Builder(context, CHANNEL_QUIET).setSmallIcon(R.drawable.ic_stat_reminder)
-            .setContentTitle(label(context, "یادار", "Yadar")).setPriority(NotificationCompat.PRIORITY_LOW).build()
+            .setContentTitle(label(context, "یادیمو", "Yadimo")).setPriority(NotificationCompat.PRIORITY_LOW).build()
     }
 
     /** Builds the alert notification for a due occurrence. */
@@ -288,7 +288,7 @@ object Notifier {
         ensureChannels(context)
         post(context, TEST_NOTIFICATION_ID, NotificationCompat.Builder(context, CHANNEL_REMINDERS)
             .setSmallIcon(R.drawable.ic_stat_reminder).setColor(0xFF5B4BDB.toInt())
-            .setContentTitle(label(context, "اعلان آزمایشی یادار ✓", "Yadar test notification ✓"))
+            .setContentTitle(label(context, "اعلان آزمایشی یادیمو ✓", "Yadimo test notification ✓"))
             .setContentText(label(context, "اگر صدا را شنیدی، اعلان‌ها درست کار می‌کنند.", "If you heard a sound, notifications work."))
             .setPriority(NotificationCompat.PRIORITY_MAX).setSilent(true).setAutoCancel(true).build())
         AlertSound.vibrate(context, false)

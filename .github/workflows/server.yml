@@ -44,5 +44,5 @@ jobs:
           TAG="server-${BRANCH}"
           gh release delete "$TAG" --yes --cleanup-tag || true
           gh release create "$TAG" ../out/yadar-server-*.zip --prerelease --target "$GITHUB_SHA" \
-            --title "Yadar server (${GITHUB_REF_NAME} @ ${GITHUB_SHA::7})" \
+            --title "Yadimo server (${GITHUB_REF_NAME} @ ${GITHUB_SHA::7})" \
             --notes "Unzip, then run 'liara deploy' inside the folder. See server/README.md."

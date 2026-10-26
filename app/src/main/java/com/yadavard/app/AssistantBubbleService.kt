@@ -53,7 +53,7 @@ class AssistantBubbleService : Service(), LifecycleOwner, SavedStateRegistryOwne
         Notifier.ensureChannels(this)
         val notification = NotificationCompat.Builder(this, Notifier.CHANNEL_QUIET)
             .setSmallIcon(R.drawable.ic_stat_reminder)
-            .setContentTitle(if (Prefs.language(this) == AppLanguage.FA) "دستیار یادار در حال کار…" else "Yadar assistant is working…")
+            .setContentTitle(if (Prefs.language(this) == AppLanguage.FA) "دستیار یادیمو در حال کار…" else "Yadimo assistant is working…")
             .setPriority(NotificationCompat.PRIORITY_LOW).setSilent(true).build()
         runCatching {
             ServiceCompat.startForeground(this, NOTIFICATION_ID, notification,

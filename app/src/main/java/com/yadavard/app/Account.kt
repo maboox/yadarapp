@@ -24,7 +24,7 @@ class NoBalanceException(message: String) : Exception(message)
 class LoggedOutException(message: String) : Exception(message)
 
 /**
- * The Yadar account: Bazaar (or phone) login, profile and token balance. AI requests go through the Yadar server, which
+ * The Yadimo account: Bazaar (or phone) login, profile and token balance. AI requests go through the Yadimo server, which
  * holds the provider keys and deducts tokens. Everything else in the app works without an account.
  */
 object Account {
@@ -90,7 +90,7 @@ object Account {
 
     private fun fa() = AppDisplay.language == AppLanguage.FA
 
-    /** Calls the Yadar server and returns the JSON answer; maps 401/402 to dedicated exceptions. */
+    /** Calls the Yadimo server and returns the JSON answer; maps 401/402 to dedicated exceptions. */
     private fun call(context: Context, method: String, path: String, body: JSONObject? = null, timeout: Int = 30_000,
                      auth: Boolean = true): JSONObject {
         val conn = (URL(server(context) + path).openConnection() as HttpURLConnection).apply {
@@ -117,7 +117,7 @@ object Account {
         } catch (e: java.io.IOException) {
             // Name the server and the underlying cause so a wrong address or a certificate problem is visible.
             val cause = e.javaClass.simpleName + (e.message?.let { ": " + it.take(120) } ?: "")
-            error((if (fa()) "اتصال به سرور یادار برقرار نشد؛ اینترنت را چک کن" else "Could not reach the Yadar server; check your connection") +
+            error((if (fa()) "اتصال به سرور یادیمو برقرار نشد؛ اینترنت را چک کن" else "Could not reach the Yadimo server; check your connection") +
                 "\n" + server(context) + "\n" + cause)
         } finally { conn.disconnect() }
     }

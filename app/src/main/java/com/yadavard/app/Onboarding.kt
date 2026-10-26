@@ -45,7 +45,7 @@ fun OnboardingScreen(onFinish: () -> Unit) {
     var name by remember { mutableStateOf(Prefs.userName(context)) }
     val pages = listOf(
         Page(Icons.Rounded.NotificationsActive, listOf(Color(0xFF3B2DB0), Color(0xFF8F7BFF)),
-            { t("به یادار خوش آمدی", "Welcome to Yadar") },
+            { t("به یادیمو خوش آمدی", "Welcome to Yadimo") },
             { t("دستیار یادآوری و یادداشت فارسی برای همهٔ کارها: قرص، قسط، تولد، جلسه، خرید و هر چیز دیگر. یادآوری‌ها و یادداشت‌هایت فقط روی گوشی خودت می‌مانند.",
                 "A reminder and notes assistant for everything — pills, bills, birthdays, meetings and more. Your reminders and notes stay on your phone.") }) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -58,16 +58,16 @@ fun OnboardingScreen(onFinish: () -> Unit) {
         },
         Page(Icons.Rounded.Face, listOf(Color(0xFFB8436B), Color(0xFFF08AA8)),
             { t("چی صدات کنم؟", "What should I call you?") },
-            { t("اگر دوست داری، اسمت را بنویس تا یادار با اسم صدایت کند. لازم نیست؛ هر وقت خواستی از تنظیمات عوضش کن.",
-                "If you like, type your name so Yadar can greet you. It is optional and you can change it in Settings.") }) {
+            { t("اگر دوست داری، اسمت را بنویس تا یادیمو با اسم صدایت کند. لازم نیست؛ هر وقت خواستی از تنظیمات عوضش کن.",
+                "If you like, type your name so Yadimo can greet you. It is optional and you can change it in Settings.") }) {
             OutlinedTextField(name, { name = it.take(30); Prefs.setUserName(context, name) }, singleLine = true,
                 modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
                 placeholder = { Text(t("اسم یا لقب", "Name or nickname")) })
         },
         Page(Icons.Rounded.AutoAwesome, listOf(Color(0xFF0F7F70), Color(0xFF3FC9B0)),
             { t("فقط بگو یا بنویس", "Just say or type it") },
-            { t("یادار جمله‌های معمولی را می‌فهمد و خودش زمان و تکرار را تشخیص می‌دهد. دکمهٔ میکروفون را بزن و حرف بزن.",
-                "Yadar understands plain sentences and figures out the time and repeat by itself. Tap the mic and speak.") }) {
+            { t("یادیمو جمله‌های معمولی را می‌فهمد و خودش زمان و تکرار را تشخیص می‌دهد. دکمهٔ میکروفون را بزن و حرف بزن.",
+                "Yadimo understands plain sentences and figures out the time and repeat by itself. Tap the mic and speak.") }) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(t("فردا ساعت ۸ صبح دکتر", "doctor tomorrow 8am"), t("۲ ساعت دیگه قرص", "pills in 2 hours"),
                     t("۲۰ هر ماه اجاره", "rent on the 20th every month"), t("هر شنبه ساعت ۱۸ باشگاه", "gym every saturday 6pm"))
@@ -108,7 +108,7 @@ fun OnboardingScreen(onFinish: () -> Unit) {
             { t("تقویم شمسی و ویجت‌ها", "Calendar and widgets") },
             { t("همه‌چیز را در تقویم ماهانهٔ شمسی یا میلادی ببین و آمار انجام کارها را دنبال کن. ویجت‌ها: ثبت سریع، دستیار صوتی، امروز، هفتهٔ من، پیش رو، نزدیک‌ترین یادآوری و یادداشت.",
                 "See everything on a Persian or Gregorian calendar and follow your stats. Widgets: quick add, voice assistant, today, my week, coming up, next reminder and a note.") }) {
-            Text(t("برای افزودن ویجت: روی صفحهٔ اصلی گوشی انگشت را نگه دار ← ابزارک‌ها ← یادار", "To add a widget: long-press the home screen → Widgets → Yadar"),
+            Text(t("برای افزودن ویجت: روی صفحهٔ اصلی گوشی انگشت را نگه دار ← ابزارک‌ها ← یادیمو", "To add a widget: long-press the home screen → Widgets → Yadimo"),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
         },
         Page(Icons.Rounded.Toll, listOf(Color(0xFF0E8A63), Color(0xFF5ED6A6)),
@@ -126,7 +126,7 @@ fun OnboardingScreen(onFinish: () -> Unit) {
             { t("یادآوری‌ها و یادداشت‌ها فقط روی همین گوشی ذخیره می‌شوند، نه روی سرور. یعنی اگر گوشی عوض شود، برنامه پاک شود یا گوشی ریست شود، بدون نسخهٔ پشتیبان از دست می‌روند.",
                 "Reminders and notes are stored only on this phone, not on a server. If you change or reset the phone or uninstall the app, they are lost without a backup.") }) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Feature(Icons.Rounded.Download, t("یادار بعد از هر تغییر یک پشتیبان خودکار در پوشهٔ Download/Yadar می‌گذارد", "Yadar saves an automatic backup in Download/Yadar after every change"))
+                Feature(Icons.Rounded.Download, t("یادیمو بعد از هر تغییر یک پشتیبان خودکار در پوشهٔ Download/Yadar می‌گذارد", "Yadimo saves an automatic backup in Download/Yadar after every change"))
                 Feature(Icons.Rounded.Upload, t("گاهی از «تنظیمات ← پشتیبان‌گیری» یک نسخه بگیر و جای دیگری (مثلاً پیام‌رسان یا ایمیل) نگه دار", "Now and then export a copy from Settings → Backup and keep it somewhere else"))
                 Feature(Icons.Rounded.PhoneAndroid, t("در گوشی جدید با «بازیابی» همه‌چیز برمی‌گردد", "On a new phone, Restore brings everything back"))
             }
@@ -152,7 +152,7 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                 Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally) {
                     Spacer(Modifier.height(12.dp))
-                    if (index <= 1) MascotView(rememberMascotConfig(), if (index == 0) MascotState.WAVE else MascotState.TALK, size = 190.dp)
+                    if (index <= 1 && rememberMascotEnabled()) MascotView(rememberMascotConfig(), if (index == 0) MascotState.WAVE else MascotState.TALK, size = 150.dp)
                     else Box(Modifier.size(if (index == pages.lastIndex) 110.dp else 168.dp).clip(RoundedCornerShape(48.dp))
                         .background(Brush.linearGradient(page.colors)), contentAlignment = Alignment.Center) {
                         Icon(page.icon, null, tint = Color.White, modifier = Modifier.size(if (index == pages.lastIndex) 54.dp else 80.dp))

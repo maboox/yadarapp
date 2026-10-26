@@ -11,7 +11,7 @@ import java.time.ZoneId
 
 /**
  * Reminder packs: a few chosen reminders (for example family birthdays) saved as a small file that others
- * can import into their own Yadar. The sender picks which of their own settings travel with the pack;
+ * can import into their own Yadimo. The sender picks which of their own settings travel with the pack;
  * everything left out uses the receiver's defaults.
  */
 object Packs {
@@ -68,7 +68,7 @@ object Packs {
 
     fun parse(text: String): Pack {
         val root = JSONObject(text)
-        require(root.optString("app") == "yadar" && root.optString("type") == "pack") { t("این فایل پک یادار نیست", "This is not a Yadar pack") }
+        require(root.optString("app") == "yadar" && root.optString("type") == "pack") { t("این فایل پک یادیمو نیست", "This is not a Yadimo pack") }
         val array = root.getJSONArray("items")
         require(array.length() <= 2000) { t("پک خیلی بزرگ است", "The pack is too large") }
         fun JSONObject.intOrNull(n: String) = if (has(n) && !isNull(n)) optInt(n) else null
@@ -139,8 +139,8 @@ object Packs {
         val uri = FileProvider.getUriForFile(context, context.packageName + ".files", file)
         val send = Intent(Intent.ACTION_SEND).setType("application/json").putExtra(Intent.EXTRA_STREAM, uri)
             .putExtra(Intent.EXTRA_SUBJECT, name)
-            .putExtra(Intent.EXTRA_TEXT, t("پک یادآوری «$name» از یادار. برای افزودن، فایل را با یادار باز کن.",
-                "Reminder pack “$name” from Yadar. Open the file with Yadar to add it."))
+            .putExtra(Intent.EXTRA_TEXT, t("پک یادآوری «$name» از یادیمو. برای افزودن، فایل را با یادیمو باز کن.",
+                "Reminder pack “$name” from Yadimo. Open the file with Yadimo to add it."))
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         return Intent.createChooser(send, t("ارسال پک", "Send pack"))
     }

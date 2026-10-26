@@ -52,6 +52,7 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
     var vibrate by remember { mutableStateOf(Prefs.vibrate(context)) }
     var soundTick by remember { mutableIntStateOf(0) }
     var hidden by remember { mutableStateOf(false) }
+    val mascotOn = rememberMascotEnabled()
     var pickingAlarmSound by remember { mutableStateOf(false) }
     val soundPicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) {
@@ -213,7 +214,7 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
             }
         }
 
-        item {
+        if (mascotOn) item {
             SettingsCard(t("مسکات من", "My mascot"), Icons.Rounded.Face,
                 summary = t("رنگ، چهره، کلاه، عینک، آیتم و لباس مسکات", "Colour, face, hat, glasses, item and outfit"), collapsible = true) {
                 MascotCustomizer()
@@ -254,8 +255,8 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
         item {
             SettingsCard(t("اشتراک‌گذاری یادآوری‌ها", "Share reminders"), Icons.Rounded.Inventory2,
                 summary = t("فرستادن و وارد کردن پک یادآوری", "Send and import reminder packs"), collapsible = true) {
-                Text(t("چند یادآوری (مثلاً تولدهای خانواده) را در یک «پک» بفرست تا دیگران با یک لمس به یادار خودشان اضافه کنند.",
-                    "Send a few reminders (e.g. family birthdays) as a pack others can add to their Yadar with one tap."),
+                Text(t("چند یادآوری (مثلاً تولدهای خانواده) را در یک «پک» بفرست تا دیگران با یک لمس به یادیمو خودشان اضافه کنند.",
+                    "Send a few reminders (e.g. family birthdays) as a pack others can add to their Yadimo with one tap."),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilledTonalButton(onClick = onPackExport, Modifier.weight(1f)) {
@@ -282,8 +283,8 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
                     }
                 }
-                Text(t("${n(count)} یادآوری روی این گوشی ذخیره است. نسخه‌های جدید را روی همین نصب کن تا اطلاعات بماند. یادار بعد از هر تغییر یک نسخهٔ پشتیبان خودکار در پوشهٔ Download/Yadar می‌گذارد که با حذف برنامه هم پاک نمی‌شود؛ با «بازیابی» برش گردان. کلید هوش مصنوعی داخل پشتیبان نیست.",
-                    "$count reminders on this phone. Install new versions over this one to keep your data. Yadar also saves an automatic backup to Download/Yadar after every change, which survives uninstalling; bring it back with Restore. Your AI key is not included."),
+                Text(t("${n(count)} یادآوری روی این گوشی ذخیره است. نسخه‌های جدید را روی همین نصب کن تا اطلاعات بماند. یادیمو بعد از هر تغییر یک نسخهٔ پشتیبان خودکار در پوشهٔ Download/Yadar می‌گذارد که با حذف برنامه هم پاک نمی‌شود؛ با «بازیابی» برش گردان. کلید هوش مصنوعی داخل پشتیبان نیست.",
+                    "$count reminders on this phone. Install new versions over this one to keep your data. Yadimo also saves an automatic backup to Download/Yadar after every change, which survives uninstalling; bring it back with Restore. Your AI key is not included."),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilledTonalButton(onClick = { exportPicker.launch("yadar-backup.json") }, Modifier.weight(1f)) {
@@ -298,7 +299,7 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
 
         item {
             val version = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: ""
-            Text(t("یادار نسخهٔ ${n(version)} • یادآوری‌ها و یادداشت‌ها فقط روی گوشی خودت", "Yadar $version • reminders and notes stay on your phone"),
+            Text(t("یادیمو نسخهٔ ${n(version)} • یادآوری‌ها و یادداشت‌ها فقط روی گوشی خودت", "Yadimo $version • reminders and notes stay on your phone"),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth().padding(8.dp))
         }
@@ -312,6 +313,20 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
                     Text(t("تنظیمات پنهان", "Hidden settings"), style = MaterialTheme.typography.titleLarge)
                 }
                 LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(16.dp, 4.dp, 16.dp, 48.dp)) {
+                    item {
+                        // The mascot is an optional, still experimental extra: off until switched on here.
+                        Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+                            Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(t("مسکات (آزمایشی)", "Mascot (experimental)"), style = MaterialTheme.typography.titleMedium)
+                                    Text(t("زنگولهٔ متحرک یادیمو در صفحه‌های برنامه. بعد از روشن کردن، «مسکات من» در تنظیمات ظاهر می‌شود.",
+                                        "The animated Yadimo bell around the app. Once on, “My mascot” appears in Settings."),
+                                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Switch(rememberMascotEnabled(), { MascotStore.setEnabled(context, it) })
+                            }
+                        }
+                    }
                     item { AiCard(advancedUnlocked = true) }
                 }
             }
@@ -344,8 +359,8 @@ private fun AiCard(advancedUnlocked: Boolean = false) {
 
     SettingsCard(t("دستیار هوشمند", "Smart assistant"), Icons.Rounded.AutoAwesome,
         summary = t("دستیار برای ثبت سریع", "Assistant for quick add"), collapsible = !advancedUnlocked) {
-        Text(t("ثبت سریع بدون اینترنت هم جمله‌های فارسی و انگلیسی را می‌فهمد. با ورود به حساب، دستیار یادار فعال می‌شود: با صدا یا متن یادآوری بساز، ویرایش کن، حذف کن، «انجام شد» بزن یا بپرس «این هفته چی دارم؟».",
-            "Quick add works offline. Sign in to use the Yadar assistant: create, edit, delete and complete reminders by voice or text, and ask “what do I have this week?”."),
+        Text(t("ثبت سریع بدون اینترنت هم جمله‌های فارسی و انگلیسی را می‌فهمد. با ورود به حساب، دستیار یادیمو فعال می‌شود: با صدا یا متن یادآوری بساز، ویرایش کن، حذف کن، «انجام شد» بزن یا بپرس «این هفته چی دارم؟».",
+            "Quick add works offline. Sign in to use the Yadimo assistant: create, edit, delete and complete reminders by voice or text, and ask “what do I have this week?”."),
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(t("دستیار هوشمند برای متن ثبت سریع", "Use the assistant for typed quick add"), Modifier.weight(1f))
@@ -356,8 +371,8 @@ private fun AiCard(advancedUnlocked: Boolean = false) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(t("از هوش مصنوعی خودم استفاده کن", "Use my own AI"))
-                    Text(t("با کلید خودت (OpenRouter، اول‌ای‌آی، لیارا…) مستقیم وصل می‌شود و توکن یادار مصرف نمی‌کند. ورود به حساب همچنان لازم است.",
-                        "Connects directly with your own key (OpenRouter, AvalAI, Liara…) and uses no Yadar tokens. You still need to sign in."),
+                    Text(t("با کلید خودت (OpenRouter، اول‌ای‌آی، لیارا…) مستقیم وصل می‌شود و توکن یادیمو مصرف نمی‌کند. ورود به حساب همچنان لازم است.",
+                        "Connects directly with your own key (OpenRouter, AvalAI, Liara…) and uses no Yadimo tokens. You still need to sign in."),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Spacer(Modifier.width(8.dp))
@@ -429,7 +444,7 @@ private fun AiCard(advancedUnlocked: Boolean = false) {
             HorizontalDivider()
             // Mainly for testing a new server before the app ships with its final address.
             OutlinedTextField(server, { server = it }, Modifier.fillMaxWidth(), singleLine = true,
-                label = { Text(t("آدرس سرور یادار", "Yadar server address")) }, shape = RoundedCornerShape(14.dp),
+                label = { Text(t("آدرس سرور یادیمو", "Yadimo server address")) }, shape = RoundedCornerShape(14.dp),
                 trailingIcon = { TextButton(onClick = { Account.setServer(context, server); server = Account.server(context)
                     Toast.makeText(context, t("ذخیره شد", "Saved"), Toast.LENGTH_SHORT).show() }) { Text(t("ذخیره", "Save")) } })
         }
