@@ -186,7 +186,7 @@ class MascotAnimator {
     private var nextBlink = 2.5f
     private var blinkStart = -9f
 
-    fun setState(s: MascotState) { if (s != state) { state = s; t0 = Float.NaN } }
+    fun moveTo(s: MascotState) { if (s != state) { state = s; t0 = Float.NaN } }
 
     fun tick(t: Float, hasItem: Boolean) {
         if (t0.isNaN()) t0 = t
@@ -339,7 +339,7 @@ fun MascotView(config: MascotConfig, state: MascotState, modifier: Modifier = Mo
     val ctx = LocalContext.current.applicationContext
     MascotCatalog.load(ctx)
     val anim = remember { MascotAnimator() }
-    anim.setState(state)
+    anim.moveTo(state)
     val faceId = faceFor(state, config.face)
     val density = LocalDensity.current
     val pxPerUnit = with(density) { size.toPx() } / VB_W
