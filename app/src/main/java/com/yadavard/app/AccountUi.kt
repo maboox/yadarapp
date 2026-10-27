@@ -104,8 +104,8 @@ fun AccountCard() {
                 Icon(Icons.Rounded.AddShoppingCart, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
                 Text(t("خرید توکن", "Buy tokens"))
             }
-            Text(t("توکن فقط برای دستیار هوشمند خرج می‌شود. هر دستور معمولاً کمتر از ۱ توکن است؛ کارهای ساده کمتر و کارهای سنگین کمی بیشتر.",
-                "Tokens are only used by the smart assistant. A command usually costs under 1 token; simple ones less, heavy ones a bit more."),
+            Text(t("توکن برای دستیار هوشمند و لوازم یادیمو خرج می‌شود. هر دستور به دستیار معمولاً کمتر از ۱ توکن است؛ کارهای ساده کمتر و کارهای سنگین کمی بیشتر.",
+                "Tokens pay for the smart assistant and Yadimo's outfits. A command usually costs under 1 token; simple ones less, heavy ones a bit more."),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             TextButton(onClick = { confirmLogout = true }) {
                 Icon(Icons.Rounded.Logout, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(t("خروج از حساب", "Sign out"))
@@ -315,8 +315,8 @@ fun PacksDialog(onDone: () -> Unit) {
                     Row(Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
                         Icon(Icons.Rounded.Lightbulb, null, tint = MaterialTheme.colorScheme.onTertiaryContainer, modifier = Modifier.size(20.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text(t("توکن فقط برای دستیار هوشمند (هوش مصنوعی) خرج می‌شود؛ یادآور، یادداشت، تقویم و ویجت‌ها همیشه رایگان‌اند. قبل از خرید، با همین توکن‌هایی که داری چند دستور به دستیار بده و ببین به کارت می‌آید یا نه. هر دستور معمولاً کمتر از ۱ توکن است.",
-                            "Tokens are only used by the smart assistant (AI); reminders, notes, calendar and widgets are always free. Before buying, try a few commands with the tokens you have and see if it helps. A command usually costs under 1 token."),
+                        Text(t("توکن برای دستیار هوشمند (هوش مصنوعی) و لوازم یادیمو خرج می‌شود؛ یادآور، یادداشت، تقویم و ویجت‌ها همیشه رایگان‌اند. قبل از خرید، با همین توکن‌هایی که داری چند دستور به دستیار بده و ببین به کارت می‌آید یا نه. هر دستور معمولاً کمتر از ۱ توکن است.",
+                            "Tokens pay for the smart assistant (AI) and Yadimo's outfits; reminders, notes, calendar and widgets are always free. Before buying, try a few commands with the tokens you have and see if it helps. A command usually costs under 1 token."),
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
                     }
                 }

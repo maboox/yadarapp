@@ -69,6 +69,10 @@ data class Reminder(
     }
 }
 
+/** One recorded outcome of a reminder occurrence (done or missed), for the stats. */
+data class HistoryEntry(val reminderId: Long, val title: String, val category: String, val repeating: Boolean,
+                        val occurrenceAt: Long, val done: Boolean, val recordedAt: Long)
+
 /** A free-form note (not a reminder): title, text, colour and optional pin. */
 data class Note(
     val id: Long = 0,

@@ -11,10 +11,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.time.ZoneId
 
-/** One recorded outcome of an occurrence, used for statistics. */
-data class HistoryEntry(val reminderId: Long, val title: String, val category: String, val repeating: Boolean,
-                        val occurrenceAt: Long, val done: Boolean, val recordedAt: Long)
-
 /**
  * Local SQLite storage. Version 5 replaced the older schema; version 6 adds "missed" counters and the
  * outcome history in place, keeping every row.
@@ -306,6 +302,8 @@ object Repo {
         _changes.value = _changes.value + 1
         WidgetUpdater.update(context)
         Backup.scheduleAuto(context)
+        // Yadimo's "coming up" note follows the next reminder.
+        YadimoTalk.schedule(context)
     }
 }
 

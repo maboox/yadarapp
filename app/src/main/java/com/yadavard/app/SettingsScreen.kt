@@ -52,7 +52,6 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
     var vibrate by remember { mutableStateOf(Prefs.vibrate(context)) }
     var soundTick by remember { mutableIntStateOf(0) }
     var hidden by remember { mutableStateOf(false) }
-    val mascotOn = rememberYadimoEnabled()
     var pickingAlarmSound by remember { mutableStateOf(false) }
     val soundPicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) {
@@ -214,12 +213,7 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
             }
         }
 
-        if (mascotOn) item {
-            SettingsCard(t("یادیموی من", "My Yadimo"), Icons.Rounded.Face,
-                summary = t("شخصیت، رنگ، چهره، کلاه، عینک و لباس یادیمو", "Character, colour, face, hat, glasses and outfit"), collapsible = true) {
-                YadimoCustomizer()
-            }
-        }
+        item { YadimoSettingsCard() }
 
         item {
             SettingsCard(t("پیش‌فرض‌های یادآوری", "Reminder defaults"), Icons.Rounded.Tune,
@@ -313,20 +307,6 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
                     Text(t("تنظیمات پنهان", "Hidden settings"), style = MaterialTheme.typography.titleLarge)
                 }
                 LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(16.dp, 4.dp, 16.dp, 48.dp)) {
-                    item {
-                        // The mascot is an optional, still experimental extra: off until switched on here.
-                        Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
-                            Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(t("یادیمو (آزمایشی)", "Yadimo (experimental)"), style = MaterialTheme.typography.titleMedium)
-                                    Text(t("یادیمو، دوست زنده و متحرک برنامه، در صفحه‌ها. بعد از روشن کردن، «یادیموی من» در تنظیمات ظاهر می‌شود.",
-                                        "Yadimo, the app's living companion, around the app. Once on, “My Yadimo” appears in Settings."),
-                                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                Switch(rememberYadimoEnabled(), { YadimoStore.setEnabled(context, it) })
-                            }
-                        }
-                    }
                     item { AiCard(advancedUnlocked = true) }
                 }
             }
@@ -501,10 +481,16 @@ private fun SoundRow(label: String, value: String, onPick: () -> Unit, onPreview
 }
 
 @Composable
-private fun Label(text: String) = Text(text, style = MaterialTheme.typography.labelLarge)
+private fun Label(text: String) = SettingLabel(text)
 
 @Composable
-private fun <T> Segmented(options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit) {
+fun SettingLabel(text: String) = Text(text, style = MaterialTheme.typography.labelLarge)
+
+@Composable
+private fun <T> Segmented(options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit) = SettingSegmented(options, selected, onSelect)
+
+@Composable
+fun <T> SettingSegmented(options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit) {
     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
         options.forEachIndexed { i, (value, label) ->
             SegmentedButton(selected == value, { onSelect(value) }, SegmentedButtonDefaults.itemShape(i, options.size)) {

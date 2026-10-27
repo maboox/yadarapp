@@ -86,6 +86,7 @@ object Account {
     fun logout(context: Context) {
         prefs(context).edit().remove("token").remove("profile").remove("bazaar_verifier").apply()
         _profile.value = null
+        YadimoShop.clear(context)
     }
 
     private fun fa() = AppDisplay.language == AppLanguage.FA
@@ -239,6 +240,35 @@ object Account {
 
     suspend fun setName(context: Context, name: String) = withContext(Dispatchers.IO) {
         store(context, call(context, "POST", "/api/yadar/me", JSONObject().put("name", name)))
+    }
+
+    // ---- Yadimo's wardrobe: owned parts and the chosen look live on the account ----
+
+    /** The wardrobe state (tiers, prices, owned parts, saved look and balance). */
+    suspend fun yadimo(context: Context): JSONObject = withContext(Dispatchers.IO) { call(context, "GET", "/api/yadar/yadimo") }
+
+    /** Buys one part ("hat:crown") with tokens; the server checks the balance and keeps it on the account. */
+    suspend fun yadimoBuy(context: Context, item: String): JSONObject = withContext(Dispatchers.IO) {
+        call(context, "POST", "/api/yadar/yadimo/buy", JSONObject().put("item", item)).also { res ->
+            val current = _profile.value
+            if (current != null && res.has("balance")) {
+                val updated = current.copy(balance = res.optDouble("balance", current.balance))
+                _profile.value = updated
+                prefs(context).getString("profile", null)?.let { raw ->
+                    runCatching { prefs(context).edit().putString("profile", JSONObject(raw).put("balance", updated.balance).toString()).apply() }
+                }
+                LowBalance.check(context, current.balance, updated)
+            }
+        }
+    }
+
+    suspend fun yadimoLook(context: Context, look: JSONObject): JSONObject = withContext(Dispatchers.IO) {
+        call(context, "POST", "/api/yadar/yadimo/look", look)
+    }
+
+    /** Today's weather near a city, cached by the server; works without signing in. */
+    suspend fun weather(context: Context, lat: Double, lon: Double): JSONObject = withContext(Dispatchers.IO) {
+        call(context, "GET", "/api/yadar/weather?lat=$lat&lon=$lon", timeout = 15_000, auth = false)
     }
 
     private fun afterCall(context: Context, res: JSONObject) {

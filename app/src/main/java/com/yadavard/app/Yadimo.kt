@@ -18,6 +18,9 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -29,12 +32,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -79,7 +84,17 @@ object YadimoStore {
         if (!loaded) { config = YadimoConfig.fromJson(Prefs.mascotJson(context)); enabled = Prefs.mascotEnabled(context); loaded = true }
     }
 
-    fun set(context: Context, value: YadimoConfig) { ensure(context); config = value; Prefs.setMascotJson(context, value.toJson()) }
+    fun set(context: Context, value: YadimoConfig) {
+        ensure(context); config = value; Prefs.setMascotJson(context, value.toJson())
+        YadimoShop.lookChanged(context, value)
+    }
+
+    /** The look saved on the account replaces the one on the phone (signing in on a new phone). */
+    fun applyFromAccount(context: Context, value: YadimoConfig) {
+        ensure(context)
+        if (value == config) return
+        config = value; Prefs.setMascotJson(context, value.toJson())
+    }
     fun setEnabled(context: Context, value: Boolean) { ensure(context); enabled = value; Prefs.setMascotEnabled(context, value) }
 }
 
@@ -139,16 +154,37 @@ fun YadimoView(mood: YadimoMood, modifier: Modifier = Modifier, size: Dp = 120.d
     }
 }
 
-/** A small speech bubble next to Yadimo. */
+/**
+ * A speech bubble that sits above Yadimo's head, with a little tail pointing down at it. [tailEnd] is how far the
+ * tail is from the bubble's end edge, so it points at the head of a Yadimo standing at that end.
+ */
 @Composable
-fun YadimoBubble(text: String, modifier: Modifier = Modifier) {
-    Surface(shape = RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp), color = Color.White, shadowElevation = 6.dp, modifier = modifier) {
-        Text(text, Modifier.padding(horizontal = 14.dp, vertical = 8.dp), color = Color(0xFF231C47),
-            style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+fun YadimoSpeech(text: String, modifier: Modifier = Modifier, tailEnd: Dp = 40.dp) {
+    Column(modifier.widthIn(max = 250.dp), horizontalAlignment = Alignment.End) {
+        Surface(shape = RoundedCornerShape(18.dp), color = Color.White, shadowElevation = 6.dp) {
+            Text(text, Modifier.padding(horizontal = 14.dp, vertical = 9.dp), color = Color(0xFF231C47),
+                style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+        }
+        androidx.compose.foundation.Canvas(Modifier.padding(end = tailEnd).size(18.dp, 10.dp)) {
+            val path = androidx.compose.ui.graphics.Path().apply {
+                moveTo(0f, -1f); lineTo(size.width, -1f); lineTo(size.width * 0.55f, size.height); close()
+            }
+            drawPath(path, Color.White)
+        }
     }
 }
 
-/** Above the voice recording pill: Yadimo flies up from behind it and says hello. */
+/**
+ * Draws its content above the top-end corner of the parent without taking any room, so whatever appears there
+ * (Yadimo flying in, a bubble growing) never pushes the rest of the screen around. [overlap] lowers it so it
+ * sits on the parent's edge; [inset] moves it in from the end.
+ */
+fun Modifier.floatAboveEnd(overlap: Dp = 0.dp, inset: Dp = 0.dp): Modifier = layout { measurable, _ ->
+    val placeable = measurable.measure(androidx.compose.ui.unit.Constraints())
+    layout(0, 0) { placeable.placeRelative(-placeable.width - inset.roundToPx(), -placeable.height + overlap.roundToPx()) }
+}
+
+/** Above the voice recording pill: Yadimo flies up from behind it and says hello, with the bubble over its head. */
 @Composable
 fun YadimoGreeting(modifier: Modifier = Modifier) {
     val context = LocalContext.current
@@ -160,12 +196,12 @@ fun YadimoGreeting(modifier: Modifier = Modifier) {
         delay(3000); talk = false
     }
     val name = remember { Prefs.userName(context) }
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        AnimatedVisibility(talk, enter = scaleIn(transformOrigin = TransformOrigin(1f, 1f)) + fadeIn(), exit = scaleOut() + fadeOut()) {
-            YadimoBubble(if (name.isBlank()) t("سلام! بگو چی یادت بندازم 🙂", "Hi! What should I remind you of? 🙂")
-                else t("سلام $name! بگو چی یادت بندازم 🙂", "Hi $name! What should I remind you of? 🙂"))
+    Column(modifier, horizontalAlignment = Alignment.End) {
+        AnimatedVisibility(talk, enter = scaleIn(transformOrigin = TransformOrigin(0.85f, 1f)) + fadeIn(), exit = scaleOut() + fadeOut()) {
+            YadimoSpeech(if (name.isBlank()) t("سلام! بگو چی یادت بندازم 🙂", "Hi! What should I remind you of? 🙂")
+                else t("سلام $name! بگو چی یادت بندازم 🙂", "Hi $name! What should I remind you of? 🙂"), tailEnd = 46.dp)
         }
-        YadimoView(mood, size = 110.dp)
+        YadimoView(mood, size = 110.dp, tappable = false)
     }
 }
 
@@ -192,11 +228,14 @@ fun YadimoPeekHost(trigger: Any, message: () -> String, modifier: Modifier = Mod
         delay(1000); msg = null
     }
     val text = msg ?: return
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        AnimatedVisibility(talking, enter = scaleIn(transformOrigin = TransformOrigin(1f, 1f)) + fadeIn(), exit = scaleOut() + fadeOut()) {
-            YadimoBubble(text)
+    // Laid out left-to-right: Yadimo always comes in from the right edge.
+    CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
+        Column(modifier.padding(start = 16.dp), horizontalAlignment = Alignment.End) {
+            AnimatedVisibility(talking, enter = scaleIn(transformOrigin = TransformOrigin(0.8f, 1f)) + fadeIn(), exit = scaleOut() + fadeOut()) {
+                YadimoSpeech(text, tailEnd = 44.dp)
+            }
+            YadimoView(if (talking) YadimoMood.TALK else YadimoMood.WAVE, size = 120.dp, peekIn = inside)
         }
-        YadimoView(if (talking) YadimoMood.TALK else YadimoMood.WAVE, size = 120.dp, peekIn = inside)
     }
 }
 
@@ -208,60 +247,148 @@ private fun moodLabel(m: YadimoMood) = when (m) {
 
 private class Option(val id: String, val name: String, val color: Color? = null)
 
-/** Settings: a live preview and a row of choices for every part (the list comes from the engine itself). */
+/** A part being tried on before buying it: its shop id, its name and the look with it on. */
+private class Trial(val id: String, val name: String, val config: YadimoConfig)
+
+/**
+ * The wardrobe: a live preview and a row of choices for every part (the list comes from the engine itself).
+ * Paid parts that are not owned show a lock and their price; tapping one tries it on, and the bar at the bottom
+ * buys it with tokens. Bought parts are kept on the account.
+ */
 @Composable
-fun YadimoCustomizer() {
+fun YadimoCustomizer(modifier: Modifier = Modifier, onLeave: () -> Unit = {}) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val cfg = rememberYadimoConfig()
+    YadimoShop.ensure(context)
+    LaunchedEffect(Unit) { YadimoShop.sync(context) }
+    val profile by Account.profile.collectAsState()
     var mood by remember { mutableStateOf(YadimoMood.IDLE) }
     var replay by remember { mutableIntStateOf(0) }
     var catalog by remember { mutableStateOf<JSONObject?>(null) }
+    var trial by remember { mutableStateOf<Trial?>(null) }
+    var buying by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val shown = trial?.config ?: cfg
     fun update(c: YadimoConfig) = YadimoStore.set(context, c)
+    fun choose(id: String, name: String, next: YadimoConfig) {
+        error = null
+        if (YadimoShop.canWear(id)) { trial = null; update(next) }
+        else { trial = Trial(id, name, next); mood = YadimoMood.CELEBRATE; replay++ }
+    }
     fun options(key: String): List<Option> = catalog?.optJSONArray(key)?.let { a ->
         (0 until a.length()).map { i -> val o = a.getJSONObject(i)
             Option(o.getString("id"), o.optString("n"), o.optString("c").takeIf { it.isNotBlank() }?.let { Color(android.graphics.Color.parseColor(it)) }) }
     }.orEmpty()
 
     @Composable
-    fun Choices(title: String, key: String, selected: String, warn: Boolean = false, pick: (String) -> Unit) {
+    fun Choices(title: String, key: String, kind: String, selected: String, pick: (Option) -> YadimoConfig) {
         val list = options(key)
         if (list.isEmpty()) return
-        Text(title, style = MaterialTheme.typography.labelLarge, color = if (warn) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(list, key = { it.id }) { o -> FilterChip(selected == o.id, { pick(o.id) }, { Text(o.name) }) }
+            items(list, key = { it.id }) { o ->
+                val id = if (kind == "item") YadimoShop.itemId(o.id) else "$kind:${o.id}"
+                val locked = !YadimoShop.canWear(id)
+                FilterChip(selected == o.id, { choose(id, o.name, pick(o)) }, { Text(o.name) },
+                    leadingIcon = if (locked) { { Icon(androidx.compose.material.icons.Icons.Rounded.Lock, null, Modifier.size(16.dp)) } } else null,
+                    trailingIcon = if (locked) { { Text(n(YadimoShop.price(id).let { if (it % 1.0 == 0.0) it.toInt() else it }), style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) } } else null)
+            }
         }
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
+    Column(modifier) {
+        Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp).clip(RoundedCornerShape(20.dp))
             .background(Brush.verticalGradient(listOf(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.surfaceContainerHigh))),
             contentAlignment = Alignment.Center) {
-            YadimoView(mood, Modifier.padding(vertical = 4.dp), size = 190.dp, config = cfg, replay = replay, onCatalog = { catalog = runCatching { JSONObject(it) }.getOrNull() })
-        }
-        Text(t("حال‌وهوا (فقط برای دیدن)", "Mood (preview only)"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(YadimoMood.entries.toList()) { m -> FilterChip(mood == m, { mood = m; replay++ }, { Text(moodLabel(m)) }) }
-        }
-        Choices(t("شخصیت", "Character"), "variants", cfg.variant) { update(cfg.copy(variant = it)) }
-        val colors = options("colors")
-        if (colors.isNotEmpty()) {
-            Text(t("رنگ", "Colour"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(colors, key = { it.id }) { o ->
-                    Box(Modifier.size(34.dp).clip(CircleShape).background(o.color ?: Color.Gray)
-                        .border(if (cfg.color == o.id) 3.dp else 0.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
-                        .clickable { update(cfg.copy(color = o.id)) })
-                }
+            YadimoView(mood, Modifier.padding(vertical = 4.dp), size = 190.dp, config = shown, replay = replay, onCatalog = { catalog = runCatching { JSONObject(it) }.getOrNull() })
+            if (trial != null) Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.tertiary, modifier = Modifier.align(Alignment.TopStart).padding(10.dp)) {
+                Text(t("در حال امتحان", "Trying on"), Modifier.padding(horizontal = 10.dp, vertical = 4.dp), style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onTertiary)
             }
         }
-        Choices(t("چهره", "Face"), "faces", cfg.face) { update(cfg.copy(face = it)); mood = YadimoMood.IDLE }
-        Choices(t("کلاه و سر", "Hat"), "hats", cfg.hat) { update(cfg.copy(hat = it, costume = "none")) }
-        Choices(t("عینک", "Glasses"), "glasses", cfg.glass) { update(cfg.copy(glass = it, costume = "none")) }
-        Choices(t("گردن", "Neck"), "neck", cfg.neck) { update(cfg.copy(neck = it, costume = "none")) }
-        Choices(t("در دست", "In hand"), "items", cfg.item) { update(cfg.copy(item = it)) }
-        Choices(t("لباس شخصیت‌ها", "Character costumes"), "costumes", cfg.costume) {
-            update(cfg.copy(costume = if (cfg.costume == it) "none" else it, hat = "none", glass = "none", neck = "none"))
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(t("حال‌وهوا (فقط برای دیدن)", "Mood (preview only)"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(YadimoMood.entries.toList()) { m -> FilterChip(mood == m, { mood = m; replay++ }, { Text(moodLabel(m)) }) }
+            }
+            Choices(t("شخصیت", "Character"), "variants", "variant", shown.variant) { cfg.copy(variant = it.id) }
+            val colors = options("colors")
+            if (colors.isNotEmpty()) {
+                Text(t("رنگ", "Colour"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(colors, key = { it.id }) { o ->
+                        Box(Modifier.size(34.dp).clip(CircleShape).background(o.color ?: Color.Gray)
+                            .border(if (shown.color == o.id) 3.dp else 0.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+                            .clickable { trial = null; update(cfg.copy(color = o.id)) })
+                    }
+                }
+            }
+            Choices(t("چهره", "Face"), "faces", "face", shown.face) { mood = YadimoMood.IDLE; cfg.copy(face = it.id) }
+            Choices(t("کلاه و سر", "Hat"), "hats", "hat", shown.hat) { cfg.copy(hat = it.id, costume = "none") }
+            Choices(t("عینک", "Glasses"), "glasses", "glass", shown.glass) { cfg.copy(glass = it.id, costume = "none") }
+            Choices(t("گردن", "Neck"), "neck", "neck", shown.neck) { cfg.copy(neck = it.id, costume = "none") }
+            Choices(t("در دست", "In hand"), "items", "item", shown.item) { cfg.copy(item = it.id) }
+            Choices(t("لباس شخصیت‌ها", "Character costumes"), "costumes", "costume", shown.costume) {
+                cfg.copy(costume = if (cfg.costume == it.id) "none" else it.id, hat = "none", glass = "none", neck = "none")
+            }
+            Choices(t("وسیله‌های شخصیت‌ها", "Character items"), "testItems", "item", shown.item) { cfg.copy(item = it.id) }
+            Text(t("شخصیت‌ها، رنگ‌ها، چهره‌ها، کلاه جشن و عینک گرد رایگان‌اند. بقیه را با توکن می‌خری و روی حسابت می‌ماند؛ با ورود دوباره روی هر گوشی برمی‌گردد.",
+                "Characters, colours, faces, the party hat and round glasses are free. The rest are bought with tokens and stay on your account on any phone."),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Choices(t("آیتم‌های شخصیت‌ها", "Character items"), "testItems", cfg.item) { update(cfg.copy(item = it)) }
+        trial?.let { tr -> BuyBar(tr, profile, buying, error,
+            onBuy = {
+                scope.launch {
+                    buying = true; error = YadimoShop.buy(context, tr.id); buying = false
+                    if (error == null) { update(tr.config); trial = null; mood = YadimoMood.LOVE; replay++ }
+                }
+            },
+            onCancel = { trial = null; error = null; mood = YadimoMood.IDLE },
+            onLogin = { onLeave(); Account.loginRequested.value = true },
+            onTopUp = { onLeave(); Account.buyRequested.value = true }) }
+    }
+}
+
+@Composable
+private fun BuyBar(tr: Trial, profile: Account.Profile?, buying: Boolean, error: String?, onBuy: () -> Unit, onCancel: () -> Unit,
+                   onLogin: () -> Unit, onTopUp: () -> Unit) {
+    val price = YadimoShop.price(tr.id)
+    val priceText = tokensLabel(price)
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 12.dp, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("«${tr.name}» • " + YadimoShop.tierName(YadimoShop.tier(tr.id)) + " • " + t("$priceText توکن", "$priceText tokens"),
+                style = MaterialTheme.typography.titleMedium)
+            if (profile == null) {
+                    Text(t("برای خرید وارد حساب بازارت شو؛ خریدها روی حسابت می‌ماند.", "Sign in with Bazaar to buy; purchases stay on your account."),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = onLogin, modifier = Modifier.weight(1f)) { Text(t("ورود و خرید", "Sign in to buy")) }
+                        OutlinedButton(onClick = onCancel) { Text(t("نه، ممنون", "No thanks")) }
+                    }
+            } else when {
+                !(profile.unlimited || profile.balance + 1e-9 >= price) -> {
+                    Text(t("موجودی‌ات ${tokensLabel(profile.balance)} توکن است؛ کافی نیست.", "You have ${tokensLabel(profile.balance)} tokens; not enough."),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = onTopUp, modifier = Modifier.weight(1f)) { Text(t("خرید توکن", "Buy tokens")) }
+                        OutlinedButton(onClick = onCancel) { Text(t("انصراف", "Cancel")) }
+                    }
+                }
+                else -> {
+                    Text(if (profile.unlimited) t("حساب نامحدود", "Unlimited account") else t("موجودی: ${tokensLabel(profile.balance)} توکن", "Balance: ${tokensLabel(profile.balance)} tokens"),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = onBuy, enabled = !buying, modifier = Modifier.weight(1f)) {
+                            if (buying) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                            else Text(t("خرید با $priceText توکن", "Buy for $priceText tokens"))
+                        }
+                        OutlinedButton(onClick = onCancel) { Text(t("انصراف", "Cancel")) }
+                    }
+                }
+            }
+            if (error != null) Text(error, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        }
     }
 }

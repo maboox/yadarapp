@@ -17,7 +17,7 @@ object UsageLog {
     data class Entry(val time: Long, val tokens: Double, val voiceSeconds: Int, val counts: Map<String, Int>, val failed: Boolean = false)
 
     /** Kinds of work, in the order they are listed. */
-    val kinds = listOf("create", "update", "complete", "missed", "postpone", "delete", "note", "question")
+    val kinds = listOf("create", "update", "complete", "missed", "postpone", "delete", "note", "question", "yadimo")
 
     private const val MAX = 200
 
@@ -73,6 +73,7 @@ object UsageLog {
             "postpone" -> t("$c تعویق", "$count postponed")
             "delete" -> t("$c حذف", "$count deleted")
             "note" -> t("$c کار روی یادداشت", "$count note change" + if (count > 1) "s" else "")
+            "yadimo" -> t("خرید لوازم یادیمو", "Yadimo outfit")
             else -> t("پرسش و پاسخ", "question")
         }
     }

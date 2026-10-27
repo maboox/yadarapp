@@ -53,10 +53,11 @@ fun VoiceCapture(onCancel: () -> Unit, onSend: (File) -> Unit, modifier: Modifie
     }
     val scale by animateFloatAsState(1f + level * 0.7f, label = "level")
     val scheme = MaterialTheme.colorScheme
-    // Yadimo flies up from behind the pill and sits on it; the pill is drawn after it, so it covers Yadimo's feet.
+    // Yadimo flies up from behind the pill and sits on its edge; the pill is drawn after it, so it covers Yadimo's
+    // feet. It floats above the pill without taking room, so neither Yadimo nor its bubble moves anything else.
     val yadimo = rememberYadimoEnabled()
-    Column(modifier, horizontalAlignment = Alignment.End) {
-    if (yadimo) YadimoGreeting(Modifier.padding(end = 8.dp).offset(y = 30.dp))
+    Box(modifier) {
+    if (yadimo) Box(Modifier.align(Alignment.TopEnd).floatAboveEnd(overlap = 30.dp, inset = 4.dp)) { YadimoGreeting() }
     Surface(shape = RoundedCornerShape(40.dp), color = scheme.surfaceContainerHigh, shadowElevation = 10.dp) {
         Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
             FilledTonalIconButton(onClick = { recorder.discard(); onCancel() }, modifier = Modifier.size(52.dp)) {

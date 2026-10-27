@@ -41,6 +41,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -94,6 +96,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         claimBazaarLogin()
+        YadimoTalk.schedule(this)
         // If an alarm is still ringing, always give the user its screen so it can be stopped.
         val ringing = AlertService.ringingId()
         if (ringing != 0L) runCatching {
@@ -131,6 +134,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         Account.load(context)
+        // Yadimo's owned parts and look follow the account: fetched at start and right after signing in.
+        viewModelScope.launch {
+            Account.profile.map { it?.id }.distinctUntilChanged().collect { id -> if (!id.isNullOrBlank()) YadimoShop.sync(context) }
+        }
         viewModelScope.launch {
             Account.refresh(context)
             // Tokens paid for on Bazaar but never added (app closed or offline during the purchase).
