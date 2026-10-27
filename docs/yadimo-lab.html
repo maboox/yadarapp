@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>یادیمو، نسخهٔ جدید</title>
+<style>
+:root{--bg:#f4f1fb;--card:#fff;--ink:#231c47;--mut:#6d6690;--line:#e6e0f6;--pri:#6a4fd8;--chip:#f0ecfd}
+@media (prefers-color-scheme:dark){:root{--bg:#13102a;--card:#1d1840;--ink:#f1eeff;--mut:#a9a1d0;--line:#332a62;--pri:#9d86ff;--chip:#2a2352}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Vazirmatn",Tahoma,sans-serif;line-height:1.85;padding:18px 16px 60px}
+.wrap{max-width:1020px;margin:0 auto}
+h1{font-size:24px;margin:4px 0 2px}h2{font-size:18px;margin:34px 0 6px}
+p.lead,p.note{color:var(--mut);margin:0 0 14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:16px}
+.stage{display:grid;grid-template-columns:minmax(260px,360px) 1fr;gap:18px;align-items:start}
+@media(max-width:760px){.stage{grid-template-columns:1fr}}
+.view{position:relative;border-radius:22px;overflow:hidden;background:radial-gradient(120% 90% at 50% 20%,#ffffff 0%,#ece7fb 55%,#ddd5f7 100%)}
+@media (prefers-color-scheme:dark){.view{background:radial-gradient(120% 90% at 50% 20%,#3a3170 0%,#241e4c 60%,#191538 100%)}}
+.view canvas{display:block;width:100%;height:auto;touch-action:none;cursor:pointer}
+.fps{position:absolute;top:8px;left:10px;font-size:11px;color:var(--mut);direction:ltr}
+.ctl h3{font-size:14px;margin:12px 0 6px;color:var(--mut);font-weight:600}
+.ctl h3:first-child{margin-top:0}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+button.chip{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--chip);color:var(--ink);padding:5px 12px;border-radius:999px;cursor:pointer}
+button.chip.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+.sw{width:30px;height:30px;border-radius:50%;border:3px solid transparent;cursor:pointer;padding:0}
+.sw.on{border-color:var(--ink)}
+.scenes{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.phone{position:relative;border-radius:28px;overflow:hidden;aspect-ratio:9/16;background:linear-gradient(160deg,#4b3b9a,#1f1846);box-shadow:0 10px 30px rgba(30,20,80,.25)}
+.phone .wall{position:absolute;inset:0;background:radial-gradient(60% 40% at 30% 20%,rgba(255,255,255,.18),transparent),radial-gradient(50% 35% at 80% 70%,rgba(255,140,200,.18),transparent)}
+.phone canvas{position:absolute;inset:0;width:100%;height:100%}
+.pill{position:absolute;left:8%;right:8%;bottom:7%;height:64px;border-radius:40px;background:#f3effd;display:flex;align-items:center;justify-content:space-between;padding:0 10px;box-shadow:0 8px 24px rgba(0,0,0,.25);direction:ltr}
+.pill .b{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:20px}
+.pill .x{background:#e2dcf7;color:#4a3aa0}.pill .s{background:#6a4fd8;color:#fff}
+.pill .mid{display:flex;align-items:center;gap:8px;color:#231c47;font-weight:600}
+.dot{width:14px;height:14px;border-radius:50%;background:#e5484d;box-shadow:0 0 0 0 rgba(229,72,77,.5);animation:pulse 1.2s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 12px rgba(229,72,77,0)}100%{box-shadow:0 0 0 0 rgba(229,72,77,0)}}
+.bubble{position:absolute;background:#fff;color:#231c47;border-radius:18px;padding:8px 14px;font-size:14px;font-weight:600;box-shadow:0 8px 20px rgba(30,20,80,.22);transform:scale(0);transform-origin:var(--ox,80%) 100%;transition:transform .35s cubic-bezier(.3,1.6,.5,1);white-space:nowrap}
+.bubble.on{transform:scale(1)}
+.bubble:after{content:"";position:absolute;bottom:-7px;right:var(--tail,22px);border:8px solid transparent;border-top-color:#fff;border-bottom:0}
+.alarm{background:linear-gradient(170deg,#2a1f66,#120d33)}
+.alarm .time{position:absolute;top:9%;width:100%;text-align:center;color:#fff;font-size:44px;font-weight:800;direction:ltr}
+.alarm .t2{position:absolute;top:22%;width:100%;text-align:center;color:#d9d1ff;font-size:16px}
+.alarm .btn{position:absolute;left:10%;right:10%;bottom:8%;height:54px;border-radius:18px;background:#fff;color:#4a3aa0;font-weight:800;display:grid;place-items:center}
+.cardmock{position:relative;border-radius:22px;overflow:hidden;background:var(--card);border:1px solid var(--line);height:250px}
+.cardmock .row{margin:14px;height:44px;border-radius:14px;background:var(--chip)}
+.cardmock canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.replay{margin-top:8px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:right;vertical-align:top}
+th{color:var(--mut);font-weight:600}
+ul{margin:6px 0 0;padding-inline-start:20px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>یادیمو، نسخهٔ جدید (پیش‌نمایش)</h1>
+<p class="lead">از اول ساخته شد: بدون خط دور، با نور و سایهٔ نرم مثل اسباب‌بازی وینیلی، و بدنهٔ ژله‌ای که با فنر حرکت می‌کند (کش می‌آید، له می‌شود، تکان‌های ثانویه دارد). روی یادیمو بزن یا موس را روی صفحه حرکت بده. هنوز داخل برنامه نرفته است.</p>
+
+<div class="card stage">
+  <div class="view" id="v-main"><canvas id="c-main" width="720" height="816"></canvas><div class="fps" id="fps"></div></div>
+  <div class="ctl">
+    <h3>حال‌وهوا</h3><div class="chips" id="c-mood"></div>
+    <h3>رنگ</h3><div class="chips" id="c-color"></div>
+    <h3>کلاه</h3><div class="chips" id="c-hat"></div>
+    <h3>عینک</h3><div class="chips" id="c-glass"></div>
+    <p class="note" style="margin-top:12px">این‌ها فقط نمونه‌اند؛ همهٔ قطعه‌های قبلی (۲۰ کلاه، ۱۲ چهره، آیتم‌ها، لباس‌ها و قطعه‌های تست) بعد از تأیید این سبک با همین کیفیت دوباره ساخته می‌شوند.</p>
+  </div>
+</div>
+
+<h2>جاهایی که دیده می‌شود</h2>
+<p class="note">سه نمونه از جاهای جدید. دکمهٔ «دوباره» صحنه را از اول پخش می‌کند.</p>
+<div class="scenes">
+  <div>
+    <div class="phone" id="p-widget"><div class="wall"></div><canvas width="540" height="960"></canvas>
+      <div class="bubble" id="b-widget" style="--tail:30px">سلام! بگو چی یادت بندازم 🙂</div>
+      <div class="pill"><div class="b x">✕</div><div class="mid"><span class="dot"></span><span id="timer">0:03</span></div><div class="b s">➤</div></div>
+    </div>
+    <button class="chip replay" id="r-widget">دوباره: ویجت صوتی</button>
+    <p class="note">زدن ویجت صدا: یادیمو از پایین پرواز می‌کند، روی نوار ضبط می‌نشیند و سلام می‌کند.</p>
+  </div>
+  <div>
+    <div class="phone alarm" id="p-alarm"><canvas width="540" height="960"></canvas>
+      <div class="time">۰۷:۳۰</div><div class="t2">قرص صبح</div><div class="btn">قطع زنگ</div>
+    </div>
+    <button class="chip replay" id="r-alarm">دوباره: صفحهٔ زنگ</button>
+    <p class="note">موقع زنگ: می‌لرزد، زبانهٔ زنگ تاب می‌خورد و موج صدا پخش می‌شود.</p>
+  </div>
+  <div>
+    <div class="cardmock" id="p-peek"><div class="row"></div><div class="row"></div><div class="row"></div><div class="row"></div><canvas width="600" height="500"></canvas>
+      <div class="bubble" id="b-peek" style="--tail:26px;--ox:85%">۳ کار امروز داری!</div></div>
+    <button class="chip replay" id="r-peek">دوباره: سرک کشیدن</button>
+    <p class="note">گاهی در منوها و کارت‌ها از کنار صفحه سرک می‌کشد، چیزی می‌گوید و می‌رود.</p>
+  </div>
+</div>
+
+<h2>چه چیزهایی بهتر شد</h2>
+<div class="card">
+<table>
+<tr><th>موضوع</th><th>قبل</th><th>حالا</th></tr>
+<tr><td>ظاهر</td><td>تخت با خط دور تیره</td><td>بدون خط دور؛ گرادیان نور از بالا-چپ، درخشش نرم، نور لبه، سایهٔ تماس با زمین که با پریدن کوچک و کم‌رنگ می‌شود</td></tr>
+<tr><td>صورت</td><td>چشم‌ها روی بدن</td><td>صفحهٔ صورت روشن جدا (مثل نمونه‌های تو)، چشم‌های براق با پلک واقعی، نگاه کردن به لمس، ابرو و دهان که شکلشان عوض می‌شود</td></tr>
+<tr><td>حرکت</td><td>چرخش و جابه‌جایی ساده</td><td>فنر و ژله: کش آمدن قبل از پرش، له شدن موقع فرود، لرزش بعدش، آنتن و زبانهٔ زنگ که با تأخیر دنبال بدن می‌آیند، دست‌های نرم خم‌شونده</td></tr>
+<tr><td>جلوه‌ها</td><td>کم</td><td>ذره‌ها (کاغذرنگی، ستاره، قلب، zzz)، موج صدای زنگ، لامپ ایده با هاله</td></tr>
+<tr><td>سنگینی</td><td>۱۰ تا ۱۵ عکس بزرگ در هر فریم، خواندن SVG هنگام اجرا</td><td>هیچ عکس و فایلی نیست؛ همه‌چیز مستقیم با شکل و گرادیان کشیده می‌شود (روی کارت گرافیک)، پس بار کردن ندارد و لگ اولیه حذف می‌شود</td></tr>
+</table>
+</div>
+
+<h2>دربارهٔ Rive</h2>
+<div class="card"><p style="margin:0">فایل‌های Rive (مثل Sobo و Little Boy) را باید یک طراح در ویرایشگر Rive بسازد؛ من نمی‌توانم فایل <code>.riv</code> تولید کنم، و آن نمونه‌های بازار Rive مال سازندگان خودشان‌اند و نمی‌شود هویت برنامه را روی آن‌ها گذاشت. سایت Rive از این محیط هم باز نشد. کاری که این نسخه می‌کند همان ایدهٔ Rive است (اسکلت، فنر، حالت‌ها) ولی با کد خودمان، پس کاملاً مال خودمان است، سبک است و بدون کتابخانهٔ اضافه داخل برنامه می‌رود. اگر روزی طراح Rive گرفتی، همین حالت‌ها و ورودی‌ها را می‌شود به فایل او وصل کرد.</p></div>
+</div>
+
+<script>
+/* ======================= یادیمو: یک شخصیت فنری =======================
+   همهٔ اندازه‌ها در فضای طراحی ۳۰۰×۳۴۰ است؛ زمین y=300. */
+const THEMES = {
+  lilac:{n:'یاسی',  hi:'#f4f0ff', base:'#a993ff', lo:'#5a42c8', rim:'#e6dcff', foot:'#6b54d6', check:'#ffffff', sw:'#a993ff'},
+  sky:  {n:'آسمانی',hi:'#eef8ff', base:'#7cc0ff', lo:'#2f6fd6', rim:'#dff0ff', foot:'#3e7fe0', check:'#ffffff', sw:'#7cc0ff'},
+  mint: {n:'نعنایی',hi:'#effff8', base:'#6fe0b2', lo:'#1f9a72', rim:'#d8fbec', foot:'#2aa77d', check:'#ffffff', sw:'#6fe0b2'},
+  peach:{n:'هلویی', hi:'#fff6ee', base:'#ffad7a', lo:'#e0603a', rim:'#ffe6d6', foot:'#ea6f45', check:'#ffffff', sw:'#ffad7a'},
+  sun:  {n:'آفتابی',hi:'#fffbea', base:'#ffd24d', lo:'#e89a0c', rim:'#fff1c4', foot:'#eea21a', check:'#ffffff', sw:'#ffd24d'},
+  rose: {n:'صورتی', hi:'#fff1f7', base:'#ff94be', lo:'#d4467e', rim:'#ffe0ee', foot:'#de5a8e', check:'#ffffff', sw:'#ff94be'},
+};
+const MOODS = {idle:'ایستاده', wave:'سلام', talk:'حرف زدن', think:'فکر', ring:'زنگ', celebrate:'جشن', love:'ذوق', sleep:'خواب', fly:'پرواز به بالا'};
+const HATS = {none:'بدون', party:'کلاه جشن', cap:'کلاه کپ', crown:'تاج', beanie:'بافتنی', phones:'هدفون', bow:'پاپیون'};
+const GLASSES = {none:'بدون', round:'گرد', sun:'آفتابی'};
+
+class Spring {      // فنر میرا: هر مقداری که با آن حرکت کند نرم و زنده دیده می‌شود
+  constructor(x=0, k=140, d=12){ this.x=x; this.v=0; this.t=x; this.k=k; this.d=d; }
+  step(dt){ const a = this.k*(this.t-this.x) - this.d*this.v; this.v += a*dt; this.x += this.v*dt; return this.x; }
+}
+const lerp=(a,b,t)=>a+(b-a)*t, clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), TAU=Math.PI*2;
+const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+
+class Yadimo {
+  constructor(canvas, o={}){
+    this.c = canvas; this.g = canvas.getContext('2d');
+    this.theme = o.theme||'lilac'; this.hat = o.hat||'none'; this.glass = o.glass||'none';
+    this.size = o.size||1;            // اندازهٔ شخصیت نسبت به بوم
+    this.cx = o.cx ?? .5; this.gy = o.gy ?? .9;    // جای پاها روی بوم (نسبی)
+    this.mood = 'idle'; this.t = 0; this.mt = 0;
+    const S = (x,k,d)=>new Spring(x,k,d);
+    this.sx=S(1,180,10); this.sy=S(1,180,10); this.lean=S(0,90,9); this.tilt=S(0,80,10);
+    this.px=S(0,60,12); this.py=S(0,60,12); this.ant=S(0,70,4); this.clap=S(0,60,3);
+    this.lx=S(0,60,10); this.ly=S(0,60,10); this.open=S(1,260,22); this.mouth=S(.25,160,16); this.smile=S(.8,120,14);
+    this.brow=S(0,90,12); this.bulb=S(0,120,10);
+    this.hL={x:S(68,70,11),y:S(226,70,11)}; this.hR={x:S(232,70,11),y:S(226,70,11)}; this.frontR=false;
+    this.parts=[]; this.eyes='open'; this.nextBlink=1.5; this.blinkT=-1; this.look={x:0,y:0,until:0}; this.poke=-9;
+    this.prevY=0; this.air=false;
+  }
+  setMood(m){ this.mood=m; this.mt=0; this.landed=false;
+    if (m==='fly'){ this.py.x=420; this.py.v=-1500; this.py.t=0; this.py.k=55; this.py.d=7.5; }
+    else { this.py.k=60; this.py.d=12; }
+  }
+  pokeIt(){ this.poke=this.t; this.sy.v-=6; this.sx.v+=5; this.burst(150,170,8,'spark'); }
+  burst(x,y,n,type){ for(let i=0;i<n;i++){ const a=Math.random()*TAU, s=60+Math.random()*120;
+    this.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-(type==='conf'?160:60),life:1,type,rot:Math.random()*6,vr:(Math.random()-.5)*10,
+      col:['#ffd24d','#ff7fae','#6fe0b2','#7cc0ff','#a993ff'][i%5]}); } }
+
+  /* هدف‌های هر حال‌وهوا؛ فنرها خودشان راه رسیدن را نرم می‌کنند */
+  update(dt){
+    this.t+=dt; this.mt+=dt; const t=this.t, m=this.mt;
+    let sx=1, sy=1+Math.sin(t*2.1)*.018, lean=Math.sin(t*1.3)*2.5, tilt=0, ex=0, ey=0;
+    let hL={x:58+Math.sin(t*2.1)*2,y:230}, hR={x:242-Math.sin(t*2.1+1)*2,y:230}, frontR=false;
+    let eyes='open', mouth=.22, smile=.85, brow=0, bulb=0, py=0;
+    switch(this.mood){
+      case 'wave': hR={x:246+Math.sin(m*10)*12,y:128+Math.cos(m*10)*6}; lean=-6+Math.sin(m*10)*2; mouth=.55; smile=1; brow=.5; break;
+      case 'talk': { const n=Math.abs(Math.sin(m*11)*Math.sin(m*3.7+1)); mouth=.15+.75*n; lean=Math.sin(m*3)*4; sy+=n*.025;
+        hR={x:238+Math.sin(m*4)*8,y:182+Math.sin(m*5)*10}; brow=.3; break; }
+      case 'think': tilt=-6; ex=-.8; ey=-.9; mouth=.08; smile=.15; brow=.6; frontR=true; hR={x:174,y:198}; bulb=m>1.2?1:0; lean=-3; break;
+      case 'ring': { tilt=Math.sin(m*36)*6; lean=Math.sin(m*36+1)*5; eyes='wow'; mouth=.85; smile=0; brow=1;
+        hL={x:38+Math.sin(m*30)*5,y:196}; hR={x:262-Math.sin(m*30)*5,y:196}; sy=1+Math.sin(m*36)*.03; break; }
+      case 'celebrate': { const p=(m%1.25)/1.25; eyes='happy'; mouth=.7; smile=1;
+        hL={x:56,y:120+Math.sin(m*14)*6}; hR={x:244,y:120+Math.cos(m*14)*6};
+        if (p<.16){ sy=.84; sx=1.12; this.air=false; }
+        else if (p<.62){ const q=(p-.16)/.46; py=-70*Math.sin(Math.PI*q); sy=1.12; sx=.92; tilt=Math.sin(q*TAU)*8;
+          if(!this.air){ this.air=true; this.burst(150,170,14,'conf'); } }
+        else { sy=1; this.air=false; }
+        break; }
+      case 'love': eyes='heart'; mouth=.4; smile=1; lean=Math.sin(m*2)*6; tilt=Math.sin(m*2)*4; brow=.4;
+        hL={x:110,y:210}; hR={x:190,y:210};
+        if (Math.random()<dt*3) this.parts.push({x:150+(Math.random()-.5)*80,y:110,vx:(Math.random()-.5)*30,vy:-60,life:1,type:'heart',rot:0,vr:0,col:'#ff5c93'}); break;
+      case 'sleep': eyes='closed'; mouth=.18; smile=.3; sy=.97+Math.sin(t*1.2)*.03; lean=4; tilt=5; hL={x:64,y:244}; hR={x:236,y:244}; brow=-.3;
+        if (Math.random()<dt*.9) this.parts.push({x:196,y:96,vx:18,vy:-26,life:1,type:'z',rot:0,vr:0,col:'#7a62e0',size:14+Math.random()*12}); break;
+      case 'fly': { const v=this.py.v; eyes=m<.9?'happy':'open'; mouth=m<.9?.5:.45; smile=1;
+        sy=1+clamp(-v/2400,-.1,.18); sx=1-clamp(-v/2400,-.1,.18)*.6;
+        hL={x:56,y:150}; hR={x:244,y:150};
+        if (m<.8 && Math.random()<.6) this.parts.push({x:150+(Math.random()-.5)*60,y:280+this.py.x,vx:0,vy:60,life:.7,type:'spark',rot:0,vr:0,col:'#fff'});
+        if (m>1.1){ hR={x:246+Math.sin(m*10)*12,y:128+Math.cos(m*10)*6}; } break; }
+    }
+    // پلک و نگاه
+    if (t>this.nextBlink){ this.blinkT=t; this.nextBlink=t+2+Math.random()*3.5; }
+    const bp=(t-this.blinkT)/.14, blink = bp>=0&&bp<=1 ? Math.sin(Math.PI*bp) : 0;
+    if (t>this.look.until && ex===0 && !Yadimo.pointer.on){ this.look={x:(Math.random()-.5)*1.4,y:(Math.random()-.5)*.8,until:t+1+Math.random()*2.2}; }
+    let lookX = ex||this.look.x, lookY = ey||this.look.y;
+    if (Yadimo.pointer.on && this.c===Yadimo.pointer.c && ex===0){ lookX=Yadimo.pointer.x; lookY=Yadimo.pointer.y; }
+    if (t-this.poke<.5){ eyes='happy'; mouth=.7; smile=1; }
+    this.eyes=eyes; this.frontR=frontR;
+    // هدف‌ها به فنرها
+    this.sx.t=sx; this.sy.t=sy; this.lean.t=lean; this.tilt.t=tilt; this.lx.t=lookX; this.ly.t=lookY;
+    this.open.t = eyes==='open'||eyes==='wow' ? 1-blink : 1; this.mouth.t=mouth; this.smile.t=smile; this.brow.t=brow; this.bulb.t=bulb;
+    this.hL.x.t=hL.x; this.hL.y.t=hL.y; this.hR.x.t=hR.x; this.hR.y.t=hR.y;
+    if (this.mood!=='fly') this.py.t=py;
+    for (const s of [this.sx,this.sy,this.lean,this.tilt,this.lx,this.ly,this.open,this.mouth,this.smile,this.brow,this.bulb,this.hL.x,this.hL.y,this.hR.x,this.hR.y,this.px,this.py]) s.step(dt);
+    if (this.mood==='celebrate' && this.mt%1.25/1.25>.16 && this.mt%1.25/1.25<.62) this.py.x=py;   // پرش دقیق، نه فنری
+    // فرود: له شدن + لرزش ژله‌ای
+    const vy=(this.py.x-this.prevY)/Math.max(dt,1e-3); this.prevY=this.py.x;
+    if (this.mood==='fly' && !this.landed && this.mt>.5 && Math.abs(this.py.x)<6 && this.py.v>0){ this.landed=true; this.sy.v-=3.5; this.sx.v+=3; }
+    // آنتن و زبانهٔ زنگ با تأخیر دنبال بدن می‌آیند (حرکت ثانویه)
+    this.ant.t = -this.lean.x*2.2 - this.tilt.x*1.4 + clamp(vy*.02,-25,25); this.ant.step(dt);
+    this.clap.t = this.mood==='ring' ? Math.sin(this.mt*36)*28 : -this.tilt.x*2 - this.lean.x; this.clap.step(dt);
+    // ذره‌ها
+    for (const p of this.parts){ p.life-=dt*(p.type==='z'?.45:p.type==='heart'?.5:.9); p.x+=p.vx*dt; p.y+=p.vy*dt; p.rot+=p.vr*dt;
+      if (p.type==='conf'||p.type==='spark') p.vy+=380*dt; }
+    this.parts=this.parts.filter(p=>p.life>0);
+  }
+
+  /* ---------------- رسم ---------------- */
+  draw(){
+    const g=this.g, c=this.c, th=THEMES[this.theme];
+    g.setTransform(1,0,0,1,0,0); g.clearRect(0,0,c.width,c.height);
+    const unit = c.width/300*this.size;
+    const ox = c.width*this.cx - 150*unit, oy = c.height*this.gy - 300*unit;
+    g.setTransform(unit,0,0,unit,ox,oy);
+    const lift=-this.py.x;
+    // سایهٔ تماس با زمین: هرچه بالاتر، کوچک‌تر و کم‌رنگ‌تر
+    { const k=clamp(1-lift/220,.35,1); const sh=g.createRadialGradient(150,302,2,150,302,70*k);
+      sh.addColorStop(0,`rgba(28,18,80,${.34*k})`); sh.addColorStop(1,'rgba(28,18,80,0)');
+      g.save(); g.translate(150,302); g.scale(1,.18); g.translate(-150,-302); g.fillStyle=sh; g.beginPath(); g.arc(150,302,70*k,0,TAU); g.fill(); g.restore(); }
+    g.save();
+    g.translate(this.px.x, this.py.x);
+    // کش آمدن و له شدن دور پاها، کج شدن ژله‌ای، چرخش
+    g.translate(150,298); g.rotate(this.tilt.x*Math.PI/180); g.scale(this.sx.x,this.sy.x); g.transform(1,0,-this.lean.x/220,1,0,0); g.translate(-150,-298);
+
+    this.drawFeet(g,th); this.drawClapper(g,th);
+    this.drawArm(g,th,84,198,this.hL.x.x,this.hL.y.x,1);
+    if (!this.frontR) this.drawArm(g,th,216,198,this.hR.x.x,this.hR.y.x,-1);
+    this.drawBody(g,th); this.drawFace(g,th); this.drawGlasses(g);
+    if (this.hat==='none') this.drawAntenna(g,th); else this.drawHat(g,th);
+    if (this.frontR) this.drawArm(g,th,216,198,this.hR.x.x,this.hR.y.x,-1);
+    if (this.mood==='ring') this.drawWaves(g);
+    if (this.bulb.x>.02) this.drawBulb(g);
+    g.restore();
+    this.drawParts(g);
+  }
+  bodyPath(g){
+    g.beginPath(); g.moveTo(150,80);
+    g.bezierCurveTo(106,80,74,108,74,152); g.bezierCurveTo(74,188,70,214,56,238);
+    g.bezierCurveTo(44,256,48,268,70,274); g.bezierCurveTo(102,284,198,284,230,274);
+    g.bezierCurveTo(252,268,256,256,244,238); g.bezierCurveTo(230,214,226,188,226,152);
+    g.bezierCurveTo(226,108,194,80,150,80); g.closePath();
+  }
+  drawBody(g,th){
+    // رنگ پایه با نور از بالا-چپ
+    const grd=g.createRadialGradient(118,104,8,140,150,190);
+    grd.addColorStop(0,th.hi); grd.addColorStop(.42,th.base); grd.addColorStop(1,th.lo);
+    this.bodyPath(g); g.fillStyle=grd; g.fill();
+    g.save(); this.bodyPath(g); g.clip();
+    // سایهٔ پایین (انسداد محیطی) و لبهٔ زنگ
+    let ao=g.createLinearGradient(0,200,0,282); ao.addColorStop(0,'rgba(30,10,90,0)'); ao.addColorStop(1,'rgba(30,10,90,.28)');
+    g.fillStyle=ao; g.fillRect(40,200,220,90);
+    const rim=g.createLinearGradient(0,246,0,282); rim.addColorStop(0,'rgba(255,255,255,0)'); rim.addColorStop(.35,th.rim+'aa'); rim.addColorStop(1,'rgba(255,255,255,0)');
+    g.fillStyle=rim; g.beginPath(); g.moveTo(40,250); g.quadraticCurveTo(150,276,260,250); g.lineTo(260,262); g.quadraticCurveTo(150,290,40,262); g.fill();
+    // نور لبه در سمت راست
+    const rl=g.createLinearGradient(160,0,226,0); rl.addColorStop(0,'rgba(255,255,255,0)'); rl.addColorStop(1,'rgba(255,255,255,.38)');
+    g.strokeStyle=rl; g.lineWidth=7; this.bodyPath(g); g.stroke();
+    // درخشش نرم (بدون لبهٔ تیز)
+    const sp=g.createRadialGradient(112,104,1,112,108,46); sp.addColorStop(0,'rgba(255,255,255,.95)'); sp.addColorStop(.35,'rgba(255,255,255,.45)'); sp.addColorStop(1,'rgba(255,255,255,0)');
+    g.fillStyle=sp; g.beginPath(); g.ellipse(112,110,30,40,-.5,0,TAU); g.fill();
+    g.fillStyle='rgba(255,255,255,.85)'; g.beginPath(); g.ellipse(104,98,6,9,-.5,0,TAU); g.fill();
+    // تیک برجسته روی شکم
+    g.lineCap='round'; g.lineJoin='round';
+    g.strokeStyle='rgba(40,15,110,.22)'; g.lineWidth=9; g.beginPath(); g.moveTo(134,236); g.lineTo(146,248); g.lineTo(170,222); g.stroke();
+    g.strokeStyle='rgba(255,255,255,.85)'; g.lineWidth=7; g.beginPath(); g.moveTo(134,233); g.lineTo(146,245); g.lineTo(170,219); g.stroke();
+    g.restore();
+  }
+  drawFeet(g,th){
+    for (const x of [122,178]){ const fg=g.createRadialGradient(x-5,284,2,x,290,20); fg.addColorStop(0,th.base); fg.addColorStop(1,th.foot);
+      g.fillStyle=fg; g.beginPath(); g.ellipse(x,290,18,11,0,0,TAU); g.fill();
+      g.fillStyle='rgba(255,255,255,.35)'; g.beginPath(); g.ellipse(x-6,285,6,3,0,0,TAU); g.fill(); }
+  }
+  drawClapper(g,th){
+    g.save(); g.translate(150,268); g.rotate(this.clap.x*Math.PI/180);
+    g.strokeStyle='#b88a1a'; g.lineWidth=3; g.beginPath(); g.moveTo(0,0); g.lineTo(0,14); g.stroke();
+    const cg=g.createRadialGradient(-3,16,1,0,19,9); cg.addColorStop(0,'#fff3b0'); cg.addColorStop(.5,'#ffcc33'); cg.addColorStop(1,'#d18e00');
+    g.fillStyle=cg; g.beginPath(); g.arc(0,20,8,0,TAU); g.fill(); g.restore();
+  }
+  drawArm(g,th,sx,sy,hx,hy,side){
+    // دست نرم: یک منحنی که سرش (کف دست) به هدف می‌رسد و خودش کمی خم می‌شود
+    const mx=(sx+hx)/2, my=(sy+hy)/2, dx=hx-sx, dy=hy-sy, len=Math.hypot(dx,dy)||1, bend=10*side;
+    const cx=mx - dy/len*bend, cy=my + dx/len*bend;
+    const ag=g.createLinearGradient(sx,sy-10,hx,hy+10); ag.addColorStop(0,th.base); ag.addColorStop(1,th.lo);
+    g.lineCap='round'; g.strokeStyle=ag; g.lineWidth=19; g.beginPath(); g.moveTo(sx,sy); g.quadraticCurveTo(cx,cy,hx,hy); g.stroke();
+    const hg=g.createRadialGradient(hx-4,hy-4,1,hx,hy,12); hg.addColorStop(0,th.hi); hg.addColorStop(.5,th.base); hg.addColorStop(1,th.lo);
+    g.fillStyle=hg; g.beginPath(); g.arc(hx,hy,11,0,TAU); g.fill();
+  }
+  drawAntenna(g,th){
+    g.save(); g.translate(150,80); g.rotate(this.ant.x*Math.PI/180);
+    g.strokeStyle=th.lo; g.lineWidth=5; g.lineCap='round'; g.beginPath(); g.moveTo(0,0); g.quadraticCurveTo(2,-10,0,-18); g.stroke();
+    const kg=g.createRadialGradient(-3,-26,1,0,-22,11); kg.addColorStop(0,'#fffbe0'); kg.addColorStop(.45,'#ffd24d'); kg.addColorStop(1,'#e08e00');
+    g.fillStyle=kg; g.beginPath(); g.arc(0,-23,10,0,TAU); g.fill(); g.restore();
+  }
+  drawFace(g,th){
+    // صفحهٔ صورت روشن
+    const fx=150+this.lx.x*3, fy=158+this.ly.x*2;
+    g.save();
+    const pg=g.createLinearGradient(0,fy-46,0,fy+46); pg.addColorStop(0,'#fffefb'); pg.addColorStop(1,'#efe8ff');
+    g.fillStyle='rgba(40,15,110,.18)'; g.beginPath(); g.ellipse(fx,fy+3,60,48,0,0,TAU); g.fill();
+    g.fillStyle=pg; g.beginPath(); g.ellipse(fx,fy,59,47,0,0,TAU); g.fill();
+    g.save(); g.beginPath(); g.ellipse(fx,fy,59,47,0,0,TAU); g.clip();
+    g.strokeStyle='rgba(60,30,150,.10)'; g.lineWidth=10; g.beginPath(); g.ellipse(fx,fy+5,56,45,0,0,TAU); g.stroke();
+    g.restore();
+    // گونه‌ها
+    for (const x of [-34,34]){ const cg=g.createRadialGradient(fx+x,fy+16,1,fx+x,fy+16,14); cg.addColorStop(0,'rgba(255,120,170,.55)'); cg.addColorStop(1,'rgba(255,120,170,0)');
+      g.fillStyle=cg; g.beginPath(); g.arc(fx+x,fy+16,14,0,TAU); g.fill(); }
+    // ابروها
+    const b=this.brow.x;
+    g.strokeStyle='rgba(70,50,140,.55)'; g.lineWidth=3.2; g.lineCap='round';
+    for (const s of [-1,1]){ const x=fx+s*22; g.beginPath(); g.moveTo(x-7, fy-26-b*4); g.quadraticCurveTo(x, fy-31-b*5, x+7, fy-26-b*4); g.stroke(); }
+    // چشم‌ها
+    const ex=this.lx.x*4, ey=this.ly.x*3, op=this.open.x;
+    for (const s of [-1,1]){
+      const x=fx+s*22+ex, y=fy-6+ey;
+      if (this.eyes==='happy'){ g.strokeStyle='#1d1640'; g.lineWidth=4.5; g.beginPath(); g.moveTo(x-9,y+3); g.quadraticCurveTo(x,y-9,x+9,y+3); g.stroke(); continue; }
+      if (this.eyes==='closed'){ g.strokeStyle='#1d1640'; g.lineWidth=4; g.beginPath(); g.moveTo(x-9,y); g.quadraticCurveTo(x,y+7,x+9,y); g.stroke(); continue; }
+      if (this.eyes==='heart'){ g.fillStyle='#ff4f87'; g.beginPath(); g.moveTo(x,y+9); g.bezierCurveTo(x-16,y-2,x-8,y-15,x,y-6); g.bezierCurveTo(x+8,y-15,x+16,y-2,x,y+9); g.fill();
+        g.fillStyle='rgba(255,255,255,.8)'; g.beginPath(); g.arc(x-5,y-6,2.4,0,TAU); g.fill(); continue; }
+      const rx= this.eyes==='wow'?10.5:9.5, ry=this.eyes==='wow'?14.5:13;
+      g.save(); g.beginPath(); g.ellipse(x,y,rx,ry,0,0,TAU); g.clip();
+      const eg=g.createLinearGradient(0,y-ry,0,y+ry); eg.addColorStop(0,'#3a2d78'); eg.addColorStop(1,'#120c2e');
+      g.fillStyle=eg; g.fillRect(x-rx,y-ry,rx*2,ry*2);
+      g.fillStyle='rgba(120,150,255,.35)'; g.beginPath(); g.ellipse(x+2,y+7,6,4,0,0,TAU); g.fill();
+      g.fillStyle='#fff'; g.beginPath(); g.ellipse(x-3+ex*.3,y-5+ey*.3,3.8,4.6,0,0,TAU); g.fill();
+      g.beginPath(); g.arc(x+3.5,y+5,1.7,0,TAU); g.fill();
+      // پلک واقعی: از بالا پایین می‌آید
+      if (op<.999){ g.fillStyle='#fbf8ff'; g.fillRect(x-rx-1,y-ry-1,rx*2+2,(ry*2+2)*(1-op)); }
+      g.restore();
+      if (op<.97){ const ly=y-ry+(ry*2)*(1-op); g.strokeStyle='#1d1640'; g.lineWidth=2.6; g.beginPath(); g.moveTo(x-rx,ly); g.quadraticCurveTo(x,ly+2*(1-op),x+rx,ly); g.stroke(); }
+    }
+    // دهان: باز شدن و لبخند جدا از هم
+    const mo=this.mouth.x, sm=this.smile.x, my=fy+18+ey*.5, w=10+mo*3;
+    g.save();
+    g.beginPath(); g.moveTo(fx-w+ex*.5,my-sm*1.5); g.quadraticCurveTo(fx+ex*.5,my+sm*3,fx+w+ex*.5,my-sm*1.5);
+    g.quadraticCurveTo(fx+ex*.5,my+sm*3+2+mo*17,fx-w+ex*.5,my-sm*1.5); g.closePath();
+    g.fillStyle='#4a1940'; g.fill(); g.clip();
+    g.fillStyle='#ff7a9c'; g.beginPath(); g.ellipse(fx+ex*.5,my+sm*3+mo*15,8,6,0,0,TAU); g.fill();
+    g.restore();
+    g.restore();
+  }
+  drawGlasses(g){
+    if (this.glass==='none') return;
+    const fx=150+this.lx.x*3+this.lx.x*4, y=152+this.ly.x*2+this.ly.x*3;
+    if (this.glass==='round'){ g.lineWidth=3.5; g.strokeStyle='#3b2d86'; g.fillStyle='rgba(255,255,255,.18)';
+      for (const s of [-1,1]){ g.beginPath(); g.arc(fx+s*22,y,15,0,TAU); g.fill(); g.stroke(); }
+      g.beginPath(); g.moveTo(fx-7,y-2); g.quadraticCurveTo(fx,y-7,fx+7,y-2); g.stroke();
+      g.strokeStyle='rgba(255,255,255,.8)'; g.lineWidth=2.2; g.beginPath(); g.arc(fx-24,y-3,8,3.6,4.5); g.stroke(); }
+    else { const lg=g.createLinearGradient(0,y-12,0,y+12); lg.addColorStop(0,'#3a3260'); lg.addColorStop(1,'#0d0a20');
+      g.fillStyle=lg; for (const s of [-1,1]){ g.beginPath(); g.ellipse(fx+s*22,y+1,17,12,0,0,TAU); g.fill(); }
+      g.strokeStyle='#0d0a20'; g.lineWidth=4; g.beginPath(); g.moveTo(fx-6,y-3); g.lineTo(fx+6,y-3); g.stroke();
+      g.fillStyle='rgba(255,255,255,.55)'; for (const s of [-1,1]){ g.beginPath(); g.ellipse(fx+s*22-6,y-4,5,2.5,-.4,0,TAU); g.fill(); } }
+  }
+  drawHat(g,th){
+    const gold=(x0,y0,x1,y1)=>{ const q=g.createLinearGradient(x0,y0,x1,y1); q.addColorStop(0,'#fff0a8'); q.addColorStop(.5,'#ffcc33'); q.addColorStop(1,'#d48a00'); return q; };
+    const purp=(x0,y0,x1,y1)=>{ const q=g.createLinearGradient(x0,y0,x1,y1); q.addColorStop(0,'#a48cff'); q.addColorStop(1,'#4b33b8'); return q; };
+    const shine=(x,y,rx,ry,r=-.5)=>{ g.fillStyle='rgba(255,255,255,.45)'; g.beginPath(); g.ellipse(x,y,rx,ry,r,0,TAU); g.fill(); };
+    g.save();
+    switch(this.hat){
+      case 'party': g.translate(150,92); g.rotate(.18);
+        g.fillStyle='rgba(30,10,90,.18)'; g.beginPath(); g.ellipse(0,6,40,7,0,0,TAU); g.fill();
+        g.fillStyle=purp(-30,-80,30,0); g.beginPath(); g.moveTo(-36,4); g.quadraticCurveTo(0,12,36,4); g.lineTo(2,-82); g.closePath(); g.fill();
+        g.save(); g.clip(); g.strokeStyle='#ffd24d'; g.lineWidth=8; for (const y of [-12,-36,-60]){ g.beginPath(); g.moveTo(-40,y+8); g.lineTo(40,y-6); g.stroke(); } g.restore();
+        g.fillStyle=gold(-8,-96,8,-76); g.beginPath(); g.arc(2,-86,10,0,TAU); g.fill(); shine(-12,-34,4,14,.3); break;
+      case 'cap': g.fillStyle='rgba(30,10,90,.2)'; g.beginPath(); g.ellipse(150,112,62,8,0,0,TAU); g.fill();
+        g.fillStyle=purp(90,60,210,110); g.beginPath(); g.moveTo(88,110); g.bezierCurveTo(84,52,216,52,212,110); g.quadraticCurveTo(150,120,88,110); g.fill();
+        g.fillStyle=gold(150,56,210,112); g.beginPath(); g.moveTo(150,58); g.bezierCurveTo(186,58,210,78,212,110); g.quadraticCurveTo(182,116,150,117); g.fill();
+        g.fillStyle=purp(190,100,262,120); g.beginPath(); g.moveTo(194,106); g.quadraticCurveTo(250,96,262,114); g.quadraticCurveTo(226,124,192,116); g.fill();
+        g.fillStyle=gold(144,48,156,62); g.beginPath(); g.arc(150,57,6,0,TAU); g.fill(); shine(110,80,8,16,-.7); break;
+      case 'crown': g.fillStyle=gold(100,60,200,110); g.beginPath(); g.moveTo(102,108); g.lineTo(96,62); g.lineTo(124,86); g.lineTo(150,50); g.lineTo(176,86); g.lineTo(204,62); g.lineTo(198,108);
+        g.quadraticCurveTo(150,118,102,108); g.fill();
+        for (const [x,y,c] of [[96,60,'#ff5c8a'],[150,48,'#7cc0ff'],[204,60,'#6fe0b2'],[150,102,'#ff5c8a']]){ const q=g.createRadialGradient(x-2,y-2,1,x,y,6); q.addColorStop(0,'#fff'); q.addColorStop(.4,c); q.addColorStop(1,c); g.fillStyle=q; g.beginPath(); g.arc(x,y,5.5,0,TAU); g.fill(); }
+        shine(116,92,4,10,.2); break;
+      case 'beanie': g.fillStyle=purp(90,50,210,116); g.beginPath(); g.moveTo(86,114); g.bezierCurveTo(80,46,220,46,214,114); g.fill();
+        g.strokeStyle='rgba(255,255,255,.16)'; g.lineWidth=5; for (const x of [108,130,150,170,192]){ g.beginPath(); g.moveTo(x,108); g.lineTo(x+(x-150)*.1,62); g.stroke(); }
+        g.fillStyle=gold(80,100,220,130); g.beginPath(); g.moveTo(80,108); g.quadraticCurveTo(150,92,220,108); g.lineTo(218,130); g.quadraticCurveTo(150,116,82,130); g.fill();
+        { const q=g.createRadialGradient(145,44,2,150,50,17); q.addColorStop(0,'#fff'); q.addColorStop(1,'#e6defa'); g.fillStyle=q; g.beginPath(); g.arc(150,50,16,0,TAU); g.fill(); } break;
+      case 'phones': g.lineCap='round'; g.strokeStyle=purp(70,40,230,150); g.lineWidth=10; g.beginPath(); g.moveTo(74,150); g.bezierCurveTo(64,30,236,30,226,150); g.stroke();
+        for (const x of [70,230]){ g.fillStyle=purp(x-14,124,x+14,180); g.beginPath(); g.ellipse(x,152,15,26,0,0,TAU); g.fill(); shine(x-5,142,4,9,0); } break;
+      case 'bow': g.translate(112,92); g.rotate(-.35);
+        g.fillStyle=gold(-34,-18,34,18); g.beginPath(); g.moveTo(0,0); g.quadraticCurveTo(-26,-30,-36,-6); g.quadraticCurveTo(-30,20,0,0); g.fill();
+        g.beginPath(); g.moveTo(0,0); g.quadraticCurveTo(26,-30,36,-6); g.quadraticCurveTo(30,20,0,0); g.fill();
+        g.fillStyle='#e7a400'; g.beginPath(); g.arc(0,0,8,0,TAU); g.fill(); shine(-20,-10,4,8,.6); break;
+    }
+    g.restore();
+  }
+  drawWaves(g){
+    const m=this.mt; g.lineCap='round';
+    for (let i=0;i<3;i++){ const p=((m*1.6)+i/3)%1, r=40+p*60; g.strokeStyle=`rgba(255,210,77,${(1-p)*.9})`; g.lineWidth=5*(1-p)+1;
+      for (const s of [-1,1]){ g.beginPath(); g.arc(150,170,r+60, s<0?Math.PI-.5:-.5, s<0?Math.PI+.5:.5); g.stroke(); } }
+  }
+  drawBulb(g){
+    const k=this.bulb.x; g.save(); g.translate(232,64); g.scale(k,k);
+    const halo=g.createRadialGradient(0,0,2,0,0,40); halo.addColorStop(0,'rgba(255,230,120,.7)'); halo.addColorStop(1,'rgba(255,230,120,0)');
+    g.fillStyle=halo; g.beginPath(); g.arc(0,0,40,0,TAU); g.fill();
+    const bg=g.createRadialGradient(-5,-8,2,0,-2,20); bg.addColorStop(0,'#fffbe0'); bg.addColorStop(.5,'#ffd24d'); bg.addColorStop(1,'#e89a0c');
+    g.fillStyle=bg; g.beginPath(); g.arc(0,-4,15,0,TAU); g.fill(); g.fillStyle='#9d93c9'; g.beginPath(); g.roundRect(-7,10,14,9,3); g.fill();
+    g.restore();
+  }
+  drawParts(g){
+    for (const p of this.parts){ g.save(); g.globalAlpha=clamp(p.life,0,1); g.translate(p.x,p.y); g.rotate(p.rot);
+      if (p.type==='conf'){ g.fillStyle=p.col; g.fillRect(-4,-6,8,12); }
+      else if (p.type==='spark'){ g.fillStyle=p.col==='#fff'?'rgba(255,255,255,.9)':'#ffd24d'; g.beginPath(); for(let i=0;i<8;i++){ const r=i%2?2:6, a=i*Math.PI/4; g.lineTo(Math.cos(a)*r,Math.sin(a)*r);} g.fill(); }
+      else if (p.type==='heart'){ g.fillStyle=p.col; g.beginPath(); g.moveTo(0,8); g.bezierCurveTo(-14,-2,-7,-13,0,-5); g.bezierCurveTo(7,-13,14,-2,0,8); g.fill(); }
+      else if (p.type==='z'){ g.fillStyle=p.col; g.font=`800 ${p.size}px system-ui`; g.fillText('z',0,0); }
+      g.restore(); }
+  }
+}
+Yadimo.pointer={on:false,x:0,y:0,c:null};
+
+/* ======================= صفحه ======================= */
+const all=[];
+const main=new Yadimo(document.getElementById('c-main'),{size:1.02, gy:.93});
+all.push(main);
+const mc=document.getElementById('c-main');
+mc.addEventListener('pointermove',e=>{ const r=mc.getBoundingClientRect(); Yadimo.pointer={on:true,c:mc,x:clamp((e.clientX-r.left)/r.width*2-1,-1,1)*1.2,y:clamp((e.clientY-r.top)/r.height*2-.9,-1,1)}; });
+mc.addEventListener('pointerleave',()=>Yadimo.pointer.on=false);
+mc.addEventListener('pointerdown',()=>main.pokeIt());
+
+function chips(id, items, cur, pick){ const box=document.getElementById(id); box.innerHTML='';
+  Object.entries(items).forEach(([k,v])=>{ const b=document.createElement('button'); b.className='chip'+(k===cur()?' on':''); b.textContent=v; b.onclick=()=>{ pick(k); [...box.children].forEach(x=>x.classList.toggle('on',x===b)); }; box.appendChild(b); }); }
+chips('c-mood',MOODS,()=>main.mood,k=>main.setMood(k));
+chips('c-hat',HATS,()=>main.hat,k=>main.hat=k);
+chips('c-glass',GLASSES,()=>main.glass,k=>main.glass=k);
+{ const box=document.getElementById('c-color'); Object.entries(THEMES).forEach(([k,v])=>{ const b=document.createElement('button'); b.className='sw'+(k===main.theme?' on':''); b.style.background=v.sw; b.title=v.n;
+  b.onclick=()=>{ main.theme=k; [...box.children].forEach(x=>x.classList.toggle('on',x===b)); }; box.appendChild(b); }); }
+
+// صحنهٔ ۱: ویجت صدا
+const pw=document.getElementById('p-widget'), wbub=document.getElementById('b-widget');
+const yw=new Yadimo(pw.querySelector('canvas'),{size:.55, gy:.83, cx:.66}); all.push(yw);
+let wTimer=[];
+function playWidget(){ wTimer.forEach(clearTimeout); wbub.classList.remove('on'); yw.setMood('fly');
+  wTimer=[setTimeout(()=>{ yw.setMood('wave'); placeBubble(pw,wbub,yw,-.02); wbub.classList.add('on'); },1300),
+          setTimeout(()=>yw.setMood('talk'),3200), setTimeout(()=>{ yw.setMood('idle'); },5200)]; }
+document.getElementById('r-widget').onclick=playWidget;
+// صحنهٔ ۲: زنگ
+const pa=document.getElementById('p-alarm');
+const ya=new Yadimo(pa.querySelector('canvas'),{size:.82, gy:.68}); all.push(ya);
+function playAlarm(){ ya.setMood('ring'); }
+document.getElementById('r-alarm').onclick=playAlarm;
+// صحنهٔ ۳: سرک کشیدن از کنار کارت
+const pp=document.getElementById('p-peek'), pbub=document.getElementById('b-peek');
+const yp=new Yadimo(pp.querySelector('canvas'),{size:.5, gy:1.04, cx:.84}); all.push(yp);
+let pTimer=[];
+function playPeek(){ pTimer.forEach(clearTimeout); pbub.classList.remove('on');
+  yp.px.x=220; yp.px.t=220; yp.tilt.t=0; yp.setMood('idle');
+  pTimer=[setTimeout(()=>{ yp.px.t=0; yp.setMood('wave'); },300),
+          setTimeout(()=>{ placeBubble(pp,pbub,yp,.05); pbub.classList.add('on'); yp.setMood('talk'); },1300),
+          setTimeout(()=>{ pbub.classList.remove('on'); yp.setMood('idle'); },3600),
+          setTimeout(()=>{ yp.px.t=230; },4300)]; }
+document.getElementById('r-peek').onclick=playPeek;
+function placeBubble(host,bub,y,dx){ const r=host.getBoundingClientRect(); const hx=r.width*(y.cx+dx), hy=r.height*y.gy - (300-60)/300*r.width*y.size;
+  bub.style.left=''; bub.style.right=(r.width-hx-30)+'px'; bub.style.top=(hy-56)+'px'; }
+
+// یک ساعت برای همه
+let last=performance.now(), fpsN=0, fpsT=0;
+function frame(now){ const dt=Math.min(.033,(now-last)/1000); last=now;
+  for (const y of all){ y.update(dt); y.draw(); }
+  fpsN++; fpsT+=dt; if (fpsT>.5){ document.getElementById('fps').textContent=Math.round(fpsN/fpsT)+' fps'; fpsN=0; fpsT=0; }
+  requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+setTimeout(playWidget,600); setTimeout(playAlarm,400); setTimeout(playPeek,900);
+</script>
+</body>
+</html>
