@@ -46,6 +46,8 @@ func ensureSchema(app core.App) error {
 	addField(users, &core.TextField{Name: "bazaar_id", Max: 100, Help: "شناسهٔ حساب کافه‌بازار"})
 	addField(users, &core.JSONField{Name: "yadimo_owned", MaxSize: 20000, Help: "لوازم یادیموی خریده‌شده"})
 	addField(users, &core.JSONField{Name: "yadimo_look", MaxSize: 5000, Help: "ظاهر انتخاب‌شدهٔ یادیمو"})
+	addField(users, &core.JSONField{Name: "game", MaxSize: 20000, Help: "امتیاز، سطح، نشان‌ها و مأموریت‌ها (برنامه می‌فرستد)"})
+	addField(users, &core.NumberField{Name: "level_override", Help: "سطح دستی؛ ۰ یعنی همان سطحی که برنامه حساب می‌کند"})
 	if !hasIndex(users, "idx_users_phone") {
 		users.AddIndex("idx_users_phone", true, "phone", "phone != ''")
 	}
@@ -295,6 +297,23 @@ func ensureSchema(app core.App) error {
 		if err := app.Save(view); err != nil {
 			return err
 		}
+	}
+
+	// Token rewards of the starter missions: one row per paid mission, so each pays once per account and phone.
+	if _, err := ensureCollection(app, "rewards", func(c *core.Collection) {
+		addField(c, &core.RelationField{Name: "user", CollectionId: users.Id, MaxSelect: 1, CascadeDelete: false})
+		addField(c, &core.TextField{Name: "mission", Max: 40, Presentable: true})
+		addField(c, &core.TextField{Name: "device", Max: 100})
+		addField(c, &core.NumberField{Name: "tokens"})
+		addField(c, &core.AutodateField{Name: "created", OnCreate: true})
+		if !hasIndex(c, "idx_rewards_user") {
+			c.AddIndex("idx_rewards_user", true, "user, mission", "")
+		}
+		if !hasIndex(c, "idx_rewards_device") {
+			c.AddIndex("idx_rewards_device", true, "device, mission", "")
+		}
+	}); err != nil {
+		return err
 	}
 
 	if _, err := ensureCollection(app, "gifts", func(c *core.Collection) {

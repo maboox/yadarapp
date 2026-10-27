@@ -18,6 +18,12 @@ func TestParseWeather(t *testing.T) {
 
 func TestYadimoTiers(t *testing.T) {
 	for id, tier := range yadimoTiers {
+		if tier == "level" {
+			if yadimoLevels[id] < 2 {
+				t.Errorf("%s needs a level", id)
+			}
+			continue
+		}
 		if _, ok := yadimoDefaultPrices[tier]; !ok && tier != "free" {
 			t.Errorf("%s has unknown tier %q", id, tier)
 		}

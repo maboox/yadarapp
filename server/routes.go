@@ -39,6 +39,9 @@ func registerRoutes(se *core.ServeEvent) {
 	auth.GET("/yadimo", handleYadimo)
 	auth.POST("/yadimo/buy", handleYadimoBuy)
 	auth.POST("/yadimo/look", handleYadimoLook)
+	auth.GET("/game", handleGame)
+	auth.POST("/game", handleGameSave)
+	auth.POST("/game/claim", handleGameClaim)
 }
 
 // profile is what the app shows on the account screen.

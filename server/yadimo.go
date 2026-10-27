@@ -18,21 +18,31 @@ import (
 var yadimoTiers = map[string]string{
 	"hat:party": "free", "glass:round": "free",
 
-	"hat:cap": "basic", "hat:beanie": "basic", "hat:night": "basic", "hat:bow": "basic", "hat:chef": "basic",
-	"glass:sun": "basic", "neck:bowtie": "basic", "neck:scarf": "basic", "neck:tie": "basic",
+	"hat:beanie": "basic", "hat:night": "basic", "hat:bow": "basic", "hat:chef": "basic",
+	"neck:bowtie": "basic", "neck:tie": "basic",
 	"item:cup": "basic", "item:phone": "basic", "item:flag": "basic",
 
-	"hat:crown": "special", "hat:wizard": "special", "hat:phones": "special", "hat:grad": "special", "hat:flowers": "special",
+	"hat:phones": "special", "hat:grad": "special", "hat:flowers": "special",
 	"glass:star": "special", "glass:heart": "special", "neck:medal": "special", "item:wand": "special", "item:balloon": "special",
 	"titem:hammer": "special", "titem:shield": "special", "titem:ball": "special", "titem:saber": "special", "titem:staff": "special",
 
 	"costume:bat": "costume", "costume:plumber": "costume", "costume:spider": "costume", "costume:iron": "costume",
-	"costume:straw": "costume", "costume:ninja": "costume", "costume:ice": "costume", "costume:thor": "costume",
+	"costume:straw": "costume", "costume:ice": "costume", "costume:thor": "costume",
 	"costume:elf": "costume", "costume:graywiz": "costume", "costume:joker": "costume", "costume:wed": "costume",
-	"costume:saiyan": "costume", "costume:hero": "costume", "costume:pirate": "costume",
+	"costume:saiyan": "costume", "costume:hero": "costume",
+
+	// Earned, not sold: these open at a level (see yadimoLevels).
+	"hat:cap": "level", "glass:sun": "level", "neck:scarf": "level", "hat:crown": "level", "hat:wizard": "level",
+	"costume:ninja": "level", "costume:pirate": "level", "color:galaxy": "level",
 }
 
-// Starting prices of the tiers (tokens); written into settings once, then edited in the admin panel.
+// The level each earned part opens at.
+var yadimoLevels = map[string]int{
+	"hat:cap": 2, "glass:sun": 3, "neck:scarf": 4, "hat:crown": 5, "hat:wizard": 7,
+	"costume:ninja": 10, "costume:pirate": 15, "color:galaxy": 20,
+}
+
+// Starting prices of the tiers ("level" parts cannot be bought) (tokens); written into settings once, then edited in the admin panel.
 var yadimoDefaultPrices = map[string]float64{"basic": 5, "special": 10, "costume": 20}
 
 func yadimoPrices(app core.App) map[string]float64 {
@@ -68,7 +78,7 @@ func yadimoState(app core.App, user *core.Record) map[string]any {
 		owned = []string{}
 	}
 	return map[string]any{
-		"tiers": yadimoTiers, "prices": yadimoPrices(app), "owned": owned, "look": look,
+		"tiers": yadimoTiers, "prices": yadimoPrices(app), "owned": owned, "look": look, "levels": yadimoLevels, "level": gameLevel(user),
 		"balance": user.GetFloat("balance"), "unlimited": user.GetBool("unlimited"),
 	}
 }
@@ -92,6 +102,9 @@ func handleYadimoBuy(e *core.RequestEvent) error {
 	tier, ok := yadimoTiers[body.Item]
 	if !ok {
 		return apis.NewBadRequestError("این وسیله شناخته نشد", nil)
+	}
+	if tier == "level" {
+		return apis.NewBadRequestError(fmt.Sprintf("این وسیله فروشی نیست؛ در سطح %d باز می‌شود", yadimoLevels[body.Item]), nil)
 	}
 	price := yadimoPrices(e.App)[tier]
 	var user *core.Record
@@ -155,7 +168,8 @@ func handleYadimoLook(e *core.RequestEvent) error {
 	for _, id := range yadimoOwned(user) {
 		owned[id] = true
 	}
-	kinds := map[string]string{"hat": "hat", "glass": "glass", "neck": "neck", "costume": "costume"}
+	kinds := map[string]string{"hat": "hat", "glass": "glass", "neck": "neck", "costume": "costume", "color": "color"}
+	level := gameLevel(user)
 	clean := map[string]string{}
 	for k, v := range look {
 		if utf8.RuneCountInString(k) > 20 || utf8.RuneCountInString(v) > 30 || strings.ContainsAny(v, "<>\"") {
@@ -170,8 +184,17 @@ func handleYadimoLook(e *core.RequestEvent) error {
 				id = "titem:" + v
 			}
 		}
-		if id != "" && v != "none" && yadimoTiers[id] != "" && yadimoTiers[id] != "free" && !owned[id] && !user.GetBool("unlimited") {
+		switch tier := yadimoTiers[id]; {
+		case id == "" || v == "none" || tier == "" || tier == "free":
+		case tier == "level":
+			if level < yadimoLevels[id] {
+				v = "none"
+			}
+		case !owned[id] && !user.GetBool("unlimited"):
 			v = "none"
+		}
+		if k == "color" && v == "none" {
+			v = "lilac"
 		}
 		clean[k] = v
 	}
