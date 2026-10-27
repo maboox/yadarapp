@@ -256,9 +256,9 @@ fun YadimoCustomizer() {
         Choices(t("عینک", "Glasses"), "glasses", cfg.glass) { update(cfg.copy(glass = it, costume = "none")) }
         Choices(t("گردن", "Neck"), "neck", cfg.neck) { update(cfg.copy(neck = it, costume = "none")) }
         Choices(t("در دست", "In hand"), "items", cfg.item) { update(cfg.copy(item = it)) }
-        Choices(t("⚠️ تست: لباس شخصیت‌ها (فقط نسخهٔ آزمایشی)", "⚠️ Test: character costumes (test builds only)"), "costumes", cfg.costume, warn = true) {
+        Choices(t("لباس شخصیت‌ها", "Character costumes"), "costumes", cfg.costume) {
             update(cfg.copy(costume = if (cfg.costume == it) "none" else it, hat = "none", glass = "none", neck = "none"))
         }
-        Choices(t("⚠️ تست: آیتم‌های شخصیت‌ها", "⚠️ Test: character items"), "testItems", cfg.item, warn = true) { update(cfg.copy(item = it)) }
+        Choices(t("آیتم‌های شخصیت‌ها", "Character items"), "testItems", cfg.item) { update(cfg.copy(item = it)) }
     }
 }

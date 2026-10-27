@@ -1,5 +1,4 @@
-/* «تست»: costumes and items inspired by well-known characters. For private testing only; they are not shipped in the
-   store build and need legal clearance before any public release.
+/* Costumes and items inspired by well-known characters (shipped as optional accessories).
    A costume can fill several layers: back (cape behind the body), mask (painted on the head, clipped to its shape),
    chest (emblem or collar), head (in the hat layer) and face (on the face plane, above the mask). */
 const T_DEFS = `

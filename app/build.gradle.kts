@@ -14,8 +14,8 @@ android {
         applicationIdSuffix = ".plus"
         minSdk = 26
         targetSdk = 35
-        versionCode = 45
-        versionName = "3.5.0"
+        versionCode = 46
+        versionName = "3.5.1"
     }
     // Test builds use one fixed, public key so each new APK installs over the previous one.
     // Store builds use the private Bazaar key from CI secrets (see .github/workflows/android.yml); when it is not
@@ -55,12 +55,6 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
-    // «قطعه‌های تست» of Yadimo (inspired by well-known characters) are only shipped in the debug and the public
-    // test release builds. The Bazaar (store) build never includes them.
-    sourceSets {
-        getByName("debug").assets.srcDir("src/testparts/assets")
-        getByName("release").assets.srcDir("src/testparts/assets")
-    }
     packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
     lint { abortOnError = false; checkReleaseBuilds = false }
 }
