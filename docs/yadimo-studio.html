@@ -980,7 +980,7 @@ $('r-widget').onclick = playWidget; $('r-alarm').onclick = playAlarm; $('r-peek'
 
 let last = performance.now(), fn = 0, ft = 0;
 function loop(now) {
-  const dt = Math.min(.033, (now - last) / 1000); last = now;
+  const dt = Math.max(0, Math.min(.033, (now - last) / 1000)); last = now;
   for (const y of [main, ...scenes]) y.update(dt);
   fn++; ft += dt; if (ft > .5) { $('fps').textContent = Math.round(fn / ft) + ' fps'; fn = 0; ft = 0; }
   requestAnimationFrame(loop);

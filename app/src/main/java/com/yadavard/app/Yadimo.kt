@@ -3,6 +3,7 @@ package com.yadavard.app
 import android.annotation.SuppressLint
 import android.content.Context
 import android.view.View
+import android.view.ViewGroup
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.animation.AnimatedVisibility
@@ -100,6 +101,8 @@ fun YadimoView(mood: YadimoMood, modifier: Modifier = Modifier, size: Dp = 120.d
     var ready by remember { mutableStateOf(false) }
     val web = remember {
         WebView(context).apply {
+            // Without explicit layout params the WebView measures its own (empty) content height and shows nothing.
+            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             setBackgroundColor(android.graphics.Color.TRANSPARENT)
             settings.javaScriptEnabled = true
             isVerticalScrollBarEnabled = false; isHorizontalScrollBarEnabled = false

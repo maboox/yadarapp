@@ -20,7 +20,7 @@ window.yadimo = {
 };
 let last = performance.now();
 function frame(now) {
-  const dt = Math.min(.033, (now - last) / 1000); last = now;
+  const dt = Math.max(0, Math.min(.033, (now - last) / 1000)); last = now;
   if (!document.hidden) Y.update(dt);
   requestAnimationFrame(frame);
 }
