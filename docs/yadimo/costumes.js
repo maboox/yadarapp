@@ -111,3 +111,5 @@ const TITEMS = {
   staff: {n: 'عصای جادو', svg: (x, y) => `<path d="M${x - 4} ${y + 30} L${x + 10} ${y - 170}" stroke="#7a4a22" stroke-width="12" stroke-linecap="round"/>
       <circle cx="${x + 12}" cy="${y - 186}" r="22" fill="url(#acc-blue)"/>${shine(x + 4, y - 194, 7, 5, -20, .9)}<circle cx="${x + 12}" cy="${y - 186}" r="40" fill="url(#acc-shine)" opacity=".5"/>`},
 };
+
+window.YADIMO_TEST = {COSTUMES, TITEMS, T_DEFS};

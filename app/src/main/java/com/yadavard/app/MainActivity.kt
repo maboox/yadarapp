@@ -384,6 +384,19 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
         }
         // Assistant: small recording pill at the bottom, floating bubbles at the top.
         if (session.host == BubbleHost.APP) AssistantBubbles(session, Modifier.align(Alignment.TopCenter).statusBarsPadding())
+        // Now and then Yadimo peeks in from the side with a short line about the screen you are on.
+        if (!capturing && editor == null && session.stage == AssistantSession.Stage.IDLE) YadimoPeekHost(tab, message = {
+            val name = Prefs.userName(context).let { if (it.isBlank()) "" else t("، $it", ", $it") }
+            val today = items.count { !it.done && (it.needsAttention(System.currentTimeMillis()) ||
+                Dates.localDate(it.nextAt, it.zoneId) == LocalDate.now()) }
+            when (tab) {
+                Tab.HOME -> if (today > 0) t("سلام$name! امروز ${n(today)} کار داری", "Hi$name! ${today} things today") else t("سلام$name! امروز خلوته 🌿", "Hi$name! A quiet day 🌿")
+                Tab.CALENDAR -> t("برنامهٔ روزهات اینجاست 📅", "Your days at a glance 📅")
+                Tab.NOTES -> t("یه یادداشت تازه بنویسیم؟ ✍️", "Shall we write a note? ✍️")
+                Tab.STATS -> t("ببین چقدر خوب پیش رفتی! ⭐", "Look how well you did! ⭐")
+                Tab.SETTINGS -> t("اینجا می‌تونی من رو هم عوض کنی 😉", "You can dress me up here 😉")
+            }
+        }, modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(bottom = 88.dp))
         if (capturing) VoiceCapture(
             onCancel = { capturing = false },
             onSend = { file -> capturing = false; AssistantSession.startAudio(context, file, BubbleHost.APP) },

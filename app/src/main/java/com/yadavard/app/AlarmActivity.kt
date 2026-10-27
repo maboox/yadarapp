@@ -93,7 +93,7 @@ private fun AlarmScreen(r: Reminder, defaultSnooze: Int, onDone: () -> Unit, onS
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF0E0B1A)) + heroColors().take(2)))) {
         Column(Modifier.fillMaxSize().systemBarsPadding().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Spacer(Modifier.weight(0.6f))
-            if (rememberMascotEnabled()) MascotView(rememberMascotConfig(), MascotState.RING, size = 150.dp)
+            if (rememberYadimoEnabled()) YadimoView(YadimoMood.RING, size = 200.dp)
             else Box(Modifier.size(132.dp).scale(pulse).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
                 Box(Modifier.size(96.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
                     Icon(Icons.Rounded.Alarm, null, tint = Color.White, modifier = Modifier.size(52.dp))

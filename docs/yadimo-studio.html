@@ -567,8 +567,144 @@ const TITEMS = {
       <circle cx="${x + 12}" cy="${y - 186}" r="22" fill="url(#acc-blue)"/>${shine(x + 4, y - 194, 7, 5, -20, .9)}<circle cx="${x + 12}" cy="${y - 186}" r="40" fill="url(#acc-shine)" opacity=".5"/>`},
 };
 
+window.YADIMO_TEST = {COSTUMES, TITEMS, T_DEFS};
+
 </script>
 <script>
+/* Puts accessories in 2.5D: every shape of a layer is turned into an absolute path once ("baked", including any
+   transforms), then every frame each point goes through the same projection as the head or face it sits on.
+   So a mask, a hat or a beard narrows, shifts and leans with the head instead of staying a flat sticker. */
+const Warp = (() => {
+  const NS = 'http://www.w3.org/2000/svg', K = 0.5522847498;
+  const num = (el, a) => parseFloat(el.getAttribute(a) || '0');
+
+  // SVG path data -> absolute segments: M, L, C, Q, Z (arcs become cubic curves)
+  function parse(d) {
+    const tk = d.match(/[MmLlHhVvCcSsQqTtAaZz]|[-+]?(?:\d*\.\d+|\d+\.?)(?:e[-+]?\d+)?/g) || [];
+    const out = []; let i = 0, cmd = '', x = 0, y = 0, sx = 0, sy = 0, lc = null, lq = null;
+    const n = () => parseFloat(tk[i++]);
+    while (i < tk.length) {
+      if (/[a-z]/i.test(tk[i])) cmd = tk[i++];
+      const rel = cmd === cmd.toLowerCase(), C = cmd.toUpperCase(), ox = rel ? x : 0, oy = rel ? y : 0;
+      if (C === 'Z') { out.push({c: 'Z'}); x = sx; y = sy; lc = lq = null; continue; }
+      if (C === 'M') { x = ox + n(); y = oy + n(); sx = x; sy = y; out.push({c: 'M', p: [x, y]}); cmd = rel ? 'l' : 'L'; lc = lq = null; continue; }
+      if (C === 'L') { x = ox + n(); y = oy + n(); out.push({c: 'L', p: [x, y]}); lc = lq = null; continue; }
+      if (C === 'H') { x = ox + n(); out.push({c: 'L', p: [x, y]}); lc = lq = null; continue; }
+      if (C === 'V') { y = oy + n(); out.push({c: 'L', p: [x, y]}); lc = lq = null; continue; }
+      if (C === 'C' || C === 'S') {
+        let x1, y1;
+        if (C === 'C') { x1 = ox + n(); y1 = oy + n(); } else { x1 = lc ? 2 * x - lc[0] : x; y1 = lc ? 2 * y - lc[1] : y; }
+        const x2 = ox + n(), y2 = oy + n(), ex = ox + n(), ey = oy + n();
+        out.push({c: 'C', p: [x1, y1, x2, y2, ex, ey]}); lc = [x2, y2]; lq = null; x = ex; y = ey; continue;
+      }
+      if (C === 'Q' || C === 'T') {
+        let qx, qy;
+        if (C === 'Q') { qx = ox + n(); qy = oy + n(); } else { qx = lq ? 2 * x - lq[0] : x; qy = lq ? 2 * y - lq[1] : y; }
+        const ex = ox + n(), ey = oy + n();
+        out.push({c: 'Q', p: [qx, qy, ex, ey]}); lq = [qx, qy]; lc = null; x = ex; y = ey; continue;
+      }
+      if (C === 'A') {
+        const rx = n(), ry = n(), rot = n(), large = n(), sweep = n(), ex = ox + n(), ey = oy + n();
+        for (const s of arc(x, y, rx, ry, rot, large, sweep, ex, ey)) out.push({c: 'C', p: s});
+        x = ex; y = ey; lc = lq = null; continue;
+      }
+      i++;   // unknown token
+    }
+    return out;
+  }
+  // endpoint arc -> cubic curves (standard conversion)
+  function arc(x1, y1, rx, ry, phi, fa, fs, x2, y2) {
+    if (!rx || !ry) return [[x1, y1, x2, y2, x2, y2]];
+    const p = phi * Math.PI / 180, cp = Math.cos(p), sp = Math.sin(p);
+    const dx = (x1 - x2) / 2, dy = (y1 - y2) / 2, x1p = cp * dx + sp * dy, y1p = -sp * dx + cp * dy;
+    rx = Math.abs(rx); ry = Math.abs(ry);
+    const lam = x1p * x1p / (rx * rx) + y1p * y1p / (ry * ry); if (lam > 1) { rx *= Math.sqrt(lam); ry *= Math.sqrt(lam); }
+    let co = Math.sqrt(Math.max(0, (rx * rx * ry * ry - rx * rx * y1p * y1p - ry * ry * x1p * x1p) / (rx * rx * y1p * y1p + ry * ry * x1p * x1p)));
+    if (fa == fs) co = -co;
+    const cxp = co * rx * y1p / ry, cyp = -co * ry * x1p / rx, cx = cp * cxp - sp * cyp + (x1 + x2) / 2, cy = sp * cxp + cp * cyp + (y1 + y2) / 2;
+    const ang = (ux, uy, vx, vy) => { const a = Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy); return a; };
+    let t1 = ang(1, 0, (x1p - cxp) / rx, (y1p - cyp) / ry), dt = ang((x1p - cxp) / rx, (y1p - cyp) / ry, (-x1p - cxp) / rx, (-y1p - cyp) / ry);
+    if (!fs && dt > 0) dt -= 2 * Math.PI; if (fs && dt < 0) dt += 2 * Math.PI;
+    const segs = Math.ceil(Math.abs(dt) / (Math.PI / 2)), d = dt / segs, k = 4 / 3 * Math.tan(d / 4), out = [];
+    const pt = (t) => [cx + rx * Math.cos(t) * cp - ry * Math.sin(t) * sp, cy + rx * Math.cos(t) * sp + ry * Math.sin(t) * cp];
+    const dv = (t) => [-rx * Math.sin(t) * cp - ry * Math.cos(t) * sp, -rx * Math.sin(t) * sp + ry * Math.cos(t) * cp];
+    for (let s = 0; s < segs; s++) {
+      const a = t1 + s * d, b = a + d, p0 = pt(a), p3 = pt(b), d0 = dv(a), d3 = dv(b);
+      out.push([p0[0] + k * d0[0], p0[1] + k * d0[1], p3[0] - k * d3[0], p3[1] - k * d3[1], p3[0], p3[1]]);
+    }
+    return out;
+  }
+  function ellipse(cx, cy, rx, ry) {
+    const a = rx * K, b = ry * K;
+    return [{c: 'M', p: [cx + rx, cy]}, {c: 'C', p: [cx + rx, cy + b, cx + a, cy + ry, cx, cy + ry]}, {c: 'C', p: [cx - a, cy + ry, cx - rx, cy + b, cx - rx, cy]},
+      {c: 'C', p: [cx - rx, cy - b, cx - a, cy - ry, cx, cy - ry]}, {c: 'C', p: [cx + a, cy - ry, cx + rx, cy - b, cx + rx, cy]}, {c: 'Z'}];
+  }
+  function shape(el) {
+    switch (el.tagName.toLowerCase()) {
+      case 'path': return parse(el.getAttribute('d') || '');
+      case 'circle': return ellipse(num(el, 'cx'), num(el, 'cy'), num(el, 'r'), num(el, 'r'));
+      case 'ellipse': return ellipse(num(el, 'cx'), num(el, 'cy'), num(el, 'rx'), num(el, 'ry'));
+      case 'line': return [{c: 'M', p: [num(el, 'x1'), num(el, 'y1')]}, {c: 'L', p: [num(el, 'x2'), num(el, 'y2')]}];
+      case 'polygon': case 'polyline': {
+        const v = (el.getAttribute('points') || '').trim().split(/[\s,]+/).map(Number), o = [];
+        for (let i = 0; i + 1 < v.length; i += 2) o.push({c: i ? 'L' : 'M', p: [v[i], v[i + 1]]});
+        if (el.tagName.toLowerCase() === 'polygon') o.push({c: 'Z'}); return o;
+      }
+      case 'rect': {
+        const x = num(el, 'x'), y = num(el, 'y'), w = num(el, 'width'), h = num(el, 'height');
+        let r = Math.min(num(el, 'rx') || num(el, 'ry'), w / 2, h / 2); const k = r * (1 - K);
+        if (!r) return [{c: 'M', p: [x, y]}, {c: 'L', p: [x + w, y]}, {c: 'L', p: [x + w, y + h]}, {c: 'L', p: [x, y + h]}, {c: 'Z'}];
+        return [{c: 'M', p: [x + r, y]}, {c: 'L', p: [x + w - r, y]}, {c: 'C', p: [x + w - k, y, x + w, y + k, x + w, y + r]},
+          {c: 'L', p: [x + w, y + h - r]}, {c: 'C', p: [x + w, y + h - k, x + w - k, y + h, x + w - r, y + h]},
+          {c: 'L', p: [x + r, y + h]}, {c: 'C', p: [x + k, y + h, x, y + h - k, x, y + h - r]},
+          {c: 'L', p: [x, y + r]}, {c: 'C', p: [x, y + k, x + k, y, x + r, y]}, {c: 'Z'}];
+      }
+    }
+    return null;
+  }
+  function matrixTo(el, root) {
+    let m = new DOMMatrix();
+    for (let n = el; n && n !== root; n = n.parentNode) {
+      const t = n.transform && n.transform.baseVal && n.transform.baseVal.consolidate();
+      if (t) { const s = t.matrix; m = new DOMMatrix([s.a, s.b, s.c, s.d, s.e, s.f]).multiply(m); }
+    }
+    return m;
+  }
+  const GEOM = new Set(['d', 'cx', 'cy', 'r', 'rx', 'ry', 'x', 'y', 'width', 'height', 'points', 'x1', 'y1', 'x2', 'y2', 'transform']);
+  /* Turn every shape under root into an absolute path in root's coordinates. Returns what to warp each frame. */
+  function bake(root) {
+    const items = [];
+    for (const el of [...root.querySelectorAll('path,circle,ellipse,rect,polygon,polyline,line')]) {
+      const segs = shape(el); if (!segs) continue;
+      const m = matrixTo(el, root);
+      for (const s of segs) if (s.p) for (let i = 0; i < s.p.length; i += 2) { const q = m.transformPoint({x: s.p[i], y: s.p[i + 1]}); s.p[i] = q.x; s.p[i + 1] = q.y; }
+      const p = document.createElementNS(NS, 'path');
+      for (const a of [...el.attributes]) if (!GEOM.has(a.name)) p.setAttribute(a.name, a.value);
+      // strokes keep their thickness after baking a scale
+      const sc = Math.sqrt(Math.abs(m.a * m.d - m.b * m.c));
+      if (p.hasAttribute('stroke-width') && Math.abs(sc - 1) > .01) p.setAttribute('stroke-width', String(parseFloat(p.getAttribute('stroke-width')) * sc));
+      p.setAttribute('d', toD(segs)); el.replaceWith(p); items.push({el: p, segs});
+    }
+    for (const g of root.querySelectorAll('[transform]')) g.removeAttribute('transform');
+    return items;
+  }
+  const f = v => Math.round(v * 10) / 10;
+  function toD(segs, map) {
+    let s = '';
+    for (const g of segs) {
+      if (g.c === 'Z') { s += 'Z'; continue; }
+      s += g.c;
+      for (let i = 0; i < g.p.length; i += 2) { const q = map ? map(g.p[i], g.p[i + 1]) : [g.p[i], g.p[i + 1]]; s += f(q[0]) + ' ' + f(q[1]) + ' '; }
+    }
+    return s;
+  }
+  function apply(items, map) { for (const it of items) it.el.setAttribute('d', toD(it.segs, map)); }
+  return {bake, apply};
+})();
+
+</script>
+<script>
+/* Yadimo engine: one living character on one SVG (used by the studio page and by the app). */
 /* Yadimo studio: moods, accessories and scenes on top of the 2.5D vector rig (art.js + volume.js).
    Several Yadimos can live on one page; each one prefixes its SVG ids. */
 function shade(hex, n) { return '#' + hex.slice(1).match(/../g).map(v => Math.max(0, Math.min(255, parseInt(v, 16) + n)).toString(16).padStart(2, '0')).join(''); }
@@ -599,6 +735,7 @@ const MOODS = {
 const COVERS_ANTENNA = new Set(['party', 'cap', 'crown', 'beanie', 'wizard', 'grad', 'chef', 'night', 'flowers']);
 const SVGNS = 'http://www.w3.org/2000/svg';
 let YID = 0;
+const TEST = window.YADIMO_TEST || {COSTUMES: {none: {n: 'بدون'}}, TITEMS: {}, T_DEFS: ''};
 
 class Yadimo {
   constructor(svg, o = {}) {
@@ -626,21 +763,21 @@ class Yadimo {
     const s = {variant: this.o.variant, expression: m.expr || this.o.face, gaze: '0', bodyColor: c.body, accentColor: c.accent,
       cheekColor: '#f5a2c6', sparkles: this.sparkles, blush: true};
     this.svg.innerHTML = this.prefix(mascotArt(s));
-    this.svg.querySelector('defs').insertAdjacentHTML('beforeend', this.prefix(ACC_DEFS + T_DEFS));
+    this.svg.querySelector('defs').insertAdjacentHTML('beforeend', this.prefix(ACC_DEFS + TEST.T_DEFS));
     this.rig.bind(robot);
     const body = this.rig.body, face = this.q('face');
     const group = html => { const g = document.createElementNS(SVGNS, 'g'); g.innerHTML = this.prefix(html); return g; };
     // neck piece under the face (bell) or under the head (bot)
     this.gNeck = group((NECK[this.o.neck] || NECK.none).svg());
-    if (robot) { this.gNeck.setAttribute('transform', 'translate(0 -16)'); body.insertBefore(this.gNeck, this.rig.head); }
+    if (robot) body.insertBefore(this.gNeck, this.rig.head);
     else body.insertBefore(this.gNeck, face);
     // glasses on the face, hat on top of everything on the head
     this.gGlass = group((GLASSES[this.o.glass] || GLASSES.none).svg()); face.append(this.gGlass);
-    const cos = COSTUMES[this.o.costume] || COSTUMES.none;
+    const cos = TEST.COSTUMES[this.o.costume] || {};
     this.gHat = group((HATS[this.o.hat] || HATS.none).svg() + (cos.head ? cos.head(robot) : '')); body.append(this.gHat);
     if (COVERS_ANTENNA.has(this.o.hat) || cos.head || cos.mask) this.q('antenna').setAttribute('visibility', 'hidden');
     // costume layers: cape behind everything; mask painted on the head (clipped to its moving outline); chest; face parts on top
-    if (cos.back) body.insertBefore(group(cos.back(robot)), body.firstChild);
+    this.gBack = cos.back ? group(cos.back(robot)) : null; if (this.gBack) body.insertBefore(this.gBack, body.firstChild);
     const mask = cos.mask ? cos.mask(robot) : '';
     this.gMask = group(mask ? `<g clip-path="url(#shell-clip)">${mask}</g>` : ''); face.after(this.gMask);
     this.gChest = group(cos.chest ? cos.chest(robot) : '');
@@ -649,11 +786,16 @@ class Yadimo {
     // the bot floats on its own; the old ring under it looked stiff
     const thr = this.q('thruster'); if (thr) thr.setAttribute('visibility', 'hidden');
     // the item sits in the right hand and turns with the arm
-    const hand = robot ? [474, 386] : [500, 300], itemSvg = (ITEMS[this.o.item] || TITEMS[this.o.item] || ITEMS.none).svg(hand[0], hand[1]);
+    const hand = robot ? [474, 386] : [500, 300], itemSvg = (ITEMS[this.o.item] || TEST.TITEMS[this.o.item] || ITEMS.none).svg(hand[0], hand[1]);
     // the bell's right arm is behind its body; the bot's arms are behind its head, so its item gets its own top layer
     this.gItem = null;
     if (robot) { this.gItem = group(itemSvg); body.insertBefore(this.gItem, this.gHat); }
     else this.q('arm-right').insertAdjacentHTML('beforeend', this.prefix(itemSvg));
+    // 2.5D: every accessory point follows the projection of the surface it sits on
+    this.warps = [];
+    const bake = (g, kind) => this.warps.push({items: Warp.bake(g), kind});
+    bake(this.gHat, 'hat'); bake(this.gGlass, 'face'); bake(this.gFace2, 'face'); bake(this.gMask, 'shell');
+    if (!robot) { bake(this.gNeck, 'shell'); bake(this.gChest, 'shell'); if (this.gBack) bake(this.gBack, 'back'); }
     this.fx = document.createElementNS(SVGNS, 'g'); this.svg.append(this.fx);
     this.rig.step(this.target(this.t), 0, true);
   }
@@ -739,12 +881,18 @@ class Yadimo {
     // accessories follow the projected head and face
     const mp = this.rig.maps;
     if (mp) {
-      this.gHat.setAttribute('transform', matrixFor(mp.shellMap, 300, 196));
-      this.gGlass.setAttribute('transform', matrixFor(mp.faceMap, 300, 275));
-      if (this.o.variant !== 'robot') this.gNeck.setAttribute('transform', matrixFor(mp.shellMap, 300, 362));
+      const robot = this.o.variant === 'robot', {yaw, pitch, roll} = mp;
+      const maps = {
+        hat: (x, y) => robot ? headPoint(x, y, yaw, pitch, roll, -26) : bellBend(x, y, yaw, pitch, roll, -26),
+        shell: mp.shellMap, face: mp.faceMap,
+        back: (x, y) => bellBend(x, y, yaw, pitch, roll, -42),
+      };
+      for (const w of this.warps) Warp.apply(w.items, maps[w.kind]);
+      if (robot) {   // the bot's chest pieces and cape ride on its torso
+        const tt = this.q('torso').getAttribute('transform') || '';
+        this.gNeck.setAttribute('transform', tt + ' translate(0 -16)'); this.gChest.setAttribute('transform', tt); if (this.gBack) this.gBack.setAttribute('transform', tt);
+      }
       if (this.gItem) this.gItem.setAttribute('transform', this.q('arm-right').getAttribute('transform') || '');
-      this.gFace2.setAttribute('transform', matrixFor(mp.faceMap, 300, 275));
-      if (this.o.variant !== 'robot') this.gChest.setAttribute('transform', matrixFor(mp.shellMap, 300, 392));
     }
     this.effects(dt, y);
   }
@@ -780,6 +928,9 @@ class Yadimo {
   }
 }
 
+
+</script>
+<script>
 /* ======================= page ======================= */
 const $ = id => document.getElementById(id);
 const main = new Yadimo($('main-svg'), {follow: true});
@@ -806,8 +957,8 @@ chips('c-hat', HATS, () => main.o.hat, k => { main.set({hat: k}); syncScenes(); 
 chips('c-glass', GLASSES, () => main.o.glass, k => { main.set({glass: k}); syncScenes(); });
 chips('c-neck', NECK, () => main.o.neck, k => { main.set({neck: k}); syncScenes(); });
 chips('c-item', ITEMS, () => main.o.item, k => { main.set({item: k}); syncScenes(); });
-chips('c-costume', COSTUMES, () => main.o.costume, k => { main.set({costume: k, hat: 'none', glass: 'none', neck: 'none'}); for (const id of ['c-hat', 'c-glass', 'c-neck']) [...$(id).children].forEach((b, i) => b.classList.toggle('on', i === 0)); syncScenes(); });
-chips('c-titem', TITEMS, () => main.o.item, k => { main.set({item: k}); [...$('c-item').children].forEach(b => b.classList.remove('on')); syncScenes(); });
+chips('c-costume', TEST.COSTUMES, () => main.o.costume, k => { main.set({costume: k, hat: 'none', glass: 'none', neck: 'none'}); for (const id of ['c-hat', 'c-glass', 'c-neck']) [...$(id).children].forEach((b, i) => b.classList.toggle('on', i === 0)); syncScenes(); });
+chips('c-titem', TEST.TITEMS, () => main.o.item, k => { main.set({item: k}); [...$('c-item').children].forEach(b => b.classList.remove('on')); syncScenes(); });
 { const box = $('c-color');
   for (const [k, v] of Object.entries(COLORS)) { const b = document.createElement('button'); b.className = 'sw' + (k === main.o.color ? ' on' : ''); b.title = v.n;
     b.style.background = `radial-gradient(circle at 35% 30%, ${shade(v.body, 60)}, ${v.body} 55%, ${shade(v.body, -50)})`;

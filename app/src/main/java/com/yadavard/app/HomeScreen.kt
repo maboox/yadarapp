@@ -99,17 +99,17 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
                         else -> t("امروز کاری نداری؛ خوش بگذره 🌿", "Nothing today — enjoy 🌿")
                     }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 2.dp))
                 }
-                if (rememberMascotEnabled()) run {
+                if (rememberYadimoEnabled()) run {
                     // The mascot greets you; tap it to make it wave. It sleeps at night.
                     var waving by remember { mutableStateOf(false) }
                     LaunchedEffect(waving) { if (waving) { delay(2400); waving = false } }
                     val hourNow = Instant.ofEpochMilli(now).atZone(zone).hour
-                    MascotView(rememberMascotConfig(), when {
-                        waving -> MascotState.WAVE
-                        hourNow !in 5..21 -> MascotState.SLEEP
-                        sections.attention.isNotEmpty() -> MascotState.THINK
-                        else -> MascotState.IDLE
-                    }, Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { waving = true }, size = 56.dp)
+                    YadimoView(when {
+                        waving -> YadimoMood.WAVE
+                        hourNow !in 5..21 -> YadimoMood.SLEEP
+                        sections.attention.isNotEmpty() -> YadimoMood.THINK
+                        else -> YadimoMood.IDLE
+                    }, size = 72.dp)
                 }
                 FilledTonalIconButton(onClick = { searching = !searching; if (!searching) query = "" }) {
                     Icon(if (searching) Icons.Rounded.Close else Icons.Rounded.Search, t("جست‌وجو", "Search"))
@@ -165,9 +165,9 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
         if (items.isEmpty()) item(key = "empty") {
             EmptyState(Icons.Rounded.NotificationsActive, t("هنوز یادآوری‌ای نداری", "No reminders yet"),
                 t("بالا بنویس «فردا ساعت ۹ تماس با مامان» یا دکمهٔ «یادآوری جدید» را بزن.",
-                    "Type “call mom tomorrow at 9” above or tap “New reminder”."), mascot = MascotState.WAVE)
+                    "Type “call mom tomorrow at 9” above or tap “New reminder”."), mascot = YadimoMood.WAVE)
         } else if (sections.isEmpty) item(key = "nothing") {
-            EmptyState(Icons.Rounded.SearchOff, t("موردی پیدا نشد", "Nothing found"), t("فیلتر یا جست‌وجو را تغییر بده.", "Try another filter or search."), mascot = MascotState.THINK)
+            EmptyState(Icons.Rounded.SearchOff, t("موردی پیدا نشد", "Nothing found"), t("فیلتر یا جست‌وجو را تغییر بده.", "Try another filter or search."), mascot = YadimoMood.THINK)
         }
         fun section(key: String, title: String, entries: List<Entry>, color: Color? = null, showDate: Boolean = true) {
             if (entries.isEmpty()) return

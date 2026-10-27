@@ -52,7 +52,7 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
     var vibrate by remember { mutableStateOf(Prefs.vibrate(context)) }
     var soundTick by remember { mutableIntStateOf(0) }
     var hidden by remember { mutableStateOf(false) }
-    val mascotOn = rememberMascotEnabled()
+    val mascotOn = rememberYadimoEnabled()
     var pickingAlarmSound by remember { mutableStateOf(false) }
     val soundPicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) {
@@ -215,9 +215,9 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
         }
 
         if (mascotOn) item {
-            SettingsCard(t("مسکات من", "My mascot"), Icons.Rounded.Face,
-                summary = t("رنگ، چهره، کلاه، عینک، آیتم و لباس مسکات", "Colour, face, hat, glasses, item and outfit"), collapsible = true) {
-                MascotCustomizer()
+            SettingsCard(t("یادیموی من", "My Yadimo"), Icons.Rounded.Face,
+                summary = t("شخصیت، رنگ، چهره، کلاه، عینک و لباس یادیمو", "Character, colour, face, hat, glasses and outfit"), collapsible = true) {
+                YadimoCustomizer()
             }
         }
 
@@ -318,12 +318,12 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
                         Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
                             Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
-                                    Text(t("مسکات (آزمایشی)", "Mascot (experimental)"), style = MaterialTheme.typography.titleMedium)
-                                    Text(t("زنگولهٔ متحرک یادیمو در صفحه‌های برنامه. بعد از روشن کردن، «مسکات من» در تنظیمات ظاهر می‌شود.",
-                                        "The animated Yadimo bell around the app. Once on, “My mascot” appears in Settings."),
+                                    Text(t("یادیمو (آزمایشی)", "Yadimo (experimental)"), style = MaterialTheme.typography.titleMedium)
+                                    Text(t("یادیمو، دوست زنده و متحرک برنامه، در صفحه‌ها. بعد از روشن کردن، «یادیموی من» در تنظیمات ظاهر می‌شود.",
+                                        "Yadimo, the app's living companion, around the app. Once on, “My Yadimo” appears in Settings."),
                                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
-                                Switch(rememberMascotEnabled(), { MascotStore.setEnabled(context, it) })
+                                Switch(rememberYadimoEnabled(), { YadimoStore.setEnabled(context, it) })
                             }
                         }
                     }

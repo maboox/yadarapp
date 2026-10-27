@@ -247,9 +247,9 @@ fun SectionHeader(title: String, count: Int? = null, color: Color = MaterialThem
 }
 
 @Composable
-fun EmptyState(icon: ImageVector, title: String, subtitle: String, modifier: Modifier = Modifier, mascot: MascotState? = null) {
+fun EmptyState(icon: ImageVector, title: String, subtitle: String, modifier: Modifier = Modifier, mascot: YadimoMood? = null) {
     Column(modifier.fillMaxWidth().padding(vertical = 36.dp, horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        if (mascot != null && rememberMascotEnabled()) MascotView(rememberMascotConfig(), mascot, size = 110.dp)
+        if (mascot != null && rememberYadimoEnabled()) YadimoView(mascot, size = 130.dp)
         else Box(Modifier.size(84.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
             Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp))
         }

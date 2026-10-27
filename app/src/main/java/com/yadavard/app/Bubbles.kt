@@ -53,7 +53,11 @@ fun VoiceCapture(onCancel: () -> Unit, onSend: (File) -> Unit, modifier: Modifie
     }
     val scale by animateFloatAsState(1f + level * 0.7f, label = "level")
     val scheme = MaterialTheme.colorScheme
-    Surface(shape = RoundedCornerShape(40.dp), color = scheme.surfaceContainerHigh, shadowElevation = 10.dp, modifier = modifier) {
+    // Yadimo flies up from behind the pill and sits on it; the pill is drawn after it, so it covers Yadimo's feet.
+    val yadimo = rememberYadimoEnabled()
+    Column(modifier, horizontalAlignment = Alignment.End) {
+    if (yadimo) YadimoGreeting(Modifier.padding(end = 8.dp).offset(y = 30.dp))
+    Surface(shape = RoundedCornerShape(40.dp), color = scheme.surfaceContainerHigh, shadowElevation = 10.dp) {
         Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
             FilledTonalIconButton(onClick = { recorder.discard(); onCancel() }, modifier = Modifier.size(52.dp)) {
                 Icon(Icons.Rounded.Close, t("لغو", "Cancel"))
@@ -74,6 +78,7 @@ fun VoiceCapture(onCancel: () -> Unit, onSend: (File) -> Unit, modifier: Modifie
             }
         }
     }
+    }
 }
 
 /**
@@ -84,16 +89,18 @@ fun VoiceCapture(onCancel: () -> Unit, onSend: (File) -> Unit, modifier: Modifie
 fun AssistantBubbles(state: AssistantSession.State, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     if (state.stage == AssistantSession.Stage.IDLE) return
+    // Yadimo joins in the app and on the assistant screen; the floating overlay keeps the plain look.
+    val yadimo = rememberYadimoEnabled() && state.host != BubbleHost.OVERLAY
     Column(modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         when (state.stage) {
-            AssistantSession.Stage.TRANSCRIBING -> StatusBubble(t("دارم صدایت را به متن تبدیل می‌کنم…", "Turning your voice into text…"), busy = true)
+            AssistantSession.Stage.TRANSCRIBING -> StatusBubble(t("دارم صدایت را به متن تبدیل می‌کنم…", "Turning your voice into text…"), busy = true, yadimo = yadimo)
             AssistantSession.Stage.THINKING -> {
                 if (state.heard.isNotBlank()) UserBubble(state.heard)
-                StatusBubble(t("دارم فکر می‌کنم…", "Thinking…"), busy = true)
+                StatusBubble(t("دارم فکر می‌کنم…", "Thinking…"), busy = true, yadimo = yadimo)
             }
             AssistantSession.Stage.RESULT -> {
                 if (state.heard.isNotBlank()) UserBubble(state.heard)
-                if (state.reply.isNotBlank()) ReplyBubble(state.reply, closable = state.actions.isEmpty())
+                if (state.reply.isNotBlank()) ReplyBubble(state.reply, closable = state.actions.isEmpty(), yadimo = yadimo)
                 if (state.shown.isNotEmpty()) ShownBubbles(state.shown)
                 if (state.asking) AnswerBubble(state)
                 if (state.actions.isNotEmpty()) ActionBubbles(state.actions)
@@ -111,10 +118,10 @@ private fun BubbleSurface(color: Color = MaterialTheme.colorScheme.surfaceContai
 }
 
 @Composable
-private fun StatusBubble(text: String, busy: Boolean, icon: ImageVector = Icons.Rounded.AutoAwesome) {
+private fun StatusBubble(text: String, busy: Boolean, icon: ImageVector = Icons.Rounded.AutoAwesome, yadimo: Boolean = false) {
     BubbleSurface {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (busy) { if (rememberMascotEnabled()) MascotView(rememberMascotConfig(), MascotState.THINK, size = 36.dp) else CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.5.dp) }
+            if (busy) { if (yadimo) YadimoView(YadimoMood.THINK, size = 46.dp, tappable = false) else CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.5.dp) }
             else Icon(icon, null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(10.dp))
             Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
@@ -140,11 +147,11 @@ private fun UserBubble(text: String) {
 }
 
 @Composable
-private fun ReplyBubble(text: String, closable: Boolean) {
+private fun ReplyBubble(text: String, closable: Boolean, yadimo: Boolean = false) {
     BubbleSurface(MaterialTheme.colorScheme.primaryContainer) {
         Row(Modifier.padding(start = 14.dp, end = 6.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.Top) {
-            val mascotOn = rememberMascotEnabled()
-            if (mascotOn) MascotView(rememberMascotConfig(), MascotState.TALK, size = 34.dp)
+            val mascotOn = yadimo
+            if (mascotOn) YadimoView(YadimoMood.TALK, size = 44.dp, tappable = false)
             else Icon(Icons.Rounded.AutoAwesome, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp).padding(top = 2.dp))
             Spacer(Modifier.width(8.dp))
             Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.weight(1f).padding(top = if (mascotOn) 4.dp else 0.dp))
