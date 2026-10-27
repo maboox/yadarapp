@@ -37,6 +37,7 @@ object YadimoTalk {
     private const val ACTION_HELLO = "com.yadavard.app.yadimo.HELLO"
     private const val ACTION_NUDGE = "com.yadavard.app.yadimo.NUDGE"
     private const val ACTION_BEFORE = "com.yadavard.app.yadimo.BEFORE"
+    private const val ACTION_TEST = "com.yadavard.app.yadimo.TEST"
     /** Minutes before a reminder for the "coming up" note. */
     const val BEFORE_MINUTES = 20
     private const val QUIET_FROM = 22 * 60
@@ -211,6 +212,14 @@ object YadimoTalk {
         when (intent.action) {
             ACTION_HELLO -> { showHello(context); schedule(context); finish() }
             ACTION_NUDGE, ACTION_BEFORE -> talk(context, intent, finish)
+            ACTION_TEST -> {
+                // From Settings: say today's note right away, over whatever is open.
+                val zone = ZoneId.systemDefault(); val now = System.currentTimeMillis()
+                val day = YadimoLines.day(Repo.all(context), now, zone)
+                val rate = YadimoLines.weekRate(Repo.history(context, now - 7 * 86_400_000L), now)
+                val line = YadimoLines.nudge(day, rate, cachedWeatherLine(context), emptySet(), now, zone, fa(context), (now / 1000).toInt())
+                YadimoOverlay.show(context, line?.text ?: if (fa(context)) "سلام! من اینجام 👋" else "Hi! I'm here 👋") { finish() }
+            }
             else -> finish()
         }
     }
@@ -336,6 +345,23 @@ object YadimoTalk {
                 .put("max", daily.getJSONArray("temperature_2m_max").getDouble(0)).put("min", daily.getJSONArray("temperature_2m_min").getDouble(0))
                 .put("rain", daily.optJSONArray("precipitation_probability_max")?.optDouble(0) ?: 0.0)
         } finally { conn.disconnect() }
+    }
+
+    /**
+     * Settings → "try it": Yadimo pops in over other apps ten seconds from now. Returns false (and asks for the
+     * permission) when it is not allowed to show over other apps.
+     */
+    fun test(context: Context): Boolean {
+        if (!Phone.canOverlay(context)) {
+            Phone.open(context, Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}")))
+            return false
+        }
+        val manager = context.getSystemService(AlarmManager::class.java)
+        val pi = pending(context, ACTION_TEST)
+        val at = System.currentTimeMillis() + 10_000
+        try { if (Scheduler.canExact(context)) manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi) else manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi) }
+        catch (_: SecurityException) { manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi) }
+        return true
     }
 
     /** Lets the settings show Yadimo's morning screen right away. */

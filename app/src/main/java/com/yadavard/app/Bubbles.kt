@@ -57,7 +57,7 @@ fun VoiceCapture(onCancel: () -> Unit, onSend: (File) -> Unit, modifier: Modifie
     // feet. It floats above the pill without taking room, so neither Yadimo nor its bubble moves anything else.
     val yadimo = rememberYadimoEnabled()
     Box(modifier) {
-    if (yadimo) Box(Modifier.align(Alignment.TopEnd).floatAboveEnd(overlap = 30.dp, inset = 4.dp)) { YadimoGreeting() }
+    if (yadimo) Box(Modifier.align(Alignment.TopCenter).floatAboveCenter(overlap = 30.dp)) { YadimoGreeting() }
     Surface(shape = RoundedCornerShape(40.dp), color = scheme.surfaceContainerHigh, shadowElevation = 10.dp) {
         Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
             FilledTonalIconButton(onClick = { recorder.discard(); onCancel() }, modifier = Modifier.size(52.dp)) {

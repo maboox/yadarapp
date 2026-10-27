@@ -74,6 +74,8 @@
             android:showWhenLocked="true" android:turnScreenOn="true" android:excludeFromRecents="true"
             android:launchMode="singleInstance" android:taskAffinity="${applicationId}.alarm" />
 
+        <activity android:name=".YadimoWardrobeActivity" android:exported="false" />
+
         <activity android:name=".YadimoHelloActivity" android:exported="false" android:theme="@style/Theme.Yadar.Alarm"
             android:showWhenLocked="true" android:turnScreenOn="true" android:excludeFromRecents="true"
             android:launchMode="singleInstance" android:taskAffinity="${applicationId}.hello" />

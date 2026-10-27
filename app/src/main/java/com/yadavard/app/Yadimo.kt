@@ -156,18 +156,18 @@ fun YadimoView(mood: YadimoMood, modifier: Modifier = Modifier, size: Dp = 120.d
 
 /**
  * A speech bubble that sits above Yadimo's head, with a little tail pointing down at it. [tailEnd] is how far the
- * tail is from the bubble's end edge, so it points at the head of a Yadimo standing at that end.
+ * tail is from the bubble's end edge, so it points at the head of a Yadimo standing at that end; null centres it.
  */
 @Composable
-fun YadimoSpeech(text: String, modifier: Modifier = Modifier, tailEnd: Dp = 40.dp) {
-    Column(modifier.widthIn(max = 250.dp), horizontalAlignment = Alignment.End) {
+fun YadimoSpeech(text: String, modifier: Modifier = Modifier, tailEnd: Dp? = 40.dp) {
+    Column(modifier.widthIn(max = 250.dp), horizontalAlignment = if (tailEnd == null) Alignment.CenterHorizontally else Alignment.End) {
         Surface(shape = RoundedCornerShape(18.dp), color = Color.White, shadowElevation = 6.dp) {
             Text(text, Modifier.padding(horizontal = 14.dp, vertical = 9.dp), color = Color(0xFF231C47),
                 style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
         }
-        androidx.compose.foundation.Canvas(Modifier.padding(end = tailEnd).size(18.dp, 10.dp)) {
+        androidx.compose.foundation.Canvas(Modifier.padding(end = tailEnd ?: 0.dp).size(18.dp, 10.dp)) {
             val path = androidx.compose.ui.graphics.Path().apply {
-                moveTo(0f, -1f); lineTo(size.width, -1f); lineTo(size.width * 0.55f, size.height); close()
+                moveTo(0f, -1f); lineTo(size.width, -1f); lineTo(size.width * (if (tailEnd == null) 0.5f else 0.55f), size.height); close()
             }
             drawPath(path, Color.White)
         }
@@ -175,13 +175,14 @@ fun YadimoSpeech(text: String, modifier: Modifier = Modifier, tailEnd: Dp = 40.d
 }
 
 /**
- * Draws its content above the top-end corner of the parent without taking any room, so whatever appears there
- * (Yadimo flying in, a bubble growing) never pushes the rest of the screen around. [overlap] lowers it so it
- * sits on the parent's edge; [inset] moves it in from the end.
+ * Draws its content centred above the top edge of the parent without taking any room, so whatever appears there
+ * (Yadimo flying in, a bubble growing) never pushes the rest of the screen around. Put it on a zero-size box at
+ * the parent's top centre; [overlap] lowers it so it sits on the parent's edge.
  */
-fun Modifier.floatAboveEnd(overlap: Dp = 0.dp, inset: Dp = 0.dp): Modifier = layout { measurable, _ ->
+fun Modifier.floatAboveCenter(overlap: Dp = 0.dp): Modifier = layout { measurable, _ ->
     val placeable = measurable.measure(androidx.compose.ui.unit.Constraints())
-    layout(0, 0) { placeable.placeRelative(-placeable.width - inset.roundToPx(), -placeable.height + overlap.roundToPx()) }
+    // place (not placeRelative): centring is the same in both directions.
+    layout(0, 0) { placeable.place(-placeable.width / 2, -placeable.height + overlap.roundToPx()) }
 }
 
 /** Above the voice recording pill: Yadimo flies up from behind it and says hello, with the bubble over its head. */
@@ -196,10 +197,10 @@ fun YadimoGreeting(modifier: Modifier = Modifier) {
         delay(3000); talk = false
     }
     val name = remember { Prefs.userName(context) }
-    Column(modifier, horizontalAlignment = Alignment.End) {
-        AnimatedVisibility(talk, enter = scaleIn(transformOrigin = TransformOrigin(0.85f, 1f)) + fadeIn(), exit = scaleOut() + fadeOut()) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        AnimatedVisibility(talk, enter = scaleIn(transformOrigin = TransformOrigin(0.5f, 1f)) + fadeIn(), exit = scaleOut() + fadeOut()) {
             YadimoSpeech(if (name.isBlank()) t("سلام! بگو چی یادت بندازم 🙂", "Hi! What should I remind you of? 🙂")
-                else t("سلام $name! بگو چی یادت بندازم 🙂", "Hi $name! What should I remind you of? 🙂"), tailEnd = 46.dp)
+                else t("سلام $name! بگو چی یادت بندازم 🙂", "Hi $name! What should I remind you of? 🙂"), tailEnd = null)
         }
         YadimoView(mood, size = 110.dp, tappable = false)
     }
@@ -256,7 +257,7 @@ private class Trial(val id: String, val name: String, val config: YadimoConfig)
  * buys it with tokens. Bought parts are kept on the account.
  */
 @Composable
-fun YadimoCustomizer(modifier: Modifier = Modifier, onLeave: () -> Unit = {}) {
+fun YadimoCustomizer(modifier: Modifier = Modifier, onLeave: () -> Unit = {}, onTopUp: (() -> Unit)? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val cfg = rememberYadimoConfig()
@@ -351,7 +352,7 @@ fun YadimoCustomizer(modifier: Modifier = Modifier, onLeave: () -> Unit = {}) {
             },
             onCancel = { trial = null; error = null; mood = YadimoMood.IDLE },
             onLogin = { onLeave(); Account.loginRequested.value = true },
-            onTopUp = { onLeave(); Account.buyRequested.value = true }) }
+            onTopUp = { onTopUp?.invoke() ?: run { onLeave(); Account.buyRequested.value = true } }) }
     }
 }
 

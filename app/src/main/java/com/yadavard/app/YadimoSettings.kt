@@ -20,8 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 
 /** Settings → Yadimo: on/off, the wardrobe, how chatty it is, the morning hello and the city for the weather. */
 @Composable
@@ -33,7 +31,6 @@ fun YadimoSettingsCard() {
     var time by remember { mutableStateOf(YadimoTalk.helloTime(context)) }
     var parts by remember { mutableStateOf(listOf("tasks", "weather", "quote", "sound").associateWith { YadimoTalk.helloPart(context, it) }) }
     var cityId by remember { mutableStateOf(YadimoTalk.cityId(context)) }
-    var wardrobe by remember { mutableStateOf(false) }
     var pickTime by remember { mutableStateOf(false) }
     var pickCity by remember { mutableStateOf(false) }
     var tick by remember { mutableIntStateOf(0) }
@@ -53,7 +50,7 @@ fun YadimoSettingsCard() {
         }
         if (on) {
 
-        FilledTonalButton(onClick = { wardrobe = true }, modifier = Modifier.fillMaxWidth()) {
+        FilledTonalButton(onClick = { context.startActivity(Intent(context, YadimoWardrobeActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.Rounded.Checkroom, null); Spacer(Modifier.width(8.dp)); Text(t("کمد یادیمو: ظاهر، لباس و لوازم", "Yadimo's wardrobe"))
         }
 
@@ -80,6 +77,15 @@ fun YadimoSettingsCard() {
             }
         }
 
+        if (level > 0) {
+            var testing by remember { mutableStateOf(false) }
+            OutlinedButton(onClick = { testing = YadimoTalk.test(context) }, modifier = Modifier.fillMaxWidth()) {
+                Text(t("امتحان: ۱۰ ثانیه بعد بیاید", "Try it: come in 10 seconds"))
+            }
+            if (testing) Text(t("حالا از برنامه بیرون برو (مثلاً صفحهٔ اصلی گوشی یا اینستاگرام)؛ یادیمو تا ۱۰ ثانیهٔ دیگر گوشهٔ صفحه می‌آید.",
+                "Now leave the app (home screen, Instagram…); Yadimo pops in at the corner in 10 seconds."),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+        }
         HorizontalDivider()
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.WbSunny, null, tint = MaterialTheme.colorScheme.primary)
@@ -137,16 +143,4 @@ fun YadimoSettingsCard() {
         },
         confirmButton = { TextButton(onClick = { pickCity = false }) { Text(t("بستن", "Close")) } })
 
-    if (wardrobe) Dialog(onDismissRequest = { wardrobe = false },
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Column(Modifier.fillMaxSize().systemBarsPadding()) {
-                Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { wardrobe = false }) { Icon(Icons.Rounded.Close, t("بستن", "Close")) }
-                    Text(t("کمد یادیمو", "Yadimo's wardrobe"), style = MaterialTheme.typography.titleLarge)
-                }
-                YadimoCustomizer(Modifier.weight(1f), onLeave = { wardrobe = false })
-            }
-        }
-    }
 }
