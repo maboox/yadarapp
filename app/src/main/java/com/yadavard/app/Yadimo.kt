@@ -162,8 +162,12 @@ fun YadimoView(mood: YadimoMood, modifier: Modifier = Modifier, size: Dp = 120.d
 fun YadimoSpeech(text: String, modifier: Modifier = Modifier, tailEnd: Dp? = 40.dp) {
     Column(modifier.widthIn(max = 250.dp), horizontalAlignment = if (tailEnd == null) Alignment.CenterHorizontally else Alignment.End) {
         Surface(shape = RoundedCornerShape(18.dp), color = Color.White, shadowElevation = 6.dp) {
+            // The bubble may sit in a left-to-right layout (so Yadimo comes in from the right edge); the words keep
+            // the app's own direction, or a line that starts with a number is laid out backwards.
             Text(text, Modifier.padding(horizontal = 14.dp, vertical = 9.dp), color = Color(0xFF231C47),
-                style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                style = MaterialTheme.typography.bodyMedium.copy(textDirection =
+                    if (AppDisplay.language == AppLanguage.FA) androidx.compose.ui.text.style.TextDirection.Rtl else androidx.compose.ui.text.style.TextDirection.Ltr),
+                fontWeight = FontWeight.Bold)
         }
         androidx.compose.foundation.Canvas(Modifier.padding(end = tailEnd ?: 0.dp).size(18.dp, 10.dp)) {
             val path = androidx.compose.ui.graphics.Path().apply {
@@ -216,26 +220,37 @@ fun YadimoPeekHost(trigger: Any, message: () -> String, modifier: Modifier = Mod
     var msg by remember { mutableStateOf<String?>(null) }
     var inside by remember { mutableStateOf(false) }
     var talking by remember { mutableStateOf(false) }
+    var leave by remember { mutableIntStateOf(0) }
     LaunchedEffect(trigger) {
-        val now = System.currentTimeMillis()
-        if (YadimoStore.lastPeek != 0L && (now - YadimoStore.lastPeek < 120_000 || Math.random() > .4)) return@LaunchedEffect
-        YadimoStore.lastPeek = now
-        delay(1500)
-        msg = message(); inside = false
-        delay(400); inside = true
-        delay(900); talking = true
-        delay(2800); talking = false
-        delay(400); inside = false
-        delay(1000); msg = null
+        // A visit cut short (the tab changed meanwhile) must not leave Yadimo stuck on the screen.
+        try {
+            val now = System.currentTimeMillis()
+            if (YadimoStore.lastPeek != 0L && (now - YadimoStore.lastPeek < 120_000 || Math.random() > .4)) return@LaunchedEffect
+            YadimoStore.lastPeek = now
+            delay(1500)
+            msg = message(); inside = false
+            delay(400); inside = true
+            delay(900); talking = true
+            delay(2800); talking = false
+            delay(400); inside = false
+            delay(1000)
+        } finally { msg = null; talking = false; inside = false }
+    }
+    // A tap sends it away at once.
+    LaunchedEffect(leave) {
+        if (leave == 0) return@LaunchedEffect
+        talking = false; inside = false; delay(900); msg = null
     }
     val text = msg ?: return
     // Laid out left-to-right: Yadimo always comes in from the right edge.
     CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
         Column(modifier.padding(start = 16.dp), horizontalAlignment = Alignment.End) {
             AnimatedVisibility(talking, enter = scaleIn(transformOrigin = TransformOrigin(0.8f, 1f)) + fadeIn(), exit = scaleOut() + fadeOut()) {
-                YadimoSpeech(text, tailEnd = 44.dp)
+                YadimoSpeech(text, Modifier.padding(end = 8.dp).clickable { leave++ }, tailEnd = 36.dp)
             }
-            YadimoView(if (talking) YadimoMood.TALK else YadimoMood.WAVE, size = 120.dp, peekIn = inside)
+            Box(Modifier.clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, null) { leave++ }) {
+                YadimoView(if (talking) YadimoMood.TALK else YadimoMood.WAVE, size = 120.dp, peekIn = inside, tappable = false)
+            }
         }
     }
 }

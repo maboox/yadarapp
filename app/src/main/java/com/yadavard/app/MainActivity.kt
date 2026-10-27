@@ -411,7 +411,8 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                     ?: t("اینجا می‌تونی من رو هم عوض کنی 😉", "You can dress me up here 😉")
                 Tab.SETTINGS -> t("هر چیزی رو می‌خوای تنظیم کن ⚙️", "Set things up your way ⚙️")
             }
-        }, modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(bottom = 88.dp))
+        // Bottom right, above the "new" button and the tab bar, whatever the language direction.
+        }, modifier = Modifier.align(androidx.compose.ui.AbsoluteAlignment.BottomRight).navigationBarsPadding().padding(bottom = 170.dp))
         if (capturing) VoiceCapture(
             onCancel = { capturing = false },
             onSend = { file -> capturing = false; AssistantSession.startAudio(context, file, BubbleHost.APP) },

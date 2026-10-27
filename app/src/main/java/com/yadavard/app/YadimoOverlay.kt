@@ -105,7 +105,7 @@ object YadimoOverlay {
         }
         Column(Modifier.padding(start = 16.dp), horizontalAlignment = Alignment.End) {
             AnimatedVisibility(talking, enter = scaleIn(transformOrigin = TransformOrigin(0.8f, 1f)) + fadeIn(), exit = scaleOut() + fadeOut()) {
-                YadimoSpeech(text, Modifier.clickable(remember { MutableInteractionSource() }, null) { onOpen() }, tailEnd = 40.dp)
+                YadimoSpeech(text, Modifier.padding(end = 8.dp).clickable(remember { MutableInteractionSource() }, null) { onOpen() }, tailEnd = 32.dp)
             }
             Box(Modifier.clickable(remember { MutableInteractionSource() }, null) { leaving = true }) {
                 YadimoView(if (talking) YadimoMood.TALK else YadimoMood.WAVE, size = 110.dp, peekIn = inside, tappable = false)
