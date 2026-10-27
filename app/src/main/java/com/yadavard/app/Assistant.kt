@@ -151,12 +151,12 @@ object Assistant {
         if (a.note != b.note) add(t("توضیحات: ", "Notes: ") + b.note.ifBlank { "-" })
     }
 
-    /** Applies confirmed actions. Runs on a background thread. */
-    fun apply(context: Context, actions: List<AssistantAction>) {
+    /** Applies confirmed actions. Runs on a background thread. [voice]: the request was spoken (for the missions). */
+    fun apply(context: Context, actions: List<AssistantAction>, voice: Boolean = false) {
         val now = System.currentTimeMillis()
         actions.forEach { a ->
             when (a) {
-                is AssistantAction.Create -> Repo.save(context, a.draft)
+                is AssistantAction.Create -> Repo.save(context, a.draft).also { if (voice && a.draft.id == 0L) Game.markVoice(context, it.id) }
                 is AssistantAction.Update -> Repo.save(context, a.after)
                 is AssistantAction.Delete -> Repo.delete(context, a.target)
                 is AssistantAction.Complete -> Repo.complete(context, a.target.id)

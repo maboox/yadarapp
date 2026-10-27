@@ -136,7 +136,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         Account.load(context)
         // Yadimo's owned parts and look follow the account: fetched at start and right after signing in.
         viewModelScope.launch {
-            Account.profile.map { it?.id }.distinctUntilChanged().collect { id -> if (!id.isNullOrBlank()) YadimoShop.sync(context) }
+            Account.profile.map { it?.id }.distinctUntilChanged().collect { id ->
+                if (!id.isNullOrBlank()) { YadimoShop.sync(context); withContext(Dispatchers.IO) { Game.sync(context) } }
+            }
         }
         viewModelScope.launch {
             Account.refresh(context)
@@ -158,6 +160,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun reload() {
         _items.value = withContext(Dispatchers.IO) { Repo.all(context) }
         _notes.value = withContext(Dispatchers.IO) { Repo.notes(context) }
+        withContext(Dispatchers.IO) { runCatching { Game.refresh(context) } }
         _now.value = System.currentTimeMillis()
         _loaded.value = true
     }
@@ -185,7 +188,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun restore(r: Reminder) = io { Repo.save(context, r) }
 }
 
-enum class Tab { HOME, CALENDAR, NOTES, STATS, SETTINGS }
+enum class Tab { HOME, CALENDAR, NOTES, STATS, PROFILE, SETTINGS }
 
 /** What the editor is opened with: an existing reminder or a pre-filled draft for a new one. */
 data class EditorRequest(val original: Reminder?, val draft: Reminder?, val key: Long = System.nanoTime())
@@ -358,6 +361,8 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                         icon = { Icon(Icons.Rounded.StickyNote2, null) }, label = { Text(t("یادداشت", "Notes")) })
                     NavigationBarItem(selected = tab == Tab.STATS, onClick = { tab = Tab.STATS },
                         icon = { Icon(Icons.Rounded.Insights, null) }, label = { Text(t("آمار", "Stats")) })
+                    NavigationBarItem(selected = tab == Tab.PROFILE, onClick = { tab = Tab.PROFILE },
+                        icon = { Icon(Icons.Rounded.AccountCircle, null) }, label = { Text(t("پروفایل", "Profile"), maxLines = 1) })
                     NavigationBarItem(selected = tab == Tab.SETTINGS, onClick = { tab = Tab.SETTINGS },
                         icon = { Icon(Icons.Rounded.Settings, null) }, label = { Text(t("تنظیمات", "Settings")) })
                 }
@@ -378,12 +383,13 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
             AnimatedContent(tab, transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) }, label = "tab") { current ->
                 when (current) {
                     Tab.HOME -> HomeScreen(items, now, padding, actions, quickText, { quickText = it }, permissionTick,
-                        onFixPermissions = { tab = Tab.SETTINGS })
+                        onFixPermissions = { tab = Tab.SETTINGS }, onProfile = { tab = Tab.PROFILE })
                     Tab.CALENDAR -> CalendarScreen(items, now, padding, calendarDay, { calendarDay = it }, actions)
                     Tab.NOTES -> NotesScreen(notes, padding, onOpen = { noteEditor = it ?: Note(title = "") },
                         onPin = { vm.saveNote(it.copy(pinned = !it.pinned)) }, onDelete = { vm.deleteNote(it) },
                         onSave = { vm.saveNote(it) })
                     Tab.STATS -> StatsScreen(items, now, padding)
+                    Tab.PROFILE -> ProfileScreen(padding)
                     Tab.SETTINGS -> SettingsScreen(padding, items.size, permissionTick, onPermissionChanged = { permissionTick++ },
                         onPackExport = { packExport = emptySet() }, onPackImport = { packImport = it }, onHelp = { showHelp = true })
                 }
@@ -401,7 +407,9 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                 Tab.CALENDAR -> t("برنامهٔ روزهات اینجاست 📅", "Your days at a glance 📅")
                 Tab.NOTES -> t("یه یادداشت تازه بنویسیم؟ ✍️", "Shall we write a note? ✍️")
                 Tab.STATS -> t("ببین چقدر خوب پیش رفتی! ⭐", "Look how well you did! ⭐")
-                Tab.SETTINGS -> t("اینجا می‌تونی من رو هم عوض کنی 😉", "You can dress me up here 😉")
+                Tab.PROFILE -> Game.state?.let { g -> g.levelEnd?.let { end -> t("${n(end - g.xp)} امتیاز دیگه تا سطح ${n(g.level + 1)}! 🚀", "${end - g.xp} points to level ${g.level + 1}! 🚀") } }
+                    ?: t("اینجا می‌تونی من رو هم عوض کنی 😉", "You can dress me up here 😉")
+                Tab.SETTINGS -> t("هر چیزی رو می‌خوای تنظیم کن ⚙️", "Set things up your way ⚙️")
             }
         }, modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(bottom = 88.dp))
         if (capturing) VoiceCapture(
@@ -410,6 +418,7 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
             modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 96.dp))
         packExport?.let { pre -> PackExportDialog(items, pre) { packExport = null } }
         if (loginRequested) LoginDialog { Account.loginRequested.value = false }
+        GameCheerDialog()
         if (bazaarSignIn.error.isNotBlank()) AlertDialog(onDismissRequest = { bazaarSignIn.error = "" },
             text = { Text(bazaarSignIn.error) },
             confirmButton = { TextButton(onClick = { bazaarSignIn.error = "" }) { Text(t("باشه", "OK")) } })

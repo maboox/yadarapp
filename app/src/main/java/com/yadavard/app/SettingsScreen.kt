@@ -213,8 +213,6 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
             }
         }
 
-        item { YadimoSettingsCard() }
-
         item {
             SettingsCard(t("پیش‌فرض‌های یادآوری", "Reminder defaults"), Icons.Rounded.Tune,
                 summary = t("تعویق، نوع یادآوری، زودتر و مدت زنگ", "Snooze, alert type, advance notice, ring time"), collapsible = true) {

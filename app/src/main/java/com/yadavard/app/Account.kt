@@ -87,6 +87,7 @@ object Account {
         prefs(context).edit().remove("token").remove("profile").remove("bazaar_verifier").apply()
         _profile.value = null
         YadimoShop.clear(context)
+        Game.clear(context)
     }
 
     private fun fa() = AppDisplay.language == AppLanguage.FA
@@ -264,6 +265,21 @@ object Account {
 
     suspend fun yadimoLook(context: Context, look: JSONObject): JSONObject = withContext(Dispatchers.IO) {
         call(context, "POST", "/api/yadar/yadimo/look", look)
+    }
+
+    // ---- progress (points, level, badges, missions) ----
+
+    suspend fun game(context: Context): JSONObject = withContext(Dispatchers.IO) { call(context, "GET", "/api/yadar/game") }
+
+    suspend fun gameSave(context: Context, body: JSONObject): JSONObject = withContext(Dispatchers.IO) {
+        call(context, "POST", "/api/yadar/game", body)
+    }
+
+    /** Asks the server for a starter mission's tokens; it pays each once per account and phone. */
+    suspend fun gameClaim(context: Context, mission: String, device: String): JSONObject = withContext(Dispatchers.IO) {
+        call(context, "POST", "/api/yadar/game/claim", JSONObject().put("mission", mission).put("device", device)).also { res ->
+            res.optJSONObject("profile")?.let { store(context, it) }
+        }
     }
 
     /** Today's weather near a city, cached by the server; works without signing in. */

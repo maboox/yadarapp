@@ -46,7 +46,7 @@ import java.time.ZoneId
 
 @Composable
 fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions: ReminderActions,
-               quickText: String, onQuickText: (String) -> Unit, permissionTick: Int, onFixPermissions: () -> Unit) {
+               quickText: String, onQuickText: (String) -> Unit, permissionTick: Int, onFixPermissions: () -> Unit, onProfile: () -> Unit = {}) {
     val context = LocalContext.current
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now(zone)
@@ -98,6 +98,11 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
                         sections.todayCount > 0 -> t("امروز ${n(sections.todayCount)} کار داری", "${sections.todayCount} to do today")
                         else -> t("امروز کاری نداری؛ خوش بگذره 🌿", "Nothing today — enjoy 🌿")
                     }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 2.dp))
+                    // Level and streak; a tap opens the profile.
+                    Game.state?.let { g ->
+                        AssistChip(onClick = onProfile, modifier = Modifier.padding(top = 4.dp),
+                            label = { Text(t("⭐ سطح ${n(g.level)}", "⭐ Level ${g.level}") + if (g.facts.streak > 1) t(" • 🔥 ${n(g.facts.streak)} روز", " • 🔥 ${g.facts.streak} days") else "") })
+                    }
                 }
                 if (rememberYadimoEnabled()) run {
                     // The mascot greets you; tap it to make it wave. It sleeps at night.

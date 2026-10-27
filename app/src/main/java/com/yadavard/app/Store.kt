@@ -227,6 +227,7 @@ object Repo {
     fun save(context: Context, r: Reminder): Reminder {
         val saved = store(context).save(r)
         Scheduler.schedule(context, saved)
+        if (r.id == 0L) runCatching { Game.onCreated(context, saved.id) }
         changed(context)
         return saved
     }
@@ -235,6 +236,7 @@ object Repo {
         Scheduler.cancel(context, r.id)
         Notifier.cancel(context, r.id)
         store(context).delete(r.id)
+        runCatching { Game.onDeleted(context, r) }
         changed(context)
     }
 
@@ -280,7 +282,11 @@ object Repo {
 
     fun notes(context: Context): List<Note> = runCatching { store(context).notes() }.getOrDefault(emptyList())
     fun note(context: Context, id: Long): Note? = notes(context).firstOrNull { it.id == id }
-    fun saveNote(context: Context, n: Note): Note { val saved = store(context).saveNote(n); changed(context); return saved }
+    fun saveNote(context: Context, n: Note): Note {
+        val saved = store(context).saveNote(n)
+        if (n.id == 0L) runCatching { Game.onNote(context) }
+        changed(context); return saved
+    }
     fun deleteNote(context: Context, id: Long) { store(context).deleteNote(id); changed(context) }
 
     fun history(context: Context, since: Long = 0): List<HistoryEntry> = runCatching { store(context).history(since) }.getOrDefault(emptyList())

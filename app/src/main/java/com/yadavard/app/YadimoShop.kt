@@ -14,21 +14,28 @@ import org.json.JSONObject
  * Part ids are "<kind>:<id>", e.g. "hat:crown" or "costume:bat".
  */
 object YadimoShop {
+    /** Parts that are earned, not sold: the level each one opens at (same as server/yadimo.go). */
+    private val defaultLevels = mapOf("hat:cap" to 2, "glass:sun" to 3, "neck:scarf" to 4, "hat:crown" to 5, "hat:wizard" to 7,
+        "costume:ninja" to 10, "costume:pirate" to 15, "color:galaxy" to 20)
+
     /** Same starting tiers as the server (server/yadimo.go); replaced by the server's answer once it is known. */
     private val defaultTiers: Map<String, String> = buildMap {
         listOf("hat:party", "glass:round").forEach { put(it, "free") }
-        listOf("hat:cap", "hat:beanie", "hat:night", "hat:bow", "hat:chef", "glass:sun", "neck:bowtie", "neck:scarf", "neck:tie",
+        listOf("hat:beanie", "hat:night", "hat:bow", "hat:chef", "neck:bowtie", "neck:tie",
             "item:cup", "item:phone", "item:flag").forEach { put(it, "basic") }
-        listOf("hat:crown", "hat:wizard", "hat:phones", "hat:grad", "hat:flowers", "glass:star", "glass:heart", "neck:medal",
+        listOf("hat:phones", "hat:grad", "hat:flowers", "glass:star", "glass:heart", "neck:medal",
             "item:wand", "item:balloon", "titem:hammer", "titem:shield", "titem:ball", "titem:saber", "titem:staff").forEach { put(it, "special") }
-        listOf("bat", "plumber", "spider", "iron", "straw", "ninja", "ice", "thor", "elf", "graywiz", "joker", "wed", "saiyan", "hero", "pirate")
+        listOf("bat", "plumber", "spider", "iron", "straw", "ice", "thor", "elf", "graywiz", "joker", "wed", "saiyan", "hero")
             .forEach { put("costume:$it", "costume") }
+        defaultLevels.keys.forEach { put(it, "level") }
     }
     private val defaultPrices = mapOf("free" to 0.0, "basic" to 5.0, "special" to 10.0, "costume" to 20.0)
 
     var tiers by mutableStateOf(defaultTiers)
         private set
     var prices by mutableStateOf(defaultPrices)
+        private set
+    var levels by mutableStateOf(defaultLevels)
         private set
     var owned by mutableStateOf(emptySet<String>())
         private set
@@ -47,6 +54,7 @@ object YadimoShop {
     private fun apply(o: JSONObject) {
         o.optJSONObject("tiers")?.let { t -> tiers = t.keys().asSequence().associateWith { t.optString(it) } }
         o.optJSONObject("prices")?.let { p -> prices = p.keys().asSequence().associateWith { p.optDouble(it, 0.0) } }
+        o.optJSONObject("levels")?.let { l -> levels = l.keys().asSequence().associateWith { l.optInt(it, 99) } }
         owned = o.optJSONArray("owned")?.let { a -> (0 until a.length()).map { a.optString(it) }.toSet() } ?: emptySet()
         unlimited = o.optBoolean("unlimited")
     }
@@ -54,11 +62,21 @@ object YadimoShop {
     /** The tier of a part; parts that are not sold (characters, colours, faces, "none") are free. */
     fun tier(id: String): String = if (id.endsWith(":none")) "free" else tiers[id] ?: "free"
     fun price(id: String): Double = prices[tier(id)] ?: 0.0
-    fun isFree(id: String): Boolean = price(id) <= 0.0
-    fun canWear(id: String): Boolean = isFree(id) || unlimited || id in owned
+    fun isFree(id: String): Boolean = tier(id) != "level" && price(id) <= 0.0
+    /** The level an earned part needs, or null when it is not one of them. */
+    fun needsLevel(id: String): Int? = if (tier(id) == "level") levels[id] ?: 99 else null
+    fun canWear(id: String): Boolean = needsLevel(id)?.let { (Game.state?.level ?: 1) >= it } ?: (isFree(id) || unlimited || id in owned)
+
+    /** Names of the earned parts, for the "level up" cheer. */
+    fun partName(id: String): String = when (id) {
+        "hat:cap" -> t("کلاه کپ", "Cap"); "glass:sun" -> t("عینک آفتابی", "Sunglasses"); "neck:scarf" -> t("شال", "Scarf")
+        "hat:crown" -> t("تاج", "Crown"); "hat:wizard" -> t("کلاه جادوگر", "Wizard hat"); "costume:ninja" -> t("سربند نینجا", "Ninja band")
+        "costume:pirate" -> t("ناخدا", "Captain"); "color:galaxy" -> t("رنگ کهکشانی", "Galaxy colour")
+        else -> id.substringAfter(':')
+    }
 
     fun tierName(tier: String): String = when (tier) {
-        "basic" -> t("ساده", "Basic"); "special" -> t("ویژه", "Special"); "costume" -> t("شخصیت", "Character"); else -> t("رایگان", "Free")
+        "basic" -> t("ساده", "Basic"); "special" -> t("ویژه", "Special"); "costume" -> t("شخصیت", "Character"); "level" -> t("با سطح", "By level"); else -> t("رایگان", "Free")
     }
 
     /** Every paid part the config wears, as shop ids. */
@@ -70,6 +88,7 @@ object YadimoShop {
     private fun store(context: Context, o: JSONObject) {
         apply(o)
         prefs(context).edit().putString("state", JSONObject().put("tiers", o.optJSONObject("tiers")).put("prices", o.optJSONObject("prices"))
+            .put("levels", o.optJSONObject("levels"))
             .put("owned", o.optJSONArray("owned") ?: JSONArray()).put("unlimited", o.optBoolean("unlimited")).toString()).apply()
     }
 
@@ -77,7 +96,7 @@ object YadimoShop {
     fun clear(context: Context) {
         owned = emptySet(); unlimited = false
         prefs(context).edit().remove("state").putBoolean("look_dirty", false).apply()
-        tiers = defaultTiers; prices = defaultPrices
+        tiers = defaultTiers; prices = defaultPrices; levels = defaultLevels
     }
 
     /**

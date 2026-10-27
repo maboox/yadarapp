@@ -292,7 +292,8 @@ fun YadimoCustomizer(modifier: Modifier = Modifier, onLeave: () -> Unit = {}) {
                 val locked = !YadimoShop.canWear(id)
                 FilterChip(selected == o.id, { choose(id, o.name, pick(o)) }, { Text(o.name) },
                     leadingIcon = if (locked) { { Icon(androidx.compose.material.icons.Icons.Rounded.Lock, null, Modifier.size(16.dp)) } } else null,
-                    trailingIcon = if (locked) { { Text(n(YadimoShop.price(id).let { if (it % 1.0 == 0.0) it.toInt() else it }), style = MaterialTheme.typography.labelSmall,
+                    trailingIcon = if (locked) { { Text(YadimoShop.needsLevel(id)?.let { t("سطح ${n(it)}", "Lv $it") }
+                        ?: n(YadimoShop.price(id).let { if (it % 1.0 == 0.0) it.toInt() else it }), style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) } } else null)
             }
         }
@@ -319,9 +320,12 @@ fun YadimoCustomizer(modifier: Modifier = Modifier, onLeave: () -> Unit = {}) {
                 Text(t("رنگ", "Colour"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(colors, key = { it.id }) { o ->
+                        val id = "color:${o.id}"
                         Box(Modifier.size(34.dp).clip(CircleShape).background(o.color ?: Color.Gray)
                             .border(if (shown.color == o.id) 3.dp else 0.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
-                            .clickable { trial = null; update(cfg.copy(color = o.id)) })
+                            .clickable { choose(id, o.name, cfg.copy(color = o.id)) }, contentAlignment = Alignment.Center) {
+                            if (!YadimoShop.canWear(id)) Icon(androidx.compose.material.icons.Icons.Rounded.Lock, null, Modifier.size(16.dp), tint = Color.White)
+                        }
                     }
                 }
             }
@@ -334,8 +338,8 @@ fun YadimoCustomizer(modifier: Modifier = Modifier, onLeave: () -> Unit = {}) {
                 cfg.copy(costume = if (cfg.costume == it.id) "none" else it.id, hat = "none", glass = "none", neck = "none")
             }
             Choices(t("وسیله‌های شخصیت‌ها", "Character items"), "testItems", "item", shown.item) { cfg.copy(item = it.id) }
-            Text(t("شخصیت‌ها، رنگ‌ها، چهره‌ها، کلاه جشن و عینک گرد رایگان‌اند. بقیه را با توکن می‌خری و روی حسابت می‌ماند؛ با ورود دوباره روی هر گوشی برمی‌گردد.",
-                "Characters, colours, faces, the party hat and round glasses are free. The rest are bought with tokens and stay on your account on any phone."),
+            Text(t("شخصیت‌ها، رنگ‌ها، چهره‌ها، کلاه جشن و عینک گرد رایگان‌اند. بعضی وسیله‌ها فقط با رسیدن به سطحشان باز می‌شوند و بقیه را با توکن می‌خری؛ همه روی حسابت می‌ماند و با ورود دوباره روی هر گوشی برمی‌گردد.",
+                "Characters, colours, faces, the party hat and round glasses are free. Some parts open only at a level; the rest are bought with tokens. All of it stays on your account on any phone."),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         trial?.let { tr -> BuyBar(tr, profile, buying, error,
@@ -356,8 +360,17 @@ private fun BuyBar(tr: Trial, profile: Account.Profile?, buying: Boolean, error:
                    onLogin: () -> Unit, onTopUp: () -> Unit) {
     val price = YadimoShop.price(tr.id)
     val priceText = tokensLabel(price)
+    val need = YadimoShop.needsLevel(tr.id)
     Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 12.dp, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+          if (need != null) {
+            // Earned parts are never sold: they open when the level is reached.
+            Text("«${tr.name}» • " + t("در سطح ${n(need)} باز می‌شود", "Opens at level $need"), style = MaterialTheme.typography.titleMedium)
+            Text(t("الان سطح ${n(Game.state?.level ?: 1)} هستی. با انجام کارها و مأموریت‌ها در «پروفایل» امتیاز جمع کن؛ این وسیله فروشی نیست.",
+                "You're level ${Game.state?.level ?: 1}. Earn points by getting things done and finishing missions in Profile; this one can't be bought."),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text(t("باشه", "OK")) }
+          } else {
             Text("«${tr.name}» • " + YadimoShop.tierName(YadimoShop.tier(tr.id)) + " • " + t("$priceText توکن", "$priceText tokens"),
                 style = MaterialTheme.typography.titleMedium)
             if (profile == null) {
@@ -389,6 +402,7 @@ private fun BuyBar(tr: Trial, profile: Account.Profile?, buying: Boolean, error:
                 }
             }
             if (error != null) Text(error, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+          }
         }
     }
 }

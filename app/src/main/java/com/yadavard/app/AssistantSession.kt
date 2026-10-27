@@ -48,6 +48,8 @@ object AssistantSession {
     private var job: Job? = null
     private val history = mutableListOf<Pair<String, String>>()
     private var lastAudio: File? = null
+    /** Whether the current request was spoken; reminders it creates count for the voice missions. */
+    private var spoken = false
 
     val active: Boolean get() = _state.value.stage != Stage.IDLE
 
@@ -57,6 +59,7 @@ object AssistantSession {
     private fun start(app: Context, file: File?, text: String?, host: BubbleHost) {
         job?.cancel()
         if (_state.value.stage == Stage.IDLE) history.clear()
+        spoken = file != null
         _state.value = State(stage = if (file != null) Stage.TRANSCRIBING else Stage.THINKING, host = host, heard = text.orEmpty())
         job = scope.launch {
             val ai = OpenRouter(app)
@@ -122,7 +125,7 @@ object AssistantSession {
         val remaining = _state.value.actions.filter { a -> list.none { it === a } }
         _state.value = _state.value.copy(actions = remaining)
         scope.launch {
-            withContext(Dispatchers.IO) { Assistant.apply(app, list) }
+            withContext(Dispatchers.IO) { Assistant.apply(app, list, spoken) }
             if (remaining.isEmpty()) finishWith(Assistant.summary(list))
         }
     }
@@ -143,7 +146,7 @@ object AssistantSession {
             else -> return
         }
         scope.launch {
-            withContext(Dispatchers.IO) { Assistant.apply(app, others) }
+            withContext(Dispatchers.IO) { Assistant.apply(app, others, spoken) }
             dismiss()
             openEditor(app, original, draft)
         }
