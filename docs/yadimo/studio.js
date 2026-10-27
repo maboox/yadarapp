@@ -32,7 +32,8 @@ let YID = 0;
 class Yadimo {
   constructor(svg, o = {}) {
     this.svg = svg; this.P = 'y' + (++YID) + '-';
-    this.o = Object.assign({variant: 'bell', color: 'lilac', face: 'happy', hat: 'none', glass: 'none', neck: 'none', item: 'none', follow: false}, o);
+    this.o = Object.assign({variant: 'bell', color: 'lilac', face: 'happy', hat: 'none', glass: 'none', neck: 'none', item: 'none', costume: 'none', follow: false}, o);
+    this.act = null; this.nextAct = 3;
     this.mood = 'idle'; this.t = 0; this.mt = 0; this.parts = []; this.pointer = {x: 0, y: 0, active: false};
     this.rig = new VectorRig(svg, this.P);
     this.posX = {x: 0, v: 0, t: 0}; this.posY = {x: 0, v: 0, t: 0};
@@ -54,7 +55,7 @@ class Yadimo {
     const s = {variant: this.o.variant, expression: m.expr || this.o.face, gaze: '0', bodyColor: c.body, accentColor: c.accent,
       cheekColor: '#f5a2c6', sparkles: this.sparkles, blush: true};
     this.svg.innerHTML = this.prefix(mascotArt(s));
-    this.svg.querySelector('defs').insertAdjacentHTML('beforeend', this.prefix(ACC_DEFS));
+    this.svg.querySelector('defs').insertAdjacentHTML('beforeend', this.prefix(ACC_DEFS + T_DEFS));
     this.rig.bind(robot);
     const body = this.rig.body, face = this.q('face');
     const group = html => { const g = document.createElementNS(SVGNS, 'g'); g.innerHTML = this.prefix(html); return g; };
@@ -64,10 +65,20 @@ class Yadimo {
     else body.insertBefore(this.gNeck, face);
     // glasses on the face, hat on top of everything on the head
     this.gGlass = group((GLASSES[this.o.glass] || GLASSES.none).svg()); face.append(this.gGlass);
-    this.gHat = group((HATS[this.o.hat] || HATS.none).svg()); body.append(this.gHat);
-    if (COVERS_ANTENNA.has(this.o.hat)) this.q('antenna').setAttribute('visibility', 'hidden');
+    const cos = COSTUMES[this.o.costume] || COSTUMES.none;
+    this.gHat = group((HATS[this.o.hat] || HATS.none).svg() + (cos.head ? cos.head(robot) : '')); body.append(this.gHat);
+    if (COVERS_ANTENNA.has(this.o.hat) || cos.head || cos.mask) this.q('antenna').setAttribute('visibility', 'hidden');
+    // costume layers: cape behind everything; mask painted on the head (clipped to its moving outline); chest; face parts on top
+    if (cos.back) body.insertBefore(group(cos.back(robot)), body.firstChild);
+    const mask = cos.mask ? cos.mask(robot) : '';
+    this.gMask = group(mask ? `<g clip-path="url(#shell-clip)">${mask}</g>` : ''); face.after(this.gMask);
+    this.gChest = group(cos.chest ? cos.chest(robot) : '');
+    if (robot) body.insertBefore(this.gChest, this.rig.head); else this.gMask.after(this.gChest);
+    this.gFace2 = group(cos.face ? cos.face(robot) : ''); (robot ? this.gMask : this.gChest).after(this.gFace2);
+    // the bot floats on its own; the old ring under it looked stiff
+    const thr = this.q('thruster'); if (thr) thr.setAttribute('visibility', 'hidden');
     // the item sits in the right hand and turns with the arm
-    const hand = robot ? [474, 386] : [500, 300], itemSvg = (ITEMS[this.o.item] || ITEMS.none).svg(hand[0], hand[1]);
+    const hand = robot ? [474, 386] : [500, 300], itemSvg = (ITEMS[this.o.item] || TITEMS[this.o.item] || ITEMS.none).svg(hand[0], hand[1]);
     // the bell's right arm is behind its body; the bot's arms are behind its head, so its item gets its own top layer
     this.gItem = null;
     if (robot) { this.gItem = group(itemSvg); body.insertBefore(this.gItem, this.gHat); }
@@ -107,8 +118,16 @@ class Yadimo {
     const t = this.t, mt = this.mt, motion = MOODS[m].motion;
     this.rig.step(this.target(t), dt);
     let y = 0, angle = this.rig.current.bodyRoll, sx = 1, sy = 1;
+    if (m === 'idle' && !this.act && mt > this.nextAct) { const kinds = ['hop', 'wiggle', 'spin', 'sparkle', 'stretch']; this.act = {k: kinds[Math.floor(Math.random() * kinds.length)], s: mt}; }
+    if (this.act) { const p = (mt - this.act.s) / .9;
+      if (p >= 1 || m !== 'idle') { this.act = null; this.nextAct = mt + 3 + Math.random() * 4; }
+      else if (this.act.k === 'hop') { y -= Math.sin(Math.PI * Math.min(1, p * 1.6)) * 34; if (p < .12 || (p > .62 && p < .75)) { sy *= .93; sx *= 1.05; } }
+      else if (this.act.k === 'wiggle') angle += Math.sin(p * Math.PI * 5) * 7 * (1 - p);
+      else if (this.act.k === 'spin') angle += Math.sin(p * Math.PI) * 14;
+      else if (this.act.k === 'stretch') { const e = Math.sin(Math.PI * p); sy *= 1 + .07 * e; sx *= 1 - .04 * e; }
+      else if (this.act.k === 'sparkle' && p < .05) this.burst('spark', 7); }
     if (motion === 'float') y = Math.sin(t * 2) * 9;
-    if (motion === 'curious') y = Math.sin(t * 1.5) * 5;
+    if (motion === 'curious') y = Math.sin(t * 1.5) * (this.o.variant === 'robot' ? 10 : 5);
     if (motion === 'ring') angle += Math.sin(mt * 26) * 8;
     if (motion === 'bounce') {
       const b = Math.abs(Math.sin(mt * 3.2)); y = -b * 46;
@@ -137,6 +156,7 @@ class Yadimo {
     if (MOODS[m].pose === 'wave' || (m === 'fly' && mt > 1.2)) pose[1] += Math.sin(mt * 9) * 12;
     if (m === 'fly' && mt > 1.2) { pose[0] = this.o.variant === 'robot' ? 0 : -15; pose[1] -= 0; }
     if (m === 'talk') pose[1] += Math.sin(mt * 5) * 10;
+    if (m === 'idle' || m === 'think' || m === 'sleep') { pose[0] += Math.sin(t * 1.7) * 5; pose[1] -= Math.sin(t * 1.7 + 1) * 5; }
     if (m === 'ring') { pose[0] += Math.sin(mt * 30) * 8; pose[1] += Math.sin(mt * 30 + 1) * 8; }
     if (m === 'celebrate') { pose[0] += Math.sin(mt * 12) * 8; pose[1] -= Math.sin(mt * 12) * 8; }
     const ex = {};
@@ -152,6 +172,8 @@ class Yadimo {
       this.gGlass.setAttribute('transform', matrixFor(mp.faceMap, 300, 275));
       if (this.o.variant !== 'robot') this.gNeck.setAttribute('transform', matrixFor(mp.shellMap, 300, 362));
       if (this.gItem) this.gItem.setAttribute('transform', this.q('arm-right').getAttribute('transform') || '');
+      this.gFace2.setAttribute('transform', matrixFor(mp.faceMap, 300, 275));
+      if (this.o.variant !== 'robot') this.gChest.setAttribute('transform', matrixFor(mp.shellMap, 300, 392));
     }
     this.effects(dt, y);
   }
@@ -170,7 +192,7 @@ class Yadimo {
       if (p.type === 'conf' || p.type === 'spark') p.vy += 620 * dt;
       const o = Math.max(0, Math.min(1, p.life));
       if (p.type === 'conf') h += `<rect x="-7" y="-11" width="14" height="22" rx="3" fill="${p.c}" opacity="${o}" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${(p.r * 57).toFixed(0)})"/>`;
-      else if (p.type === 'spark') h += `<polygon points="${star5(p.x, p.y, 11, 4)}" fill="#fff" opacity="${o * .9}"/>`;
+      else if (p.type === 'spark') h += `<polygon points="${star5(p.x, p.y, 13, 5)}" fill="${p.c || '#fff'}" opacity="${o * .95}"/>`;
       else if (p.type === 'heart') h += `<path d="${heartPath(p.x, p.y, .7)}" fill="#ff5c93" opacity="${o}"/>`;
       else if (p.type === 'z') h += `<text x="${p.x.toFixed(1)}" y="${p.y.toFixed(1)}" font-size="${p.size}" font-weight="800" font-family="system-ui" fill="#7a62e0" opacity="${o}">z</text>`;
     }
@@ -213,6 +235,8 @@ chips('c-hat', HATS, () => main.o.hat, k => { main.set({hat: k}); syncScenes(); 
 chips('c-glass', GLASSES, () => main.o.glass, k => { main.set({glass: k}); syncScenes(); });
 chips('c-neck', NECK, () => main.o.neck, k => { main.set({neck: k}); syncScenes(); });
 chips('c-item', ITEMS, () => main.o.item, k => { main.set({item: k}); syncScenes(); });
+chips('c-costume', COSTUMES, () => main.o.costume, k => { main.set({costume: k, hat: 'none', glass: 'none', neck: 'none'}); for (const id of ['c-hat', 'c-glass', 'c-neck']) [...$(id).children].forEach((b, i) => b.classList.toggle('on', i === 0)); syncScenes(); });
+chips('c-titem', TITEMS, () => main.o.item, k => { main.set({item: k}); [...$('c-item').children].forEach(b => b.classList.remove('on')); syncScenes(); });
 { const box = $('c-color');
   for (const [k, v] of Object.entries(COLORS)) { const b = document.createElement('button'); b.className = 'sw' + (k === main.o.color ? ' on' : ''); b.title = v.n;
     b.style.background = `radial-gradient(circle at 35% 30%, ${shade(v.body, 60)}, ${v.body} 55%, ${shade(v.body, -50)})`;
@@ -223,7 +247,7 @@ function markMood() { [...$('c-mood').children].forEach((b, i) => b.classList.to
 // scenes share the look chosen above
 const yw = new Yadimo($('w-svg')), ya = new Yadimo($('a-svg')), yp = new Yadimo($('p-svg'));
 scenes.push(yw, ya, yp);
-function syncScenes() { for (const y of scenes) y.set({variant: main.o.variant, color: main.o.color, hat: main.o.hat, glass: main.o.glass, neck: main.o.neck, item: 'none'}); }
+function syncScenes() { for (const y of scenes) y.set({variant: main.o.variant, color: main.o.color, hat: main.o.hat, glass: main.o.glass, neck: main.o.neck, costume: main.o.costume, item: 'none'}); }
 let wT = [], pT = [];
 function playWidget() { wT.forEach(clearTimeout); $('w-bubble').classList.remove('on'); yw.setMood('fly');
   wT = [setTimeout(() => { $('w-bubble').classList.add('on'); yw.setMood('wave'); }, 1250), setTimeout(() => yw.setMood('talk'), 3000), setTimeout(() => yw.setMood('idle'), 5200)]; }
