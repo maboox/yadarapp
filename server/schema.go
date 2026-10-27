@@ -44,6 +44,8 @@ func ensureSchema(app core.App) error {
 	addField(users, &core.TextField{Name: "audio_model", Max: 200, Help: "مدل صدای اختصاصی؛ خالی = مدل پلن"})
 	addField(users, &core.TextField{Name: "admin_note", Max: 500})
 	addField(users, &core.TextField{Name: "bazaar_id", Max: 100, Help: "شناسهٔ حساب کافه‌بازار"})
+	addField(users, &core.JSONField{Name: "yadimo_owned", MaxSize: 20000, Help: "لوازم یادیموی خریده‌شده"})
+	addField(users, &core.JSONField{Name: "yadimo_look", MaxSize: 5000, Help: "ظاهر انتخاب‌شدهٔ یادیمو"})
 	if !hasIndex(users, "idx_users_phone") {
 		users.AddIndex("idx_users_phone", true, "phone", "phone != ''")
 	}
@@ -109,6 +111,15 @@ func ensureSchema(app core.App) error {
 		}
 	}
 
+	// New price fields get their starting price once; after that the admin panel decides (0 = free).
+	var newPrices []string
+	if existing, _ := app.FindCollectionByNameOrId("settings"); existing != nil {
+		for tier := range yadimoDefaultPrices {
+			if existing.Fields.GetByName("yadimo_price_"+tier) == nil {
+				newPrices = append(newPrices, tier)
+			}
+		}
+	}
 	settings, err := ensureCollection(app, "settings", func(c *core.Collection) {
 		addField(c, &core.NumberField{Name: "token_usd", Help: "ارزش هر توکن به دلار (هزینهٔ واقعی ÷ این عدد = توکن)"})
 		addField(c, &core.NumberField{Name: "markup", Help: "ضریب سود روی هزینهٔ واقعی، مثلاً 1.5"})
@@ -125,12 +136,28 @@ func ensureSchema(app core.App) error {
 		addField(c, &core.TextField{Name: "bazaar_api_token", Max: 500, Help: "پیشخان بازار ← API پیشخان ← دریافت توکن (برای بررسی خریدها)"})
 		addField(c, &core.TextField{Name: "bazaar_rsa_key", Max: 2000, Help: "پیشخان بازار ← پرداخت درون‌برنامه‌ای ← کلید RSA (بررسی امضای خریدها بدون تماس با بازار)"})
 		addField(c, &core.BoolField{Name: "app_login_disabled", Help: "روشن = ورود درون‌برنامه‌ای با بازار بسته شود (مثلاً اگر سوءاستفاده دیدی)"})
+		addField(c, &core.NumberField{Name: "yadimo_price_basic", Help: "قیمت لوازم سادهٔ یادیمو (توکن)"})
+		addField(c, &core.NumberField{Name: "yadimo_price_special", Help: "قیمت لوازم ویژهٔ یادیمو (توکن)"})
+		addField(c, &core.NumberField{Name: "yadimo_price_costume", Help: "قیمت لباس شخصیت‌ها (توکن)"})
 	})
 	if err != nil {
 		return err
 	}
+	if len(newPrices) > 0 {
+		if records, _ := app.FindAllRecords(settings); len(records) > 0 {
+			for _, tier := range newPrices {
+				records[0].Set("yadimo_price_"+tier, yadimoDefaultPrices[tier])
+			}
+			if err := app.Save(records[0]); err != nil {
+				return err
+			}
+		}
+	}
 	if n, _ := app.CountRecords(settings); n == 0 {
 		r := core.NewRecord(settings)
+		for tier, price := range yadimoDefaultPrices {
+			r.Set("yadimo_price_"+tier, price)
+		}
 		r.Set("token_usd", 0.0025) // about one typical task
 		r.Set("markup", 1.0)
 		r.Set("signup_tokens", 10)

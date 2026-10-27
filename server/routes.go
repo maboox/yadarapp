@@ -21,6 +21,7 @@ func registerRoutes(se *core.ServeEvent) {
 	g.GET("/bazaar/callback", handleBazaarCallback)
 	g.POST("/bazaar/claim", handleBazaarClaim)
 	g.POST("/bazaar/app-login", handleBazaarAppLogin)
+	g.GET("/weather", handleWeather)
 
 	auth := g.Group("")
 	auth.Bind(apis.RequireAuth("users"))
@@ -35,6 +36,9 @@ func registerRoutes(se *core.ServeEvent) {
 	auth.POST("/stats", handleStats)
 	auth.POST("/purchase", handlePurchase)
 	auth.POST("/purchase/consumed", handlePurchaseConsumed)
+	auth.GET("/yadimo", handleYadimo)
+	auth.POST("/yadimo/buy", handleYadimoBuy)
+	auth.POST("/yadimo/look", handleYadimoLook)
 }
 
 // profile is what the app shows on the account screen.

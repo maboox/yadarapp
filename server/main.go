@@ -53,6 +53,8 @@ func configureApp(app core.App) error {
 		{Label: "/api/yadar/bazaar/", MaxRequests: 40, Duration: 60},
 		{Label: "/api/yadar/purchase", MaxRequests: 10, Duration: 60},
 		{Label: "/api/yadar/ai/", MaxRequests: 30, Duration: 60},
+		{Label: "/api/yadar/weather", MaxRequests: 20, Duration: 60},
+		{Label: "/api/yadar/yadimo", MaxRequests: 30, Duration: 60},
 		{Label: "/api/collections/users/auth-refresh", MaxRequests: 10, Duration: 60},
 	}
 	for _, rule := range want {
