@@ -10,7 +10,7 @@
 ## پروژه
 - مخزن `maboox/yadarapp`؛ شاخهٔ کار: `claude/yadar-accounts` (نسخهٔ بازار). شاخهٔ `claude/epic-archimedes-1fxiqb` نسخهٔ آفلاین قدیمی است و به‌روز نمی‌شود.
 - اسم برنامه: **یادیمو / Yadimo** (به‌خاطر شکایت مالکیت فکری «یادآر» عوض شد). بسته: `com.yadavard.app.plus` (تغییرناپذیر). پوشهٔ پشتیبان روی گوشی هنوز `Download/Yadar`.
-- نسخهٔ فعلی: 3.6.0 (versionCode 48). هر نسخه versionCode را بالا ببر.
+- نسخهٔ فعلی: 3.7.0 (versionCode 49). هر نسخه versionCode را بالا ببر.
 - CI: `.github/workflows/android.yml` تست‌ها، release، debug و store (با Secrets: KEYSTORE_BASE64، KEYSTORE_PASSWORD، KEY_ALIAS، KEY_PASSWORD) را می‌سازد و در release `apk-claude-yadar-accounts` با نام‌های `Yadimo-<sha7>.apk` و `Yadimo-bazaar-<sha7>.apk` می‌گذارد. هر push بیلد قبلی همان شاخه را لغو می‌کند.
 - تست‌های JVM محلی: `/tmp/claude-0/jvmtest/run.sh` (ممکن است در محیط جدید نباشد؛ CI تست‌ها را اجرا می‌کند).
 - دانلود asset از sandbox: با API (`Accept: application/octet-stream` روی `/releases/assets/<id>`)؛ لینک مستقیم گاهی 404 می‌دهد.
@@ -37,6 +37,15 @@
 - سلام صبح سر ساعت (`YadimoHelloActivity`، هشدار exact)، شامل کارهای امروز، آب‌وهوا (GET /api/yadar/weather?lat&lon → Open-Meteo، کش یک‌ساعته) و جملهٔ انگیزشی.
 - پیام‌های طول روز (`YadimoTalk.kt` + `YadimoOverlay.kt`): هشدار RTC غیربیدارکننده؛ فقط وقتی صفحه روشن و قفل باز و ۱۰ ثانیه بعد هنوز در استفاده. متن‌ها در `YadimoLines.kt` (تست JVM دارد).
 - حباب نوار ضبط: `Modifier.floatAboveEnd` تا جا نگیرد؛ حباب بالای سر با دُم (`YadimoSpeech`).
+
+## نسخهٔ 3.7.0 (گیمیفیکشن)
+- زبانهٔ «پروفایل» (`ProfileScreen.kt`): حلقهٔ سطح، مأموریت‌ها، نشان‌ها، جایزهٔ سطح‌ها و تنظیمات یادیمو (از تنظیمات منتقل شد).
+- قوانین در `GameRules.kt` (تست JVM)، وضعیت و همگام‌سازی در `Game.kt`. ۲۰ سطح، آستانه 25·(L−1)·L.
+- ۸ مأموریت؛ فقط voice3 (۳)، done10 (۲)، streak7 (۵) توکن دارند، یک بار برای هر حساب و هر گوشی (جدول `rewards` در سرور).
+- وسیله‌های سطحی (فروشی نیستند): cap۲، sun۳، scarf۴، crown۵، wizard۷، ninja۱۰، pirate۱۵، color:galaxy۲۰.
+- سرور: `users.game` (پیشرفت، بیشینه نگه داشته می‌شود)، `users.level_override` (سطح دستی از پنل؛ ۰ = خودکار). API: GET/POST /api/yadar/game، POST /game/claim.
+- سرور این نسخه: `yadar-server-selfhosted-5f3caa3.zip`، SHA256 `5f20fcd9995956867d1e02967a37ec9dfc6c6b87d597bcadb78a147743748eca`.
+- ترتیب انتشار به خواست کاربر: اول برنامه را تست می‌کند، بعد سرور، بعد بخش سرور را دوباره تست، بعد بازار.
 
 ## کارهای باز
 1. بازخورد کاربر از 3.6.0 (سلام صبح، پیام‌های روز، فروشگاه). سرور باید قبل از انتشار برنامه به‌روز شود.
