@@ -10,7 +10,8 @@
 ## پروژه
 - مخزن `maboox/yadarapp`؛ شاخهٔ کار: `claude/yadar-accounts` (نسخهٔ بازار). شاخهٔ `claude/epic-archimedes-1fxiqb` نسخهٔ آفلاین قدیمی است و به‌روز نمی‌شود.
 - اسم برنامه: **یادیمو / Yadimo** (به‌خاطر شکایت مالکیت فکری «یادآر» عوض شد). بسته: `com.yadavard.app.plus` (تغییرناپذیر). پوشهٔ پشتیبان روی گوشی هنوز `Download/Yadar`.
-- نسخهٔ فعلی: 3.8.0 (versionCode 52). هر نسخه versionCode را بالا ببر.
+- نسخهٔ فعلی: 3.8.1 (versionCode 53).
+- **مهم:** CI با هر push، release قبلی APK را پاک می‌کند؛ لینک را فقط بعد از آخرین push بده و بعدش push نکن. هر نسخه versionCode را بالا ببر.
 - CI: `.github/workflows/android.yml` تست‌ها، release، debug و store (با Secrets: KEYSTORE_BASE64، KEYSTORE_PASSWORD، KEY_ALIAS، KEY_PASSWORD) را می‌سازد و در release `apk-claude-yadar-accounts` با نام‌های `Yadimo-<sha7>.apk` و `Yadimo-bazaar-<sha7>.apk` می‌گذارد. هر push بیلد قبلی همان شاخه را لغو می‌کند.
 - تست‌های JVM محلی: `/tmp/claude-0/jvmtest/run.sh` (ممکن است در محیط جدید نباشد؛ CI تست‌ها را اجرا می‌کند).
 - دانلود asset از sandbox: با API (`Accept: application/octet-stream` روی `/releases/assets/<id>`)؛ لینک مستقیم گاهی 404 می‌دهد.
@@ -50,7 +51,7 @@
 ## نسخهٔ 3.8.0
 - ویجت «اتاق یادیمو» (`YadimoRoom.kt`، `YadimoRoomWidget`): سه‌لایه (عکس اتاق، حلقهٔ تصویرهای یادیمو در ViewFlipper، صحنهٔ کوتاه هر دکمه). تصویرها را WebView پنهان با `assets/yadimo/roomframes.html` می‌سازد و در `files/room/w<id>/` نگه می‌دارد. روانی: پروفایل ← اتاق یادیمو (۵/۱۵/۳۰).
 - صفحهٔ اتاق در برنامه: `YadimoRoomActivity` با `room.html` (زنده). منطق مشترک اتاق: `docs/yadimo/roomscene.js`. آمار پت: `YadimoPet.kt`.
-- پیام همگانی: `Announce.kt`؛ سرور `announce.go` (جدول announcements). منوی مخفی فقط برای `users.is_admin`.
+- پیام به کاربران: `Announce.kt` (مخاطب: همه، یا حساب/نسخه/میزان استفاده/کاربران خاص؛ برنامه خودش target را بررسی می‌کند)؛ سرور `announce.go` (جدول announcements، شمارش مخاطب از user_stats). منوی مخفی فقط برای `users.is_admin`.
 - نمونه‌های طراحی: `docs/yadimo-sizes-demo.html` (اندازه‌ها)، `yadimo-styles-demo.html` (سه سبک).
 - سرور این نسخه: `yadar-server-selfhosted-854e53d.zip`، SHA256 `d733d25abace15c7651078eb2014b93b8177bfd241053a3ee9852bcb7e9367ae`.
 - بعداً: رصد استفاده از برنامه‌های دیگر (فعلاً کنار گذاشته شد)، چیدن وسایل اتاق توسط کاربر و فروش وسایل اتاق.

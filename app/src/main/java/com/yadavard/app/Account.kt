@@ -289,6 +289,16 @@ object Account {
         call(context, "POST", "/api/yadar/announcements", body)
     }
 
+    /** Admin: how many signed-in users a message's audience reaches. */
+    suspend fun audience(context: Context, target: JSONObject): JSONObject = withContext(Dispatchers.IO) {
+        call(context, "POST", "/api/yadar/announcements/audience", target)
+    }
+
+    /** Admin: signed-in users by name or phone. */
+    suspend fun adminUsers(context: Context, q: String): JSONObject = withContext(Dispatchers.IO) {
+        call(context, "GET", "/api/yadar/admin/users?q=" + Uri.encode(q))
+    }
+
     /** Today's weather near a city, cached by the server; works without signing in. */
     suspend fun weather(context: Context, lat: Double, lon: Double): JSONObject = withContext(Dispatchers.IO) {
         call(context, "GET", "/api/yadar/weather?lat=$lat&lon=$lon", timeout = 15_000, auth = false)

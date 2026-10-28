@@ -46,6 +46,8 @@ func registerRoutes(se *core.ServeEvent) {
 	auth.POST("/announcements", handleAnnounceCreate)
 	auth.GET("/announcements/all", handleAnnounceList)
 	auth.POST("/announcements/{id}/off", handleAnnounceOff)
+	auth.POST("/announcements/audience", handleAudience)
+	auth.GET("/admin/users", handleAdminUsers)
 }
 
 // profile is what the app shows on the account screen.

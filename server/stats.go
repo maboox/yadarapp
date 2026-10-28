@@ -12,16 +12,17 @@ import (
 // notes or any other content, only counts.
 func handleStats(e *core.RequestEvent) error {
 	var body struct {
-		Reminders  float64 `json:"reminders"`
-		Notes      float64 `json:"notes"`
-		Done       float64 `json:"done"`
-		Missed     float64 `json:"missed"`
-		AIRequests float64 `json:"ai_requests"`
-		DaysUsed   float64 `json:"days_used"`
-		Stars      float64 `json:"stars"`
-		Version    string  `json:"version"`
-		Language   string  `json:"language"`
-		Theme      string  `json:"theme"`
+		Reminders   float64 `json:"reminders"`
+		Notes       float64 `json:"notes"`
+		Done        float64 `json:"done"`
+		Missed      float64 `json:"missed"`
+		AIRequests  float64 `json:"ai_requests"`
+		DaysUsed    float64 `json:"days_used"`
+		Stars       float64 `json:"stars"`
+		Version     string  `json:"version"`
+		VersionCode float64 `json:"version_code"`
+		Language    string  `json:"language"`
+		Theme       string  `json:"theme"`
 	}
 	if err := e.BindBody(&body); err != nil {
 		return apis.NewBadRequestError("درخواست نامعتبر است", nil)
@@ -58,6 +59,7 @@ func handleStats(e *core.RequestEvent) error {
 	rec.Set("days_used", clamp(body.DaysUsed, 100000))
 	rec.Set("stars", clamp(body.Stars, 5))
 	rec.Set("version", short(body.Version, 20))
+	rec.Set("version_code", clamp(body.VersionCode, 1000000))
 	rec.Set("language", short(body.Language, 10))
 	rec.Set("theme", short(body.Theme, 20))
 	if err := e.App.Save(rec); err != nil {

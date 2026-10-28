@@ -39,6 +39,10 @@ object Engagement {
 
     fun stars(context: Context): Int = prefs(context).getInt("stars", 0)
 
+    /** On how many days the app was opened, and the last of them (for who a message is meant for). */
+    fun daysUsed(context: Context): Int = prefs(context).getInt("days", 0)
+    fun lastDay(context: Context): LocalDate? = prefs(context).getString("last_day", null)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+
     /** Counts a day on which the app was opened (for the "days used" figure). */
     fun noteLaunch(context: Context) {
         val today = LocalDate.now().toString()
@@ -92,7 +96,8 @@ object Engagement {
             .put("done", all.sumOf { it.completedCount }).put("missed", all.sumOf { it.missedCount })
             .put("ai_requests", UsageLog.entries(app).count { it.time >= month })
             .put("days_used", p.getInt("days", 0)).put("stars", p.getInt("stars", 0))
-            .put("version", version).put("language", Prefs.language(app).name.lowercase()).put("theme", Prefs.themeColor(app).name.lowercase())
+            .put("version", version).put("version_code", runCatching { @Suppress("DEPRECATION") app.packageManager.getPackageInfo(app.packageName, 0).versionCode }.getOrDefault(0))
+            .put("language", Prefs.language(app).name.lowercase()).put("theme", Prefs.themeColor(app).name.lowercase())
         runCatching { Account.sendStats(app, body); p.edit().putLong("last_sent", now).apply() }
     }
 }

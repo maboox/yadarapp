@@ -49,12 +49,37 @@ import java.net.URL
  */
 object Announce {
     data class Message(val id: String, val title: String, val body: String, val style: String, val buttonText: String,
-                       val buttonUrl: String, val belowVersion: Int, val created: Long) {
+                       val buttonUrl: String, val belowVersion: Int, val created: Long, val target: JSONObject? = null) {
         fun json(): JSONObject = JSONObject().put("id", id).put("title", title).put("body", body).put("style", style)
             .put("button_text", buttonText).put("button_url", buttonUrl).put("below_version", belowVersion).put("created", created)
+            .put("target", target ?: JSONObject.NULL)
         companion object {
             fun of(o: JSONObject) = Message(o.optString("id"), o.optString("title"), o.optString("body"), o.optString("style", "popup"),
-                o.optString("button_text"), o.optString("button_url"), o.optInt("below_version"), o.optLong("created"))
+                o.optString("button_text"), o.optString("button_url"), o.optInt("below_version"), o.optLong("created"), o.optJSONObject("target"))
+        }
+    }
+
+    /** Whether a message is meant for this phone: its version, account and how much the app is used. */
+    fun matches(context: Context, m: Message): Boolean {
+        val v = version(context)
+        if (m.belowVersion > 0 && v >= m.belowVersion) return false
+        val t = m.target ?: return true
+        Account.load(context)
+        t.optJSONArray("users")?.takeIf { it.length() > 0 }?.let { list ->
+            val me = Account.profile.value?.id ?: return false
+            return (0 until list.length()).any { list.optString(it) == me }
+        }
+        when (t.optString("logged")) { "in" -> if (!Account.isLoggedIn(context)) return false; "out" -> if (Account.isLoggedIn(context)) return false }
+        t.optInt("min_version").let { if (it > 0 && v < it) return false }
+        t.optInt("max_version").let { if (it > 0 && v >= it) return false }
+        val days = Engagement.daysUsed(context)
+        val last = Engagement.lastDay(context)
+        val today = java.time.LocalDate.now()
+        return when (t.optString("usage")) {
+            "active" -> days >= 7 && last != null && !last.isBefore(today.minusDays(7))
+            "light" -> days < 7
+            "inactive" -> last == null || last.isBefore(today.minusDays(14))
+            else -> true
         }
     }
 
@@ -96,7 +121,7 @@ object Announce {
         for (i in 0 until items.length()) {
             val m = Message.of(items.getJSONObject(i))
             newest = maxOf(newest, m.created)
-            if (m.id in seen || (m.belowVersion > 0 && version(context) >= m.belowVersion)) continue
+            if (m.id in seen || !matches(context, m)) continue
             p.edit().putStringSet("seen", (p.getStringSet("seen", emptySet()).orEmpty() + m.id).toList().takeLast(50).toSet()).apply()
             deliver(context, m, inApp)
         }
@@ -224,13 +249,13 @@ fun AnnounceCard() {
     var body by remember { mutableStateOf("") }
     var style by remember { mutableStateOf("popup") }
     var update by remember { mutableStateOf(false) }
-    var onlyOld by remember { mutableStateOf(false) }
+    var audience by remember { mutableStateOf(Audience()) }
     var days by remember { mutableIntStateOf(7) }
     var sending by remember { mutableStateOf(false) }
     var result by remember { mutableStateOf<String?>(null) }
     var confirm by remember { mutableStateOf(false) }
     val version = remember { runCatching { @Suppress("DEPRECATION") context.packageManager.getPackageInfo(context.packageName, 0).versionCode }.getOrDefault(0) }
-    SettingsCard(t("پیام به همهٔ کاربران", "Message to everyone"), Icons.Rounded.Campaign) {
+    SettingsCard(t("پیام به کاربران", "Message to users"), Icons.Rounded.Campaign) {
         OutlinedTextField(title, { title = it.take(80) }, Modifier.fillMaxWidth(), label = { Text(t("عنوان (اختیاری)", "Title (optional)")) }, singleLine = true)
         OutlinedTextField(body, { body = it.take(1000) }, Modifier.fillMaxWidth().heightIn(min = 110.dp), label = { Text(t("متن پیام", "Message")) })
         SettingLabel(t("نحوهٔ نمایش", "Shown as"))
@@ -238,25 +263,25 @@ fun AnnounceCard() {
         Row(Modifier.fillMaxWidth().clickable { update = !update }, verticalAlignment = Alignment.CenterVertically) {
             Checkbox(update, { update = it }); Text(t("دکمهٔ «به‌روزرسانی» (صفحهٔ برنامه در بازار)", "“Update” button (the app's Bazaar page)"))
         }
-        Row(Modifier.fillMaxWidth().clickable { onlyOld = !onlyOld }, verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(onlyOld, { onlyOld = it }); Text(t("فقط برای نسخه‌های قدیمی‌تر از همین نسخه (${n(version)})", "Only for versions older than this one ($version)"))
-        }
+        AudiencePicker(audience) { audience = it }
         SettingLabel(t("تا چند روز نشان داده شود", "Show for"))
         SettingSegmented(listOf(1 to t("۱ روز", "1 day"), 3 to t("۳ روز", "3 days"), 7 to t("۷ روز", "7 days"), 30 to t("۳۰ روز", "30 days")), days) { days = it }
         Text(t("پیام ظرف چند ساعت به همه می‌رسد (هر کس برنامه را باز کند، زودتر). هر کاربر هر پیام را فقط یک بار می‌بیند.",
             "Everyone gets it within a few hours (sooner when they open the app), each person once."),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Button(onClick = { confirm = true }, enabled = body.isNotBlank() && !sending, modifier = Modifier.fillMaxWidth()) { Text(t("ارسال به همه", "Send to everyone")) }
+        Button(onClick = { confirm = true }, enabled = body.isNotBlank() && !sending, modifier = Modifier.fillMaxWidth()) {
+            Text(if (audience.everyone) t("ارسال به همه", "Send to everyone") else t("ارسال", "Send"))
+        }
         result?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
     }
     if (confirm) AlertDialog(onDismissRequest = { confirm = false },
-        title = { Text(t("برای همهٔ کاربران فرستاده شود؟", "Send to every user?")) },
-        text = { Text(body) },
+        title = { Text(if (audience.everyone) t("برای همهٔ کاربران فرستاده شود؟", "Send to every user?") else t("برای این کاربران فرستاده شود؟", "Send to these users?")) },
+        text = { Text(audience.summary() + "\n\n" + body) },
         confirmButton = { TextButton(onClick = {
             confirm = false; sending = true
             scope.launch {
                 val req = JSONObject().put("title", title).put("body", body).put("style", style).put("days", days)
-                    .put("below_version", if (onlyOld) version else 0)
+                    .put("target", audience.json(version))
                 if (update) req.put("button_text", t("به‌روزرسانی", "Update")).put("button_url", "bazaar://details?id=${context.packageName}")
                 val err = Announce.send(context, req)
                 sending = false
@@ -265,4 +290,83 @@ fun AnnounceCard() {
             }
         }) { Text(t("ارسال", "Send")) } },
         dismissButton = { TextButton(onClick = { confirm = false }) { Text(t("انصراف", "Cancel")) } })
+}
+
+/** Who a message goes to. Empty choices mean everyone. */
+data class Audience(val everyone: Boolean = true, val logged: String = "", val version: String = "", val usage: String = "",
+                    val users: Map<String, String> = emptyMap()) {
+    fun json(current: Int): JSONObject? {
+        if (everyone) return null
+        val o = JSONObject()
+        if (users.isNotEmpty()) return o.put("users", JSONArray(users.keys.toList()))
+        if (logged.isNotEmpty()) o.put("logged", logged)
+        when (version) { "older" -> o.put("max_version", current); "current" -> o.put("min_version", current) }
+        if (usage.isNotEmpty()) o.put("usage", usage)
+        return o
+    }
+    fun summary(): String = when {
+        everyone -> t("همهٔ کاربران", "Everyone")
+        users.isNotEmpty() -> t("کاربران: ", "Users: ") + users.values.joinToString(t("، ", ", "))
+        else -> listOfNotNull(
+            when (logged) { "in" -> t("واردشده‌ها", "signed in"); "out" -> t("واردنشده‌ها", "not signed in"); else -> null },
+            when (version) { "older" -> t("نسخهٔ قدیمی", "older versions"); "current" -> t("نسخهٔ فعلی و جدیدتر", "this version or newer"); else -> null },
+            when (usage) { "active" -> t("فعال‌ها", "active"); "light" -> t("کم‌استفاده‌ها", "light users"); "inactive" -> t("مدتی سر نزده‌ها", "inactive"); else -> null },
+        ).joinToString(" • ").ifBlank { t("همهٔ کاربران", "Everyone") }
+    }
+}
+
+@Composable
+private fun AudiencePicker(a: Audience, onChange: (Audience) -> Unit) {
+    val context = LocalContext.current
+    val version = remember { runCatching { @Suppress("DEPRECATION") context.packageManager.getPackageInfo(context.packageName, 0).versionCode }.getOrDefault(0) }
+    SettingLabel(t("به چه کسانی؟", "To whom?"))
+    SettingSegmented(listOf(true to t("همه", "Everyone"), false to t("انتخابی", "Choose")), a.everyone) { onChange(a.copy(everyone = it)) }
+    if (a.everyone) return
+    var count by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(a) {
+        count = null; kotlinx.coroutines.delay(500)
+        count = runCatching {
+            val res = Account.audience(context, a.json(version) ?: JSONObject())
+            if (res.optBoolean("known")) t("حدود ${n(res.optInt("count"))} کاربرِ واردشده", "About ${res.optInt("count")} signed-in users")
+            else t("کاربرانی که وارد نشده‌اند را نمی‌شود شمرد", "Users who never signed in can't be counted")
+        }.getOrElse { t("تعداد معلوم نشد", "Couldn't count") }
+    }
+    if (a.users.isEmpty()) {
+        SettingLabel(t("حساب", "Account"))
+        SettingSegmented(listOf("" to t("همه", "All"), "in" to t("واردشده", "Signed in"), "out" to t("واردنشده", "Not signed in")), a.logged) { onChange(a.copy(logged = it)) }
+        SettingLabel(t("نسخهٔ نصب‌شده", "Installed version"))
+        SettingSegmented(listOf("" to t("همه", "All"), "older" to t("قدیمی‌تر از ${n(version)}", "Older than $version"), "current" to t("${n(version)} و جدیدتر", "$version or newer")), a.version) { onChange(a.copy(version = it)) }
+        SettingLabel(t("میزان استفاده", "How much they use it"))
+        SettingSegmented(listOf("" to t("همه", "All"), "active" to t("فعال", "Active"), "light" to t("کم", "Light"), "inactive" to t("سر نزده", "Away")), a.usage) { onChange(a.copy(usage = it)) }
+        Text(t("فعال: بیش از ۷ روز استفاده و در هفتهٔ اخیر • کم: کمتر از ۷ روز • سر نزده: دو هفته باز نکرده", "Active: 7+ days, used this week • Light: under 7 days • Away: not opened for two weeks"),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    // particular users, found by name or phone
+    SettingLabel(t("یا کاربران مشخص (با اسم یا شماره)", "Or particular users (by name or phone)"))
+    var q by remember { mutableStateOf("") }
+    var found by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
+    LaunchedEffect(q) {
+        if (q.isBlank()) { found = emptyList(); return@LaunchedEffect }
+        kotlinx.coroutines.delay(400)
+        found = runCatching { Account.adminUsers(context, q).optJSONArray("items")?.let { arr -> (0 until arr.length()).map { arr.getJSONObject(it) } } }.getOrNull().orEmpty()
+    }
+    OutlinedTextField(q, { q = it }, Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text(t("جست‌وجو…", "Search…")) })
+    found.take(8).forEach { u ->
+        val id = u.optString("id"); val name = u.optString("name").ifBlank { u.optString("phone").ifBlank { id.take(6) } }
+        Row(Modifier.fillMaxWidth().clickable {
+            onChange(a.copy(users = if (id in a.users) a.users - id else a.users + (id to name)))
+        }, verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(id in a.users, { onChange(a.copy(users = if (it) a.users + (id to name) else a.users - id)) })
+            Column {
+                Text(name)
+                Text(listOfNotNull(u.optString("version").takeIf { it.isNotBlank() }?.let { t("نسخهٔ ${n(it)}", "v$it") },
+                    u.optInt("days_used").takeIf { it > 0 }?.let { t("${n(it)} روز استفاده", "$it days") },
+                    u.optInt("done").takeIf { it > 0 }?.let { t("${n(it)} کار انجام‌شده", "$it done") }).joinToString(" • "),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+    if (a.users.isNotEmpty()) Text(t("انتخاب‌شده‌ها: ", "Chosen: ") + a.users.values.joinToString(t("، ", ", ")) + t(" (فقط همین‌ها)", " (only these)"),
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+    count?.let { Text("👥 $it", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold) }
 }
