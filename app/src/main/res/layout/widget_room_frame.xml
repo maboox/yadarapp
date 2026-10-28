@@ -1,2 +1,20 @@
-<ImageView xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/room_frame"
-    android:layout_width="wrap_content" android:layout_height="wrap_content" android:importantForAccessibility="no" />
+<!-- One frame of the widget's episode. Each part is moved into place with its wrapper's padding (widget pixels). -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:layoutDirection="ltr">
+    <FrameLayout android:id="@+id/f_char" android:layout_width="match_parent" android:layout_height="match_parent">
+        <ImageView android:id="@+id/f_img" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_gravity="top|left" android:importantForAccessibility="no" />
+    </FrameLayout>
+    <FrameLayout android:id="@+id/f_ball" android:layout_width="match_parent" android:layout_height="match_parent" android:visibility="gone">
+        <ImageView android:id="@+id/f_ball_img" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_gravity="top|left" android:importantForAccessibility="no" />
+    </FrameLayout>
+    <!-- what Yadimo says: centred over its head, just above it -->
+    <FrameLayout android:id="@+id/f_say" android:layout_width="match_parent" android:layout_height="match_parent" android:visibility="gone">
+        <TextView android:id="@+id/f_text" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal" android:background="@drawable/widget_room_bubble"
+            android:paddingStart="9dp" android:paddingEnd="9dp" android:paddingTop="2dp" android:paddingBottom="2dp"
+            android:textColor="#231C47" android:textSize="11sp" android:textStyle="bold" android:maxLines="2"
+            android:ellipsize="end" android:gravity="center" android:textDirection="anyRtl" />
+    </FrameLayout>
+</FrameLayout>

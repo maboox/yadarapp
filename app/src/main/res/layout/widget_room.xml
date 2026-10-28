@@ -3,50 +3,23 @@
     android:background="@drawable/widget_room_bg" android:clipToOutline="true">
     <ImageView android:id="@+id/room_bg" android:layout_width="match_parent" android:layout_height="match_parent"
         android:scaleType="centerCrop" android:importantForAccessibility="no" />
-    <!-- Yadimo's pictures: in the middle, standing on the rug; the bottom padding puts the feet on the floor -->
-    <FrameLayout android:id="@+id/room_char_box" android:layout_width="match_parent" android:layout_height="match_parent"
-        android:layoutDirection="ltr">
-        <ViewFlipper android:id="@+id/room_flipper" android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:layout_gravity="bottom|center_horizontal" android:autoStart="true" android:flipInterval="66" />
-    </FrameLayout>
-    <!-- places you can tap: each one is tied to whatever is drawn under it (the bowl, the ball, the bed, Yadimo…) -->
-    <LinearLayout android:id="@+id/room_taps" android:layout_width="match_parent" android:layout_height="match_parent"
-        android:orientation="vertical" android:layoutDirection="ltr">
-        <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
-            <FrameLayout android:id="@+id/room_t0" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-            <FrameLayout android:id="@+id/room_t1" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-            <FrameLayout android:id="@+id/room_t2" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-            <FrameLayout android:id="@+id/room_t3" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-            <FrameLayout android:id="@+id/room_t4" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-            <FrameLayout android:id="@+id/room_t5" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-        </LinearLayout>
-        <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
-            <FrameLayout android:id="@+id/room_t6" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-            <FrameLayout android:id="@+id/room_t7" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-            <FrameLayout android:id="@+id/room_t8" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-            <FrameLayout android:id="@+id/room_t9" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-            <FrameLayout android:id="@+id/room_t10" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-            <FrameLayout android:id="@+id/room_t11" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-        </LinearLayout>
-        <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
-            <FrameLayout android:id="@+id/room_t12" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-            <FrameLayout android:id="@+id/room_t13" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-            <FrameLayout android:id="@+id/room_t14" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-            <FrameLayout android:id="@+id/room_t15" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-            <FrameLayout android:id="@+id/room_t16" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-            <FrameLayout android:id="@+id/room_t17" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-        </LinearLayout>
-        <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
-            <FrameLayout android:id="@+id/room_t18" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-            <FrameLayout android:id="@+id/room_t19" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-            <FrameLayout android:id="@+id/room_t20" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-            <FrameLayout android:id="@+id/room_t21" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-            <FrameLayout android:id="@+id/room_t22" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-            <FrameLayout android:id="@+id/room_t23" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" />
-        </LinearLayout>
+    <!-- the episode: one child per frame, each putting Yadimo (and the ball, and what it says) in its place -->
+    <ViewFlipper android:id="@+id/room_flipper" android:layout_width="match_parent" android:layout_height="match_parent"
+        android:layoutDirection="ltr" android:autoStart="true" android:flipInterval="125" />
+    <!-- how full, rested and happy Yadimo is -->
+    <LinearLayout android:id="@+id/room_stats" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_gravity="top|left" android:layout_margin="7dp" android:background="@drawable/widget_room_bubble"
+        android:orientation="horizontal" android:gravity="center_vertical" android:layoutDirection="ltr"
+        android:paddingStart="7dp" android:paddingEnd="7dp" android:paddingTop="2dp" android:paddingBottom="2dp">
+        <TextView style="@style/RoomStatIcon" android:text="🍪" />
+        <ProgressBar android:id="@+id/room_hunger" style="@style/RoomStatBar" />
+        <TextView style="@style/RoomStatIcon" android:text="⚡" />
+        <ProgressBar android:id="@+id/room_energy" style="@style/RoomStatBar" />
+        <TextView style="@style/RoomStatIcon" android:text="😊" />
+        <ProgressBar android:id="@+id/room_joy" style="@style/RoomStatBar" />
     </LinearLayout>
-    <TextView android:id="@+id/room_bubble" android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:layout_gravity="top|center_horizontal" android:layout_marginTop="6dp" android:background="@drawable/widget_room_bubble"
-        android:paddingStart="10dp" android:paddingEnd="10dp" android:paddingTop="3dp" android:paddingBottom="3dp"
-        android:textColor="#231C47" android:textSize="12sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/room_status" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal" android:layout_margin="8dp" android:background="@drawable/widget_room_bubble"
+        android:paddingStart="10dp" android:paddingEnd="10dp" android:paddingTop="3dp" android:paddingBottom="3dp" android:visibility="gone"
+        android:textColor="#231C47" android:textSize="11sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
 </FrameLayout>

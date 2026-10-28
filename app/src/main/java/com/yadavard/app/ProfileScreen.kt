@@ -73,11 +73,11 @@ private fun RoomCard() {
         Button(onClick = { context.startActivity(android.content.Intent(context, YadimoRoomActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) {
             Text(t("رفتن به خانهٔ یادیمو 🏠", "Visit Yadimo's home 🏠"))
         }
-        Text(t("ویجت «خانهٔ یادیمو» را هم می‌توانی از ویجت‌های گوشی روی صفحهٔ اصلی بگذاری؛ هر چه بزرگ‌تر باشد، بیشتر از خانه دیده می‌شود. روی ظرف، توپ، سکوی شارژ، تخت یا خود یادیمو بزن تا همان‌جا واکنش نشان دهد.",
-            "Put the “Yadimo's home” widget on your home screen too; the bigger it is, the more of the home it shows. Tap the bowl, the ball, the pad, the bed or Yadimo and it reacts right there."),
+        Text(t("ویجت «خانهٔ یادیمو» را هم می‌توانی از ویجت‌های گوشی روی صفحهٔ اصلی بگذاری؛ هر چه بزرگ‌تر باشد، بیشتر از خانه دیده می‌شود. آن‌جا یادیمو زندگی خودش را می‌کند و با خودش حرف می‌زند؛ با زدن رویش به همین‌جا می‌آیی.",
+            "Put the “Yadimo's home” widget on your home screen too; the bigger it is, the more of the home it shows. Yadimo lives its own life there and talks to itself; tap it to come here."),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         SettingLabel(t("روانی یادیمو در ویجت", "Widget smoothness"))
-        SettingSegmented(listOf(5 to t("کم (۵)", "Low (5)"), 15 to t("معمولی (۱۵)", "Normal (15)"), 30 to t("روان (۳۰)", "Smooth (30)")), fps) {
+        SettingSegmented(listOf(5 to t("کم", "Low"), 15 to t("معمولی", "Normal"), 30 to t("روان", "Smooth")), fps) {
             fps = it; RoomWidgets.setFps(context, it)
         }
         Text(t("اگر ویجت روی گوشی‌ات کند یا ناقص حرکت کرد، «معمولی» یا «کم» را انتخاب کن.",

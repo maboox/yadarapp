@@ -4,7 +4,7 @@
     <string name="widget_today_description">Today\'s reminders</string>
     <string name="widget_week_description">Your week with tasks per day</string>
     <string name="widget_next_description">Next five reminders</string>
-    <string name="widget_room_description">Yadimo\'s home: feed, play and pet</string>
+    <string name="widget_room_description">Yadimo\'s home: see what it\'s up to</string>
     <string name="widget_focus_description">Nearest reminder with a Done button</string>
     <string name="widget_voice_description">Yadimo voice assistant (1×1)</string>
     <string name="widget_add_description">New reminder (1×1)</string>
