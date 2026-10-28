@@ -14,7 +14,6 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Base64
-import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -25,14 +24,15 @@ import java.io.File
 /*
  * The "Yadimo's home" widget: a window into the same room as the in-app game. It shows a still picture of the room
  * around Yadimo and a short breathing-and-blinking loop of Yadimo standing on the rug, always in the middle and on
- * the floor whatever the widget's size. The buttons open the game with that action, where it plays out fully.
+ * the floor whatever the widget's size. Tapping a thing in the room (the bowl, the ball, the pad, the bed, Yadimo)
+ * plays a short scene right on the widget; the plant and the rest of the room open the game.
  * The pictures are made once by the game's own drawing code (assets/yadimo/widgetframes.html) and kept on disk;
  * new ones replace the old only when they are complete, so the widget is never empty or half-made.
  */
 
 /** What a widget's pictures depend on; when any of it changes they are made again. */
 data class RoomSpec(val wDp: Int, val hDp: Int, val density: Float, val look: String, val night: Boolean, val fps: Int, val budget: Long) {
-    val key: String get() = "v2|$wDp|$hDp|$density|${look.hashCode()}|$night|$fps"
+    val key: String get() = "v3|$wDp|$hDp|$density|${look.hashCode()}|$night|$fps"
 }
 
 object RoomFrames {
@@ -52,6 +52,9 @@ object RoomFrames {
     private val queue = ArrayDeque<Job>()
     private val main = Handler(Looper.getMainLooper())
     private val timeout = Runnable { current?.let { finish(it, false) }; web?.destroy(); web = null; ready = false }
+
+    /** Whether widget [id]'s pictures are being made right now. */
+    fun busy(id: Int) = current?.id == id || queue.any { it.id == id }
 
     /** Makes widget [id]'s pictures for [spec] unless that is already being done; [done] runs on the main thread. */
     fun render(context: Context, id: Int, spec: RoomSpec, done: (Boolean) -> Unit) {
@@ -120,6 +123,13 @@ class YadimoRoomWidget : AppWidgetProvider() {
     override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, options: Bundle) = keep { RoomWidgets.refresh(context, id) }
     override fun onDeleted(context: Context, ids: IntArray) = ids.forEach { RoomFrames.dir(context, it).deleteRecursively() }
 
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action != RoomWidgets.TAP) { super.onReceive(context, intent); return }
+        val id = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1); val act = intent.getStringExtra("act") ?: return
+        val pending = goAsync()
+        RoomWidgets.tap(context, id, act) { runCatching { pending.finish() } }
+    }
+
     /** Keeps the process alive a little while the pictures are being made. */
     private fun keep(block: () -> Unit) {
         val pending = goAsync()
@@ -129,9 +139,16 @@ class YadimoRoomWidget : AppWidgetProvider() {
 }
 
 object RoomWidgets {
+    const val TAP = "com.yadavard.app.ROOM_TAP"
     private val main = Handler(Looper.getMainLooper())
-    private val buttons = mapOf(R.id.room_b_feed to "feed", R.id.room_b_play to "play", R.id.room_b_charge to "charge",
-        R.id.room_b_pet to "pet", R.id.room_b_sleep to "sleep")
+    private const val COLS = 6
+    private const val ROWS = 4
+    /** What a tap does, in the order they win when things overlap; water opens the game (the plant needs Yadimo to walk). */
+    private val ACTS = listOf("pet", "play", "feed", "charge", "sleep", "water")
+    private val CLIPS = setOf("pet", "play", "feed", "charge", "sleep")
+    private val TAP_CELLS = intArrayOf(
+        R.id.room_t0, R.id.room_t1, R.id.room_t2, R.id.room_t3, R.id.room_t4, R.id.room_t5, R.id.room_t6, R.id.room_t7, R.id.room_t8, R.id.room_t9, R.id.room_t10, R.id.room_t11, R.id.room_t12,
+        R.id.room_t13, R.id.room_t14, R.id.room_t15, R.id.room_t16, R.id.room_t17, R.id.room_t18, R.id.room_t19, R.id.room_t20, R.id.room_t21, R.id.room_t22, R.id.room_t23)
 
     private fun prefs(context: Context) = context.applicationContext.getSharedPreferences("room_widgets", Context.MODE_PRIVATE)
 
@@ -177,45 +194,99 @@ object RoomWidgets {
         AppDisplay.load(context)
         File(context.filesDir, "room").takeIf { it.exists() }?.deleteRecursively()   // pictures of the old room widget
         val spec = spec(context, id)
-        show(context, id)
-        if (RoomFrames.meta(context, id).optString("key") != spec.key) RoomFrames.render(context, id, spec) { show(context, id) }
+        val stale = RoomFrames.meta(context, id).optString("key") != spec.key
+        show(context, id, busy = stale)
+        if (stale) RoomFrames.render(context, id, spec) { show(context, id) }
     }
 
     private fun open(context: Context, id: Int, act: String?): PendingIntent =
-        PendingIntent.getActivity(context, 71_300 + id * 8 + (act?.let { buttons.values.indexOf(it) + 1 } ?: 0),
+        PendingIntent.getActivity(context, 71_300 + id * 8 + ACTS.indexOf(act) + 1,
             Intent(context, YadimoRoomActivity::class.java).setData(Uri.parse("yadar://home/$id/${act ?: "open"}"))
                 .putExtra("act", act).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
-    /** Puts the room, Yadimo's loop, a line and the buttons on the widget. */
-    fun show(context: Context, id: Int) {
-        val (w, h) = size(context, id)
+    private fun tapIntent(context: Context, id: Int, act: String): PendingIntent =
+        PendingIntent.getBroadcast(context, 72_300 + id * 8 + ACTS.indexOf(act),
+            Intent(context, YadimoRoomWidget::class.java).setAction(TAP).setData(Uri.parse("yadar://home/$id/tap/$act"))
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id).putExtra("act", act),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
+    /** What is under each tap cell, from where the page said the things are drawn (null: open the game). */
+    private fun cells(meta: JSONObject): List<String?> {
+        val taps = meta.optJSONObject("taps") ?: return List(COLS * ROWS) { null }
+        return List(COLS * ROWS) { i ->
+            val x = (i % COLS + .5) / COLS; val y = (i / COLS + .5) / ROWS
+            ACTS.firstOrNull { a -> taps.optJSONArray(a)?.let { r -> x >= r.optDouble(0) - .04 && x <= r.optDouble(2) + .04 && y >= r.optDouble(1) - .04 && y <= r.optDouble(3) + .04 } == true }
+        }
+    }
+
+    /** What Yadimo says while a scene plays. */
+    private fun reaction(act: String) = when (act) {
+        "feed" -> t("نوش جان! 😋", "Yum! 😋")
+        "play" -> t("گل! ⚽😄", "Goal! ⚽😄")
+        "charge" -> t("شارژ شدم! 💯", "Fully charged! 💯")
+        "sleep" -> t("یه چرت کوچولو… 😴", "A little nap… 😴")
+        else -> t("آخ جون! 🥰", "Yay! 🥰")
+    }
+
+    /** The scene playing on each widget, and what to do when it ends. */
+    private val playing = HashMap<Int, Pair<Runnable, () -> Unit>>()
+
+    /** Something in the room was tapped: Yadimo's needs go up, and the scene plays on the widget, then the loop again. */
+    fun tap(context: Context, id: Int, act: String, finished: () -> Unit) {
+        AppDisplay.load(context)
+        prefs(context).edit().putBoolean("tapped", true).apply()
+        YadimoPet.act(context, act)
+        playing.remove(id)?.let { (r, f) -> main.removeCallbacks(r); f() }
+        val clip = RoomFrames.meta(context, id).optJSONObject(act)
+        if (act !in CLIPS || clip == null) { show(context, id); finished(); return }
+        show(context, id, act)
+        val back = Runnable { playing.remove(id); show(context, id); finished() }
+        playing[id] = back to finished
+        main.postDelayed(back, clip.optInt("count") * 1000L / clip.optInt("fps", 10).coerceIn(1, 60) + 350)
+    }
+
+    /** Puts the room, Yadimo's loop (or the scene [clip]), a line and the places to tap on the widget. */
+    fun show(context: Context, id: Int, clip: String? = null, busy: Boolean = RoomFrames.busy(id)) {
+        val (_, h) = size(context, id)
         val rv = RemoteViews(context.packageName, R.layout.widget_room)
         val d = RoomFrames.dir(context, id)
         val meta = RoomFrames.meta(context, id)
         val bg = runCatching { BitmapFactory.decodeFile(File(d, "bg.png").path) }.getOrNull()
         if (bg != null) rv.setImageViewBitmap(R.id.room_bg, bg)
         rv.removeAllViews(R.id.room_flipper)
-        val idle = meta.optJSONObject("idle")
-        if (bg != null && idle != null) {
+        val kind = clip ?: "idle"
+        val m = meta.optJSONObject(kind)
+        if (bg != null && m != null) {
             val dpi = context.resources.displayMetrics.densityDpi
-            val scale = idle.optDouble("scale", 1.0)
-            val frames = (0 until idle.optInt("count")).mapNotNull { i ->
-                runCatching { BitmapFactory.decodeFile(File(d, "idle_$i.png").path) }.getOrNull()
+            val scale = m.optDouble("scale", 1.0)
+            val frames = (0 until m.optInt("count")).mapNotNull { i ->
+                runCatching { BitmapFactory.decodeFile(File(d, "${kind}_$i.png").path) }.getOrNull()
                     // drawn at full size although shrunk to fit the widget's memory
                     ?.also { it.density = (dpi * scale).toInt().coerceAtLeast(1) }
             }
-            // forward and back, so the loop never jumps; the same pictures are reused, so it costs nothing more
-            val order = if (frames.size > 2) frames + frames.subList(1, frames.size - 1).reversed() else frames
+            // the loop goes forward and back, so it never jumps; a scene plays once and holds its last picture.
+            // The same pictures are reused, so neither costs anything more
+            val order = when {
+                clip != null && frames.isNotEmpty() -> frames + List(8) { frames.last() }
+                frames.size > 2 -> frames + frames.subList(1, frames.size - 1).reversed()
+                else -> frames
+            }
             for (b in order) RemoteViews(context.packageName, R.layout.widget_room_frame).also { it.setImageViewBitmap(R.id.room_frame, b); rv.addView(R.id.room_flipper, it) }
-            rv.setInt(R.id.room_flipper, "setFlipInterval", 1000 / idle.optInt("fps", 15).coerceIn(1, 60))
+            rv.setInt(R.id.room_flipper, "setFlipInterval", 1000 / m.optInt("fps", 15).coerceIn(1, 60))
             // Yadimo's feet on the rug: the pictures' bottom edge sits this far above the widget's bottom
-            val bottom = (idle.optDouble("bottom", .1) * h * context.resources.displayMetrics.density).toInt().coerceAtLeast(0)
+            val bottom = (m.optDouble("bottom", .1) * h * context.resources.displayMetrics.density).toInt().coerceAtLeast(0)
             rv.setViewPadding(R.id.room_char_box, 0, 0, 0, bottom)
         }
-        rv.setTextViewText(R.id.room_bubble, if (bg == null) t("یادیمو داره خونه‌اش رو مرتب می‌کنه… 🏠", "Yadimo is tidying up… 🏠") else YadimoPet.line(context))
-        rv.setViewVisibility(R.id.room_buttons, if (h < 165 || w < 150) View.GONE else View.VISIBLE)
-        for ((view, act) in buttons) rv.setOnClickPendingIntent(view, open(context, id, act))
+        rv.setTextViewText(R.id.room_bubble, when {
+            clip != null -> reaction(clip)
+            bg == null || busy -> t("یادیمو داره اتاقش رو مرتب می‌کنه… 🏠", "Yadimo is tidying up… 🏠")
+            !prefs(context).getBoolean("tapped", false) -> t("به وسایل اتاق دست بزن! 👆", "Tap things in the room! 👆")
+            else -> YadimoPet.line(context)
+        })
+        cells(meta).forEachIndexed { i, act ->
+            rv.setOnClickPendingIntent(TAP_CELLS[i], if (act != null && act in CLIPS && bg != null) tapIntent(context, id, act) else open(context, id, act))
+        }
         rv.setOnClickPendingIntent(R.id.room_root, open(context, id, null))
         runCatching { AppWidgetManager.getInstance(context).updateAppWidget(id, rv) }.onFailure { android.util.Log.e("YadimoHome", "update failed", it) }
     }

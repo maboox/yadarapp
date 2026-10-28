@@ -73,8 +73,8 @@ private fun RoomCard() {
         Button(onClick = { context.startActivity(android.content.Intent(context, YadimoRoomActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) {
             Text(t("رفتن به خانهٔ یادیمو 🏠", "Visit Yadimo's home 🏠"))
         }
-        Text(t("ویجت «خانهٔ یادیمو» را هم می‌توانی از ویجت‌های گوشی روی صفحهٔ اصلی بگذاری؛ هر چه بزرگ‌تر باشد، بیشتر از خانه دیده می‌شود. دکمه‌هایش همین‌جا را باز می‌کنند.",
-            "Put the “Yadimo's home” widget on your home screen too; the bigger it is, the more of the home it shows. Its buttons open this screen."),
+        Text(t("ویجت «خانهٔ یادیمو» را هم می‌توانی از ویجت‌های گوشی روی صفحهٔ اصلی بگذاری؛ هر چه بزرگ‌تر باشد، بیشتر از خانه دیده می‌شود. روی ظرف، توپ، سکوی شارژ، تخت یا خود یادیمو بزن تا همان‌جا واکنش نشان دهد.",
+            "Put the “Yadimo's home” widget on your home screen too; the bigger it is, the more of the home it shows. Tap the bowl, the ball, the pad, the bed or Yadimo and it reacts right there."),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         SettingLabel(t("روانی یادیمو در ویجت", "Widget smoothness"))
         SettingSegmented(listOf(5 to t("کم (۵)", "Low (5)"), 15 to t("معمولی (۱۵)", "Normal (15)"), 30 to t("روان (۳۰)", "Smooth (30)")), fps) {

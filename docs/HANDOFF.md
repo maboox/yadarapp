@@ -10,7 +10,7 @@
 ## پروژه
 - مخزن `maboox/yadarapp`؛ شاخهٔ کار: `claude/yadar-accounts` (نسخهٔ بازار). شاخهٔ `claude/epic-archimedes-1fxiqb` نسخهٔ آفلاین قدیمی است و به‌روز نمی‌شود.
 - اسم برنامه: **یادیمو / Yadimo** (به‌خاطر شکایت مالکیت فکری «یادآر» عوض شد). بسته: `com.yadavard.app.plus` (تغییرناپذیر). پوشهٔ پشتیبان روی گوشی هنوز `Download/Yadar`.
-- نسخهٔ فعلی: 3.9.0 (versionCode 54).
+- نسخهٔ فعلی: 3.9.1 (versionCode 55).
 - **مهم:** CI با هر push، release قبلی APK را پاک می‌کند؛ لینک را فقط بعد از آخرین push بده و بعدش push نکن. هر نسخه versionCode را بالا ببر.
 - CI: `.github/workflows/android.yml` تست‌ها، release، debug و store (با Secrets: KEYSTORE_BASE64، KEYSTORE_PASSWORD، KEY_ALIAS، KEY_PASSWORD) را می‌سازد و در release `apk-claude-yadar-accounts` با نام‌های `Yadimo-<sha7>.apk` و `Yadimo-bazaar-<sha7>.apk` می‌گذارد. هر push بیلد قبلی همان شاخه را لغو می‌کند.
 - تست‌های JVM محلی: `/tmp/claude-0/jvmtest/run.sh` (ممکن است در محیط جدید نباشد؛ CI تست‌ها را اجرا می‌کند).
@@ -60,6 +60,12 @@
 - بازی خانه: `docs/yadimo/game.js` (نمونه: `docs/yadimo-game-demo.html`؛ در برنامه `assets/yadimo/game-app.html` با `GAME_MODE='app'`). عمق (x و z)، وسایل قابل استفاده، رفتار خودکار بر اساس نیازها، کشیدن و انداختن یادیمو. پل: `window.yadimoGame` (act/look/night/load/save).
 - ویجت `YadimoRoomWidget` (`YadimoRoom.kt`): فقط «پنجره به خانه» = عکس اتاق (برش از همان صحنه) + حلقهٔ نفس‌کشیدن یادیمو وسط و روی فرش؛ دکمه‌ها `YadimoRoomActivity` را با act باز می‌کنند. تصویرها با `widgetframes.html` ساخته و در `files/home/w<id>` گذاشته می‌شوند؛ مجموعهٔ جدید فقط وقتی کامل شد جای قبلی را می‌گیرد.
 - کدهای اتاق قبلی (roomscene/roomframes/roomlive) دیگر در برنامه نیستند (فقط در docs).
+
+## نسخهٔ 3.9.1 (لمس داخل ویجت)
+- دکمه‌های کناری ویجت حذف شدند. روی ویجت یک شبکهٔ ۶×۴ خانهٔ شفاف لمسی هست (`room_t0..23`). `widgetFrames.make` جای هر وسیله را (به نسبت اندازهٔ ویجت) در `meta.taps` می‌دهد. هر خانه به وسیلهٔ زیرش وصل می‌شود: یادیمو=pet، توپ=play، ظرف=feed، سکو=charge، تخت=sleep. گلدان و بقیهٔ اتاق برنامه را باز می‌کنند.
+- برای هر کار، یک صحنهٔ کوتاه درجا ساخته می‌شود (`CLIPS` در game.js؛ ۸ تا ۱۰ فریم در ثانیه، حدود ۲.۵ ثانیه). لمس یک broadcast به `YadimoRoomWidget` می‌فرستد. `RoomWidgets.tap` صحنه را یک بار پخش می‌کند و بعد با Handler (با goAsync) به حلقهٔ عادی برمی‌گردد.
+- در ویجت، ظرف و سبد و سکو کمی نزدیک‌تر به فرش هستند (`WIDGET_SPOTS`) تا در تصویر دیده شوند.
+- وقتی تصویرها در حال ساخته شدن‌اند (`RoomFrames.busy`)، حباب ویجت «یادیمو داره اتاقش رو مرتب می‌کنه…» را نشان می‌دهد.
 
 ## کارهای باز
 1. بازخورد کاربر از 3.6.0 (سلام صبح، پیام‌های روز، فروشگاه). سرور باید قبل از انتشار برنامه به‌روز شود.

@@ -203,7 +203,12 @@ const ACT = {
 // ---------------- each frame ----------------
 let last = performance.now();
 function frame(now) {
-  const dt = Math.min(.05, (now - last) / 1000); last = now; yad.t += dt;
+  step(Math.min(.05, (now - last) / 1000)); last = now;
+  requestAnimationFrame(frame);
+}
+/** Moves the whole room on by dt seconds and draws it. */
+function step(dt) {
+  yad.t += dt;
   const N = state.needs, k = dt * RATE; N.hunger = Math.max(0, N.hunger - k * .5); N.energy = Math.max(0, N.energy - k * .35); N.joy = Math.max(0, N.joy - k * .3);
   // the clock
   const d = new Date(), hh = (d.getHours() % 12 + d.getMinutes() / 60) * 30, mm = d.getMinutes() * 6;
@@ -272,7 +277,7 @@ function frame(now) {
   // falling things
   for (const p of drops) { p.vh = (p.vh || 0) - (p.kind === 'cookie' || p.kind === 'crumb' || p.kind === 'water' ? 700 : 0) * dt; p.h += p.vh * dt; p.x += (p.vx || 0) * dt;
     if (p.life !== undefined) p.life -= dt;
-    if (p.kind === 'cookie' && p.h <= 26) { p.done = true; state.food = Math.min(3, state.food + 1); refreshThings = true; }
+    if (p.kind === 'cookie' && p.h <= (p.stop || 26)) { p.done = true; state.food = Math.min(3, state.food + 1); refreshThings = true; }
     if ((p.kind === 'crumb' || p.kind === 'water') && p.h <= 0) p.done = true; }
   for (let i = drops.length - 1; i >= 0; i--) if (drops[i].done || drops[i].life <= 0) drops.splice(i, 1);
 
@@ -282,7 +287,6 @@ function frame(now) {
   if (y.mode === 'fall') { y.vh -= 1400 * dt; y.h += y.vh * dt; if (y.h <= 0) { y.h = 0; if (Math.abs(y.vh) > 220) { y.vh = -y.vh * .35; engine.burst('spark', 6); } else y.vh = 0; } }
   engine.update(dt);
   render();
-  requestAnimationFrame(frame);
 }
 let refreshThings = true;
 function ACT_putAway() { if (!ball.out) return; walkTo(ball.x, ball.z, () => { ball.out = false; refreshThings = true; say('سر جاش! 🧺'); }); }
@@ -336,7 +340,7 @@ function render() {
     else if (p.kind === 'z') { const t = el('text', {x: p.x, y: py, 'font-size': 14 + (1.8 - p.life) * 6, 'font-weight': 800, fill: '#7a62e0', opacity: o}, f); t.textContent = 'z'; } }
   if (yad.mode === 'charge') { const s2 = sOf(y.z); el('ellipse', {cx: y.x, cy: yOf(y.z) - 70 * s2, rx: 70 * s2, ry: 110 * s2, fill: 'url(#g-glow)', opacity: .35}, f);
     const bx = y.x, by = yOf(y.z) - BASE * s2 * 1.02; el('rect', {x: bx - 20, y: by, width: 40, height: 18, rx: 5, fill: '#fff', filter: 'url(#f-soft)'}, f);
-    el('rect', {x: bx - 16, y: by + 4, width: 32 * (1 - Math.max(0, yad.timer) / 3), height: 10, rx: 3, fill: '#36c08f'}, f); el('rect', {x: bx + 20, y: by + 5, width: 4, height: 8, rx: 1, fill: '#fff'}, f); }
+    el('rect', {x: bx - 16, y: by + 4, width: 32 * (1 - Math.max(0, yad.timer) / (yad.chargeT || 3)), height: 10, rx: 3, fill: '#36c08f'}, f); el('rect', {x: bx + 20, y: by + 5, width: 4, height: 8, rx: 1, fill: '#fff'}, f); }
   if (yad.mode === 'water') { const s2 = sOf(y.z), cx = y.x - 46 * s2, cy = yOf(y.z) - 80 * s2;
     const can = el('g', {transform: `translate(${cx} ${cy}) rotate(-28) scale(${s2})`}, f);
     el('rect', {x: -16, y: -14, width: 32, height: 26, rx: 6, fill: '#4fb3ff'}, can); el('path', {d: 'M-16 -6 L-38 -18 L-36 -12 L-16 2 Z', fill: '#3a9be8'}, can); el('path', {d: 'M8 -14 Q22 -26 16 0', stroke: '#3a9be8', 'stroke-width': 4, fill: 'none'}, can); }
@@ -404,39 +408,93 @@ window.yadimoGame = {ACT, state, yad, engine, say,
    breathing and blinking. Yadimo always stands in the middle, on the floor, 15% above the bottom edge. */
 const SER = new XMLSerializer();
 function svgImage(markup) { return new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(markup); }); }
+/** In the widget's room the bowl, the toy basket and the charging pad sit a little nearer the rug, so they are in the picture. */
+const WIDGET_SPOTS = {bowl: {x: 66, z: .62}, basket: {x: 336, z: .64}, pad: {x: 262, z: .38}};
+/** The short scenes the widget plays when you tap something; Yadimo stays where it stands. */
+const CLIPS = {
+  pet: {secs: 2.2, start(sz) { ACT.pet(); bubble.t = 0; for (const p of drops) p.h = sz * rnd(.7, .85); }},
+  feed: {secs: 2.8, start(sz) { for (let i = 0; i < 2; i++) drops.push({kind: 'cookie', x: yad.x - 6 + i * 12, z: yad.z + .01, h: sz * .95 + i * 18, vh: 90, stop: sz * .42}); engine.setMood('wave'); },
+    tick(t) { if (t > .55 && yad.mode !== 'eat' && !this.ate) { this.ate = true; yad.mode = 'eat'; yad.timer = 2; engine.setMood('love'); } }},
+  play: {secs: 2.4, start(sz) { refreshThings = true; Object.assign(ball, {out: true, x: yad.x + sz * .95, z: yad.z + .015, h: sz * .55, vx: -sz * 1.2, vz: 0, vh: 40, spin: 0}); yad.mode = 'play'; engine.setMood('ring'); },
+    tick(t, sz) { const s = sOf(yad.z);
+      if (!this.kicked && ball.x - yad.x < 34 * s) { this.kicked = true; ball.vx = 150; ball.vh = 300; ball.spin = 10; engine.setMood('celebrate'); yad.vh = 260; }
+      if (this.kicked) { yad.vh -= 1400 / 60; yad.h = Math.max(0, yad.h + yad.vh / 60); if (!yad.h) yad.vh = 0; } }},
+  charge: {secs: 2.6, start() { yad.mode = 'charge'; yad.timer = 2.5; yad.chargeT = 2.5; engine.setMood('celebrate'); }},
+  sleep: {secs: 2.6, start() { yad.mode = 'nap'; engine.setMood('sleep'); },
+    tick(t, sz) { yad.lie = Math.min(.15, t * .3); if (Math.round(t * 60) % 20 === 0) drops.push({kind: 'z', x: yad.x + 20 + rnd(0, 16), z: yad.z, h: sz * .75, vh: 34, life: 1.6}); }},
+};
+
 window.widgetFrames = {
-  /** o: {w, h (dp), density, look, night, frames, fps}; answers through window.RoomHost. */
+  /** o: {w, h (dp), density, look, night, frames, fps, budget}; answers through window.RoomHost. */
   async make(o) {
     const host = window.RoomHost || {background() {}, frame() {}, done() {}, finished() {}, error(e) { console.error(e); }};
     try {
       o = typeof o === 'string' ? JSON.parse(o) : o;
-      state.night = !!o.night; state.lamp = true; state.curtains = true; drawRoom(); engine.set(o.look || {});
-      const spot = {x: 200, z: .52}; yad.x = spot.x; yad.z = spot.z; yad.lie = 0; yad.h = 0; yad.mode = 'idle'; bubble.t = 0;
+      Object.assign(SPOTS, WIDGET_SPOTS); refreshThings = true;
+      state.night = !!o.night; state.lamp = true; state.curtains = true; state.food = 0; drawRoom(); engine.set(o.look || {});
+      const spot = {x: 200, z: .52};
+      const reset = () => { Object.assign(yad, {x: spot.x, z: spot.z, lie: 0, h: 0, vh: 0, mode: 'idle', path: null, then: null, timer: 1e9, face: 1, held: false});
+        drops.length = 0; ball.out = false; bubble.t = 0; refreshThings = true; engine.setMood(o.night ? 'sleep' : 'idle'); engine.nextAct = 1e9; engine.o.follow = false;
+        for (let i = 0; i < 60; i++) { engine.update(1 / 60); } render(); };
+      reset();
       // the part of the room the widget shows, centred on Yadimo with its feet at 85% of the height; about the same
       // zoom on every widget size, so a small widget is a close-up and a big one shows more of the room
       const aspect = o.w / o.h; let cw = Math.min(W, o.w * 1.18), ch = cw / aspect;
       if (ch > H) { ch = H; cw = ch * aspect; }
       const feet = yOf(spot.z), top = clamp(feet - ch * .85, 0, H - ch), left = clamp(spot.x - cw / 2, 0, W - cw);
-      render(); yadHolder.style.display = 'none'; L.ui.innerHTML = ''; L.front.innerHTML = '';
+      yadHolder.style.display = 'none'; L.ui.innerHTML = ''; L.front.innerHTML = '';
       const pxW = Math.round(o.w * o.density), pxH = Math.round(o.h * o.density);
       const bgMark = SER.serializeToString(svg).replace(/^<svg[^>]*>/, `<svg xmlns="${NS}" viewBox="${left} ${top} ${cw} ${ch}" width="${pxW}" height="${pxH}" preserveAspectRatio="xMidYMid slice">`);
       const bg = await svgImage(bgMark), c = document.createElement('canvas'); c.width = pxW; c.height = pxH; c.getContext('2d').drawImage(bg, 0, 0, pxW, pxH);
       host.background(c.toDataURL('image/png'));
       yadHolder.style.display = '';
+      // where the things you can tap are, as parts of the widget (left, top, right, bottom)
+      const frac = (x0, y0, x1, y1) => [(x0 - left) / cw, (y0 - top) / ch, (x1 - left) / cw, (y1 - top) / ch].map(v => +clamp(v, 0, 1).toFixed(3));
+      const box = (name) => { const g = cache[name], b = g.getBBox(), sp = SPOTS[name], s = sOf(sp.z), y = yOf(sp.z);
+        return frac(sp.x + b.x * s, y + b.y * s, sp.x + (b.x + b.width) * s, y + (b.y + b.height) * s); };
+      const ys = BASE * sOf(spot.z);
+      const taps = {pet: frac(spot.x - ys * .34, feet - ys * .92, spot.x + ys * .34, feet + 4), play: box('basket'), feed: box('bowl'), charge: box('pad'), sleep: box('bed'), water: box('plant')};
+      host.done('taps', JSON.stringify(taps));
+
+      const scale = pxH / ch, size = ys * scale;
+      const toPng = async (vb, w, h, outW, outH) => {
+        const img = await svgImage(SER.serializeToString(svg).replace(/^<svg[^>]*>/, `<svg xmlns="${NS}" viewBox="${vb.join(' ')}" width="${w}" height="${h}">`));
+        const f = document.createElement('canvas'); f.width = outW; f.height = outH; const fg = f.getContext('2d'); fg.imageSmoothingQuality = 'high'; fg.drawImage(img, 0, 0, outW, outH);
+        return f.toDataURL('image/png'); };
+      // only Yadimo and what moves with it go into the moving pictures; the room is the still picture behind them
+      const only = () => { for (const g of [...L.things.children]) g.style.display = g === yadHolder || g === cache.ball ? '' : 'none';
+        L.room.style.display = 'none'; L.dark.style.display = 'none'; L.ui.style.display = 'none'; };
+
       // Yadimo's loop: frames of the character alone, sized as it appears in the widget
-      const scale = pxH / ch, size = BASE * sOf(spot.z) * scale, box = Math.round(size), n = o.frames || 30;
+      const bx = Math.round(size), n = o.frames || 30;
       // shrink the pictures a little if they would not fit the widget's memory (the widget shows them at full size)
-      const shrink = Math.min(1, Math.sqrt((o.budget || 9e6) / (n * box * box * 4))), out = Math.max(1, Math.round(box * shrink));
-      engine.setMood(o.night ? 'sleep' : 'idle'); engine.nextAct = 1e9; engine.o.follow = false;
-      for (let i = 0; i < 60; i++) engine.update(1 / 60);
+      const shrink = Math.min(1, Math.sqrt((o.budget || 9e6) / (n * bx * bx * 4))), out = Math.max(1, Math.round(bx * shrink));
       for (let i = 0; i < n; i++) {
         for (let k = 0; k < Math.round(60 / (o.fps || 15)); k++) engine.update(1 / 60);
-        const img = await svgImage(SER.serializeToString(yadSvg).replace(/^<svg[^>]*?>/, m => m.replace(/width="[^"]*"/, `width="${box}"`).replace(/height="[^"]*"/, `height="${box}"`).replace(/ x="[^"]*"/, '').replace(/ y="[^"]*"/, '').replace(/^<svg(?![^>]*xmlns=)/, `<svg xmlns="${NS}"`)));
+        const img = await svgImage(SER.serializeToString(yadSvg).replace(/^<svg[^>]*?>/, m => m.replace(/width="[^"]*"/, `width="${bx}"`).replace(/height="[^"]*"/, `height="${bx}"`).replace(/ x="[^"]*"/, '').replace(/ y="[^"]*"/, '').replace(/^<svg(?![^>]*xmlns=)/, `<svg xmlns="${NS}"`)));
         const f = document.createElement('canvas'); f.width = out; f.height = out; const fg = f.getContext('2d'); fg.imageSmoothingQuality = 'high'; fg.drawImage(img, 0, 0, out, out);
         host.frame('idle', i, f.toDataURL('image/png'));
       }
       // where the frame's bottom edge sits: the character's feet are at 90% of its box
-      host.done('idle', JSON.stringify({count: n, fps: o.fps || 15, loop: true, size: box, scale: out / box, bottom: .15 - (.1 * size) / pxH}));
+      const bottom = .15 - (.1 * size) / pxH;
+      host.done('idle', JSON.stringify({count: n, fps: o.fps || 15, loop: true, size: bx, scale: out / bx, bottom}));
+
+      // the scenes for taps: a stage around Yadimo, as wide as the widget allows, with the same bottom edge as the loop
+      const cfps = clamp(o.fps || 15, 8, 10);
+      const sw = Math.min(cw, ys * 1.7), sh = Math.min(feet + ys * .1 - top, ys * 1.35), vb = [spot.x - sw / 2, feet + ys * .1 - sh, sw, sh];
+      const pw = Math.round(sw * scale), ph = Math.round(sh * scale);
+      for (const [kind, clip] of Object.entries(CLIPS)) {
+        reset(); clip.ate = clip.kicked = false; clip.start(ys);
+        const count = Math.round(clip.secs * cfps), k2 = Math.min(1, Math.sqrt((o.budget || 9e6) / (count * pw * ph * 4)));
+        const ow = Math.max(1, Math.round(pw * k2)), oh = Math.max(1, Math.round(ph * k2));
+        for (let i = 0; i < count; i++) {
+          for (let k = 0; k < Math.round(60 / cfps); k++) { step(1 / 60); if (clip.tick) clip.tick((i * Math.round(60 / cfps) + k) / 60, ys); }
+          render(); only(); bubble.t = 0;
+          host.frame(kind, i, await toPng(vb, pw, ph, ow, oh));
+        }
+        host.done(kind, JSON.stringify({count, fps: cfps, loop: false, w: pw, h: ph, scale: ow / pw, bottom}));
+      }
+      L.room.style.display = L.dark.style.display = L.ui.style.display = '';
       host.finished();
     } catch (e) { host.error(String(e && e.stack || e)); }
   },
