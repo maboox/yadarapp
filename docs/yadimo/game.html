@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>خانهٔ یادیمو</title>
+<style>
+:root{--bg:#f3f0fb;--card:#fff;--ink:#231c47;--mut:#6d6690;--line:#e6e0f6;--pri:#7a5cf0;--chip:#f0ecfd}
+@media (prefers-color-scheme:dark){:root{--bg:#13102a;--card:#1d1840;--ink:#f1eeff;--mut:#a9a1d0;--line:#332a62;--pri:#9d86ff;--chip:#2a2352}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Vazirmatn",Tahoma,sans-serif;line-height:1.8;padding:16px}
+.wrap{max-width:1000px;margin:0 auto;display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;justify-content:center}
+.info{flex:1;min-width:280px;max-width:460px}
+h1{font-size:22px;margin:0 0 6px}p,li{color:var(--mut);font-size:14.5px}
+.phone{width:min(400px,100%);border-radius:40px;border:8px solid #111;background:#0f0b22;overflow:hidden;position:relative;user-select:none;-webkit-user-select:none}
+.hud{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:12px 16px 8px;color:#fff;direction:rtl}
+.hud b{font-size:16px}.needs{display:flex;gap:10px}
+.need{display:flex;align-items:center;gap:4px;font-size:13px}.need i{display:block;width:44px;height:7px;border-radius:4px;background:#ffffff30;overflow:hidden}
+.need i span{display:block;height:100%;background:linear-gradient(90deg,#7dffb0,#36c08f);border-radius:4px;transition:width .3s}
+#scene{display:block;width:100%;height:auto;touch-action:none;cursor:pointer}
+.btns{display:flex;gap:6px;padding:10px 10px 16px;direction:rtl}
+.btns button{flex:1;border:0;border-radius:16px;background:#2a2352;color:#fff;font:inherit;font-size:12px;padding:6px 0;cursor:pointer}
+.btns button span{display:block;font-size:22px;line-height:1.2}
+.btns button:active{transform:scale(.95)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.chips button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--chip);color:var(--ink);padding:3px 12px;border-radius:999px;cursor:pointer}
+.chips button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+.tap{cursor:pointer}
+.twinkle{animation:tw 2.4s infinite ease-in-out}@keyframes tw{50%{opacity:.25}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="phone">
+    <div class="hud"><b>خانهٔ یادیمو</b><div class="needs">
+      <div class="need">🍪<i><span id="n-hunger"></span></i></div><div class="need">⚡<i><span id="n-energy"></span></i></div><div class="need">😊<i><span id="n-joy"></span></i></div></div></div>
+    <svg id="scene" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="btns">
+      <button data-act="feed"><span>🍪</span>غذا</button><button data-act="play"><span>⚽</span>بازی</button><button data-act="charge"><span>⚡</span>شارژ</button>
+      <button data-act="pet"><span>🤚</span>ناز</button><button data-act="water"><span>🌱</span>گل</button><button data-act="sleep"><span>😴</span>خواب</button>
+    </div>
+  </div>
+  <div class="info">
+    <h1>نمونهٔ خانهٔ یادیمو (حالت بازی)</h1>
+    <p>این همان صفحه‌ای است که داخل برنامه می‌آید. با موس یا انگشت امتحان کنید:</p>
+    <ul>
+      <li><b>روی کف اتاق بزنید</b>: یادیمو راه می‌افتد و همان‌جا می‌رود (جلو و عقب هم می‌رود و نزدیک‌تر که بیاید بزرگ‌تر می‌شود).</li>
+      <li><b>روی خود یادیمو بزنید</b>: نازش می‌کنید. <b>بگیرید و بکشید</b>: بلندش می‌کنید؛ ولش کنید، می‌افتد و بالا و پایین می‌پرد.</li>
+      <li><b>ظرف غذا</b>: کلوچه‌ها در ظرف می‌افتند و می‌رود می‌خورد. <b>سکوی شارژ</b>: می‌رود رویش و شارژ می‌شود.</li>
+      <li><b>سبد اسباب‌بازی</b>: توپ بیرون می‌پرد و دنبالش می‌کند. روی توپ هم بزنید تا خودتان شوتش کنید.</li>
+      <li><b>گلدان</b>: آبش می‌دهد و گل می‌دهد. <b>تخت</b>: می‌رود زیر پتو و می‌خوابد؛ دوباره بزنید بیدار می‌شود.</li>
+      <li><b>چراغ سقفی</b> و <b>پرده‌ها</b> هم با یک لمس روشن/خاموش و باز/بسته می‌شوند. ساعت دیواری ساعت واقعی را نشان می‌دهد.</li>
+      <li>اگر کاری نکنید، خودش زندگی می‌کند: گرسنه شود سراغ غذا می‌رود، خسته شود می‌خوابد، حوصله‌اش سر برود توپ‌بازی می‌کند، از پنجره بیرون را نگاه می‌کند، گل‌ها را آب می‌دهد.</li>
+    </ul>
+    <div class="chips"><button id="night">🌙 شب</button>
+      <button class="on" data-look='{"variant":"robot","color":"lilac","hat":"party","glass":"sun","neck":"none","costume":"none","item":"none"}'>ربات</button>
+      <button data-look='{"variant":"bell","color":"peach","hat":"crown","glass":"none","neck":"none","costume":"none","item":"none"}'>زنگوله</button>
+      <button data-look='{"variant":"robot","color":"sky","hat":"none","glass":"none","neck":"none","costume":"pirate","item":"none"}'>ناخدا</button></div>
+  </div>
+</div>
+<script src="art.js"></script>
+<script src="volume.js"></script>
+<script src="acc.js"></script>
+<script src="costumes.js"></script>
+<script src="warp.js"></script>
+<script src="engine.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
