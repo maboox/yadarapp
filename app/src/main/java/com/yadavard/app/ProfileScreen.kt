@@ -66,17 +66,17 @@ fun ProfileScreen(padding: PaddingValues) {
 private fun RoomCard() {
     val context = LocalContext.current
     var fps by remember { mutableIntStateOf(RoomWidgets.fps(context)) }
-    SettingsCard(t("اتاق یادیمو", "Yadimo's room"), Icons.Rounded.Home) {
-        Text(t("به یادیمو غذا بده، باهاش بازی کن، شارژش کن و نازش کن. با هر کاری که انجام می‌دهی هم شادتر می‌شود.",
-            "Feed Yadimo, play, charge and pat it. It gets happier with every reminder you get done."),
+    SettingsCard(t("خانهٔ یادیمو", "Yadimo's home"), Icons.Rounded.Home) {
+        Text(t("یادیمو اینجا زندگی می‌کند: غذا بده، توپ‌بازی کن، شارژش کن، گل‌ها را آب بده، بلندش کن و نازش کن. با هر کاری که انجام می‌دهی هم شادتر می‌شود.",
+            "Yadimo lives here: feed it, play ball, charge it, water the plant, pick it up and pat it. It gets happier with every reminder you get done."),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Button(onClick = { context.startActivity(android.content.Intent(context, YadimoRoomActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) {
-            Text(t("رفتن به اتاق 🏠", "Open the room 🏠"))
+            Text(t("رفتن به خانهٔ یادیمو 🏠", "Visit Yadimo's home 🏠"))
         }
-        Text(t("ویجت «اتاق یادیمو» را هم می‌توانی از ویجت‌های گوشی روی صفحهٔ اصلی بگذاری؛ هر چه بزرگ‌تر باشد، اتاق وسیله‌های بیشتری دارد.",
-            "Put the “Yadimo's room” widget on your home screen too; the bigger it is, the more the room holds."),
+        Text(t("ویجت «خانهٔ یادیمو» را هم می‌توانی از ویجت‌های گوشی روی صفحهٔ اصلی بگذاری؛ هر چه بزرگ‌تر باشد، بیشتر از خانه دیده می‌شود. دکمه‌هایش همین‌جا را باز می‌کنند.",
+            "Put the “Yadimo's home” widget on your home screen too; the bigger it is, the more of the home it shows. Its buttons open this screen."),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        SettingLabel(t("روانی حرکت در ویجت", "Widget smoothness"))
+        SettingLabel(t("روانی یادیمو در ویجت", "Widget smoothness"))
         SettingSegmented(listOf(5 to t("کم (۵)", "Low (5)"), 15 to t("معمولی (۱۵)", "Normal (15)"), 30 to t("روان (۳۰)", "Smooth (30)")), fps) {
             fps = it; RoomWidgets.setFps(context, it)
         }

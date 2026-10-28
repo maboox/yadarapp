@@ -10,7 +10,7 @@
 ## پروژه
 - مخزن `maboox/yadarapp`؛ شاخهٔ کار: `claude/yadar-accounts` (نسخهٔ بازار). شاخهٔ `claude/epic-archimedes-1fxiqb` نسخهٔ آفلاین قدیمی است و به‌روز نمی‌شود.
 - اسم برنامه: **یادیمو / Yadimo** (به‌خاطر شکایت مالکیت فکری «یادآر» عوض شد). بسته: `com.yadavard.app.plus` (تغییرناپذیر). پوشهٔ پشتیبان روی گوشی هنوز `Download/Yadar`.
-- نسخهٔ فعلی: 3.8.1 (versionCode 53).
+- نسخهٔ فعلی: 3.9.0 (versionCode 54).
 - **مهم:** CI با هر push، release قبلی APK را پاک می‌کند؛ لینک را فقط بعد از آخرین push بده و بعدش push نکن. هر نسخه versionCode را بالا ببر.
 - CI: `.github/workflows/android.yml` تست‌ها، release، debug و store (با Secrets: KEYSTORE_BASE64، KEYSTORE_PASSWORD، KEY_ALIAS، KEY_PASSWORD) را می‌سازد و در release `apk-claude-yadar-accounts` با نام‌های `Yadimo-<sha7>.apk` و `Yadimo-bazaar-<sha7>.apk` می‌گذارد. هر push بیلد قبلی همان شاخه را لغو می‌کند.
 - تست‌های JVM محلی: `/tmp/claude-0/jvmtest/run.sh` (ممکن است در محیط جدید نباشد؛ CI تست‌ها را اجرا می‌کند).
@@ -55,6 +55,11 @@
 - نمونه‌های طراحی: `docs/yadimo-sizes-demo.html` (اندازه‌ها)، `yadimo-styles-demo.html` (سه سبک).
 - سرور این نسخه: `yadar-server-selfhosted-854e53d.zip`، SHA256 `d733d25abace15c7651078eb2014b93b8177bfd241053a3ee9852bcb7e9367ae`.
 - بعداً: رصد استفاده از برنامه‌های دیگر (فعلاً کنار گذاشته شد)، چیدن وسایل اتاق توسط کاربر و فروش وسایل اتاق.
+
+## نسخهٔ 3.9.0 (خانهٔ یادیمو)
+- بازی خانه: `docs/yadimo/game.js` (نمونه: `docs/yadimo-game-demo.html`؛ در برنامه `assets/yadimo/game-app.html` با `GAME_MODE='app'`). عمق (x و z)، وسایل قابل استفاده، رفتار خودکار بر اساس نیازها، کشیدن و انداختن یادیمو. پل: `window.yadimoGame` (act/look/night/load/save).
+- ویجت `YadimoRoomWidget` (`YadimoRoom.kt`): فقط «پنجره به خانه» = عکس اتاق (برش از همان صحنه) + حلقهٔ نفس‌کشیدن یادیمو وسط و روی فرش؛ دکمه‌ها `YadimoRoomActivity` را با act باز می‌کنند. تصویرها با `widgetframes.html` ساخته و در `files/home/w<id>` گذاشته می‌شوند؛ مجموعهٔ جدید فقط وقتی کامل شد جای قبلی را می‌گیرد.
+- کدهای اتاق قبلی (roomscene/roomframes/roomlive) دیگر در برنامه نیستند (فقط در docs).
 
 ## کارهای باز
 1. بازخورد کاربر از 3.6.0 (سلام صبح، پیام‌های روز، فروشگاه). سرور باید قبل از انتشار برنامه به‌روز شود.

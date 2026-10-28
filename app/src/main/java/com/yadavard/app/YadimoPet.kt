@@ -32,6 +32,20 @@ object YadimoPet {
             .putFloat("joy", s.joy.toFloat().coerceIn(0f, 100f)).putLong("at", System.currentTimeMillis()).apply()
     }
 
+    /** What the game starts from: the needs as they are now, and how far the plant has grown. */
+    fun gameState(context: Context): String {
+        val s = stats(context)
+        return org.json.JSONObject().put("needs", org.json.JSONObject().put("hunger", s.hunger).put("energy", s.energy).put("joy", s.joy))
+            .put("plant", prefs(context).getInt("plant", 0)).toString()
+    }
+
+    /** The game reports back while it is open: the needs it worked out and the plant. */
+    fun fromGame(context: Context, json: String) = runCatching {
+        val o = org.json.JSONObject(json); val n = o.getJSONObject("needs")
+        save(context, Stats(n.optDouble("hunger", 80.0).roundToInt(), n.optDouble("energy", 80.0).roundToInt(), n.optDouble("joy", 80.0).roundToInt()))
+        prefs(context).edit().putInt("plant", o.optInt("plant")).apply()
+    }
+
     /** A button was pressed in the room or on the widget. */
     fun act(context: Context, kind: String) {
         val s = stats(context)

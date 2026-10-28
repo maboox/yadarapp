@@ -4,6 +4,8 @@
    Tap the floor to send it somewhere, tap it to pat it, drag it to pick it up, tap things in the room to use them. */
 (() => {
 const NS = 'http://www.w3.org/2000/svg';
+// 'demo' (design page), 'app' (the room screen in the app) or 'widget' (makes the home-screen widget's pictures)
+const MODE = window.GAME_MODE || 'demo', RATE = window.GAME_RATE || 1;
 const $ = id => document.getElementById(id);
 const rnd = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -202,7 +204,7 @@ const ACT = {
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(.05, (now - last) / 1000); last = now; yad.t += dt;
-  const N = state.needs; N.hunger = Math.max(0, N.hunger - dt * .5); N.energy = Math.max(0, N.energy - dt * .35); N.joy = Math.max(0, N.joy - dt * .3);
+  const N = state.needs, k = dt * RATE; N.hunger = Math.max(0, N.hunger - k * .5); N.energy = Math.max(0, N.energy - k * .35); N.joy = Math.max(0, N.joy - k * .3);
   // the clock
   const d = new Date(), hh = (d.getHours() % 12 + d.getMinutes() / 60) * 30, mm = d.getMinutes() * 6;
   $('hourH').setAttribute('transform', `rotate(${hh})`); $('minH').setAttribute('transform', `rotate(${mm})`);
@@ -348,7 +350,7 @@ function render() {
     const t = el('text', {x: 0, y: -8, 'font-size': 14, 'font-weight': 800, fill: '#231c47', 'text-anchor': 'middle', direction: 'rtl'}, g); t.textContent = bubble.text;
     const w = Math.min(W - 20, t.getComputedTextLength() + 28); r.setAttribute('x', -w / 2); r.setAttribute('width', w); }
   // needs
-  for (const k of ['hunger', 'energy', 'joy']) $('n-' + k).style.width = state.needs[k].toFixed(0) + '%';
+  for (const k of ['hunger', 'energy', 'joy']) { const b = $('n-' + k); if (b) b.style.width = state.needs[k].toFixed(0) + '%'; }
 }
 
 // ---------------- touch ----------------
@@ -385,9 +387,61 @@ svg.addEventListener('pointerup', e => {
 
 // ---------------- buttons and options ----------------
 document.querySelectorAll('[data-act]').forEach(b => b.onclick = () => ACT[b.dataset.act]());
-$('night').onclick = () => { state.night = !state.night; $('night').textContent = state.night ? '☀️ روز' : '🌙 شب'; drawRoom(); if (state.night) ACT.sleep(); else if (yad.mode === 'sleep') wake(); };
+function setNight(n) { state.night = n; drawRoom(); if (n) ACT.sleep(); else if (yad.mode === 'sleep') wake(); }
+if ($('night')) $('night').onclick = () => { setNight(!state.night); $('night').textContent = state.night ? '☀️ روز' : '🌙 شب'; };
 document.querySelectorAll('[data-look]').forEach(b => b.onclick = () => { engine.set(JSON.parse(b.dataset.look)); document.querySelectorAll('[data-look]').forEach(x => x.classList.toggle('on', x === b)); });
-window.yadimoGame = {ACT, state, yad, engine, say};
+/** Used by the app: act('feed'…), look(json), night(bool), needs() → JSON, load({needs, plant}). */
+window.yadimoGame = {ACT, state, yad, engine, say,
+  act(k) { if (ACT[k]) ACT[k](); },
+  look(json) { engine.set(typeof json === 'string' ? JSON.parse(json) : json); },
+  night(n) { if (!!n !== state.night) setNight(!!n); },
+  load(o) { o = typeof o === 'string' ? JSON.parse(o) : o; if (o.needs) Object.assign(state.needs, o.needs); if (o.plant != null) { state.plant = o.plant; refreshThings = true; } },
+  save() { return JSON.stringify({needs: state.needs, plant: state.plant}); },
+};
 
-drawRoom(); say('سلام! این خونهٔ منه 🏠', 3); requestAnimationFrame(frame);
+// ---------------- pictures for the home-screen widget ----------------
+/* A widget is a window into this room: a still picture of the room around Yadimo, and a short loop of Yadimo
+   breathing and blinking. Yadimo always stands in the middle, on the floor, 15% above the bottom edge. */
+const SER = new XMLSerializer();
+function svgImage(markup) { return new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(markup); }); }
+window.widgetFrames = {
+  /** o: {w, h (dp), density, look, night, frames, fps}; answers through window.RoomHost. */
+  async make(o) {
+    const host = window.RoomHost || {background() {}, frame() {}, done() {}, finished() {}, error(e) { console.error(e); }};
+    try {
+      o = typeof o === 'string' ? JSON.parse(o) : o;
+      state.night = !!o.night; state.lamp = true; state.curtains = true; drawRoom(); engine.set(o.look || {});
+      const spot = {x: 200, z: .52}; yad.x = spot.x; yad.z = spot.z; yad.lie = 0; yad.h = 0; yad.mode = 'idle'; bubble.t = 0;
+      // the part of the room the widget shows, centred on Yadimo with its feet at 85% of the height; about the same
+      // zoom on every widget size, so a small widget is a close-up and a big one shows more of the room
+      const aspect = o.w / o.h; let cw = Math.min(W, o.w * 1.18), ch = cw / aspect;
+      if (ch > H) { ch = H; cw = ch * aspect; }
+      const feet = yOf(spot.z), top = clamp(feet - ch * .85, 0, H - ch), left = clamp(spot.x - cw / 2, 0, W - cw);
+      render(); yadHolder.style.display = 'none'; L.ui.innerHTML = ''; L.front.innerHTML = '';
+      const pxW = Math.round(o.w * o.density), pxH = Math.round(o.h * o.density);
+      const bgMark = SER.serializeToString(svg).replace(/^<svg[^>]*>/, `<svg xmlns="${NS}" viewBox="${left} ${top} ${cw} ${ch}" width="${pxW}" height="${pxH}" preserveAspectRatio="xMidYMid slice">`);
+      const bg = await svgImage(bgMark), c = document.createElement('canvas'); c.width = pxW; c.height = pxH; c.getContext('2d').drawImage(bg, 0, 0, pxW, pxH);
+      host.background(c.toDataURL('image/png'));
+      yadHolder.style.display = '';
+      // Yadimo's loop: frames of the character alone, sized as it appears in the widget
+      const scale = pxH / ch, size = BASE * sOf(spot.z) * scale, box = Math.round(size), n = o.frames || 30;
+      // shrink the pictures a little if they would not fit the widget's memory (the widget shows them at full size)
+      const shrink = Math.min(1, Math.sqrt((o.budget || 9e6) / (n * box * box * 4))), out = Math.max(1, Math.round(box * shrink));
+      engine.setMood(o.night ? 'sleep' : 'idle'); engine.nextAct = 1e9; engine.o.follow = false;
+      for (let i = 0; i < 60; i++) engine.update(1 / 60);
+      for (let i = 0; i < n; i++) {
+        for (let k = 0; k < Math.round(60 / (o.fps || 15)); k++) engine.update(1 / 60);
+        const img = await svgImage(SER.serializeToString(yadSvg).replace(/^<svg[^>]*?>/, m => m.replace(/width="[^"]*"/, `width="${box}"`).replace(/height="[^"]*"/, `height="${box}"`).replace(/ x="[^"]*"/, '').replace(/ y="[^"]*"/, '').replace(/^<svg(?![^>]*xmlns=)/, `<svg xmlns="${NS}"`)));
+        const f = document.createElement('canvas'); f.width = out; f.height = out; const fg = f.getContext('2d'); fg.imageSmoothingQuality = 'high'; fg.drawImage(img, 0, 0, out, out);
+        host.frame('idle', i, f.toDataURL('image/png'));
+      }
+      // where the frame's bottom edge sits: the character's feet are at 90% of its box
+      host.done('idle', JSON.stringify({count: n, fps: o.fps || 15, loop: true, size: box, scale: out / box, bottom: .15 - (.1 * size) / pxH}));
+      host.finished();
+    } catch (e) { host.error(String(e && e.stack || e)); }
+  },
+};
+
+drawRoom();
+if (MODE !== 'widget') { if (MODE === 'demo') say('سلام! این خونهٔ منه 🏠', 3); requestAnimationFrame(frame); }
 })();

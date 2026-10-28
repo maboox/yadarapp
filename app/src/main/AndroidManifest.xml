@@ -77,7 +77,7 @@
         <activity android:name=".YadimoWardrobeActivity" android:exported="false" />
         <activity android:name=".AnnounceActivity" android:exported="false" android:theme="@style/Theme.Yadar.Alarm"
             android:excludeFromRecents="true" android:launchMode="singleInstance" android:taskAffinity="${applicationId}.announce" />
-        <activity android:name=".YadimoRoomActivity" android:exported="false" android:screenOrientation="portrait" />
+        <activity android:name=".YadimoRoomActivity" android:exported="false" android:screenOrientation="portrait" android:launchMode="singleTop" />
 
         <activity android:name=".YadimoHelloActivity" android:exported="false" android:theme="@style/Theme.Yadar.Alarm"
             android:showWhenLocked="true" android:turnScreenOn="true" android:excludeFromRecents="true"
