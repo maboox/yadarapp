@@ -48,6 +48,7 @@ func ensureSchema(app core.App) error {
 	addField(users, &core.JSONField{Name: "yadimo_look", MaxSize: 5000, Help: "ظاهر انتخاب‌شدهٔ یادیمو"})
 	addField(users, &core.JSONField{Name: "game", MaxSize: 20000, Help: "امتیاز، سطح، نشان‌ها و مأموریت‌ها (برنامه می‌فرستد)"})
 	addField(users, &core.NumberField{Name: "level_override", Help: "سطح دستی؛ ۰ یعنی همان سطحی که برنامه حساب می‌کند"})
+	addField(users, &core.BoolField{Name: "is_admin", Help: "مدیر: منوی مخفی برنامه و ارسال پیام همگانی"})
 	if !hasIndex(users, "idx_users_phone") {
 		users.AddIndex("idx_users_phone", true, "phone", "phone != ''")
 	}
@@ -297,6 +298,25 @@ func ensureSchema(app core.App) error {
 		if err := app.Save(view); err != nil {
 			return err
 		}
+	}
+
+	// Messages to every user (see announce.go).
+	if _, err := ensureCollection(app, "announcements", func(c *core.Collection) {
+		addField(c, &core.TextField{Name: "title", Max: 80, Presentable: true})
+		addField(c, &core.TextField{Name: "body", Max: 1000})
+		addField(c, &core.SelectField{Name: "style", Values: []string{"popup", "notification", "fullscreen"}, MaxSelect: 1,
+			Help: "popup = پنجره داخل برنامه؛ notification = اعلان؛ fullscreen = صفحهٔ کامل با یادیمو"})
+		addField(c, &core.TextField{Name: "button_text", Max: 30})
+		addField(c, &core.TextField{Name: "button_url", Max: 300, Help: "مثلاً bazaar://details?id=com.yadavard.app.plus برای صفحهٔ برنامه در بازار"})
+		addField(c, &core.NumberField{Name: "below_version", Help: "فقط برای نسخه‌های قدیمی‌تر از این کد نسخه؛ ۰ = همه"})
+		addField(c, &core.DateField{Name: "ends", Help: "بعد از این تاریخ نشان داده نمی‌شود؛ خالی = همیشه"})
+		addField(c, &core.BoolField{Name: "active"})
+		addField(c, &core.AutodateField{Name: "created", OnCreate: true})
+		if !hasIndex(c, "idx_announcements_created") {
+			c.AddIndex("idx_announcements_created", false, "created", "")
+		}
+	}); err != nil {
+		return err
 	}
 
 	// Token rewards of the starter missions: one row per paid mission, so each pays once per account and phone.

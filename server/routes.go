@@ -22,6 +22,7 @@ func registerRoutes(se *core.ServeEvent) {
 	g.POST("/bazaar/claim", handleBazaarClaim)
 	g.POST("/bazaar/app-login", handleBazaarAppLogin)
 	g.GET("/weather", handleWeather)
+	g.GET("/announcements", handleAnnouncements)
 
 	auth := g.Group("")
 	auth.Bind(apis.RequireAuth("users"))
@@ -42,6 +43,9 @@ func registerRoutes(se *core.ServeEvent) {
 	auth.GET("/game", handleGame)
 	auth.POST("/game", handleGameSave)
 	auth.POST("/game/claim", handleGameClaim)
+	auth.POST("/announcements", handleAnnounceCreate)
+	auth.GET("/announcements/all", handleAnnounceList)
+	auth.POST("/announcements/{id}/off", handleAnnounceOff)
 }
 
 // profile is what the app shows on the account screen.
@@ -57,6 +61,7 @@ func profile(app core.App, user *core.Record) map[string]any {
 		"id":          user.Id,
 		"phone":       user.GetString("phone"),
 		"bazaar":      user.GetString("bazaar_id") != "",
+		"admin":       user.GetBool("is_admin"),
 		"name":        user.GetString("name"),
 		"balance":     user.GetFloat("balance"),
 		"unlimited":   user.GetBool("unlimited"),
