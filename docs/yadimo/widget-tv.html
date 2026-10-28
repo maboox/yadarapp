@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ویجت یادیمو</title>
+<style>
+:root{--bg:#f3f0fb;--ink:#231c47;--mut:#6d6690;--wall:#2a2352}
+@media (prefers-color-scheme:dark){:root{--bg:#13102a;--ink:#f1eeff;--mut:#a9a1d0}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,Tahoma,sans-serif;line-height:1.8;padding:16px}
+h1{font-size:21px;margin:0 0 4px}p{color:var(--mut);font-size:14px;margin:4px 0 14px;max-width:720px}
+.home{background:linear-gradient(160deg,#3b2f7a,#6a4fb8 60%,#e28fb1);border-radius:28px;padding:16px;display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;max-width:760px}
+.cap{color:#fff;font-size:12px;opacity:.85;margin-top:4px;text-align:center}
+.w{position:relative;overflow:hidden;border-radius:22px;background:#e9e1fb;cursor:pointer;direction:ltr}
+.w img.bg{position:absolute;inset:0;width:100%;height:100%}
+.w img.sp,.w img.ball{position:absolute;left:0;top:0}
+.w .bub{position:absolute;max-width:80%;background:#fff;color:#231c47;font-weight:700;font-size:12px;border-radius:14px;padding:3px 10px;direction:rtl;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 2px 6px #3a256040;transform:translate(-50%,-100%)}
+.w .stats{position:absolute;left:8px;top:8px;display:flex;gap:6px;background:#ffffffcc;border-radius:12px;padding:3px 8px;font-size:10px;align-items:center}
+.w .stats i{display:inline-block;width:22px;height:5px;border-radius:3px;background:#0002;overflow:hidden;vertical-align:middle;margin-inline-start:2px}
+.w .stats i b{display:block;height:100%;background:#36c08f}
+.ctl{margin:12px 0;display:flex;gap:6px;flex-wrap:wrap}
+.ctl button{font:inherit;font-size:13px;border:1px solid #d8cff3;background:#f0ecfd;color:#231c47;padding:3px 12px;border-radius:999px;cursor:pointer}
+.ctl button.on{background:#7a5cf0;color:#fff}
+#wait{color:var(--mut)}
+#scene{position:fixed;left:0;top:0;opacity:0;pointer-events:none}
+</style></head><body>
+<h1>ویجت «خانهٔ یادیمو»؛ فقط برای تماشا</h1>
+<p>یادیمو خودش زندگی می‌کند: به گل آب می‌دهد، کتاب می‌خواند، بیرون را نگاه می‌کند، با توپش بازی می‌کند، غذا می‌خورد و شب می‌خوابد، و گاهی با خودش حرف می‌زند. بالای ویجت سیری، انرژی و خوشحالی‌اش دیده می‌شود. زدن روی ویجت فقط برنامه را باز می‌کند. هر بار که ویجت به‌روز شود، یک «قسمت» دیگر پخش می‌شود (این‌جا با دکمه‌ها عوضش کنید).</p>
+<div class="ctl" id="eps"></div>
+<div id="wait">در حال ساختن تصویرها…</div>
+<div class="home" id="home"></div>
+<svg id="scene" xmlns="http://www.w3.org/2000/svg" width="400" height="720"></svg>
+<script>window.GAME_MODE = 'widget';</script>
+<script src="art.js"></script><script src="volume.js"></script><script src="acc.js"></script><script src="costumes.js"></script><script src="warp.js"></script><script src="engine.js"></script><script src="game.js"></script>
+<script>
+(async () => {
+  const sizes = [[330, 170, '۴×۲'], [170, 170, '۲×۲'], [330, 260, '۴×۳'], [170, 90, '۲×۱']];
+  const D = 2, made = [];
+  for (const [w, h] of sizes) {
+    const files = {}; let meta = null;
+    window.RoomHost = {file(n, d) { files[n] = d; }, finished(j) { meta = JSON.parse(j); }, error(e) { console.error(e); }};
+    await widgetFrames.make({w, h, density: D, look: {}, fps: 8, budget: 9e6, lang: 'fa'});
+    made.push({w, h, files, meta});
+  }
+  document.getElementById('wait').remove();
+  let ep = 'garden'; const names = {garden: 'گل و پنجره', bored: 'بیکاری و کتاب', play: 'بازی با توپ', hungry: 'گرسنه', night: 'شب'};
+  const ctl = document.getElementById('eps');
+  for (const k in names) { const b = document.createElement('button'); b.textContent = names[k]; b.onclick = () => { ep = k; start(); [...ctl.children].forEach(x => x.classList.toggle('on', x === b)); }; if (k === ep) b.className = 'on'; ctl.appendChild(b); }
+  const home = document.getElementById('home'), views = [];
+  made.forEach((m, i) => {
+    const cell = document.createElement('div'), d = document.createElement('div'); d.className = 'w'; d.style.width = m.w + 'px'; d.style.height = m.h + 'px';
+    d.innerHTML = `<img class="bg"><img class="sp"><img class="ball"><div class="bub"></div>` + (m.h >= 110 ? `<div class="stats">🍪<i><b style="width:70%"></b></i> ⚡<i><b style="width:45%"></b></i> 😊<i><b style="width:85%"></b></i></div>` : '');
+    d.onclick = () => alert('برنامه باز می‌شود');
+    cell.appendChild(d); const c = document.createElement('div'); c.className = 'cap'; c.textContent = sizes[i][2]; cell.appendChild(c); home.appendChild(cell);
+    views.push({m, d});
+  });
+  let timer;
+  function start() {
+    clearInterval(timer); let f = 0;
+    const tick = () => { for (const {m, d} of views) {
+      const e = m.meta.episodes[ep], fr = e.frames[f % e.frames.length], k = 1 / D, sp = m.meta.sprites[fr.s];
+      const bg = d.querySelector('.bg'), want = m.files['bg_' + e.bg]; if (bg.src !== want) bg.src = want;
+      const im = d.querySelector('.sp'); im.src = m.files['s' + fr.s]; im.style.width = sp.w * k + 'px'; im.style.height = sp.h * k + 'px'; im.style.transform = `translate(${fr.x * k}px,${fr.y * k}px)`;
+      const b = d.querySelector('.ball'); if (fr.ball !== undefined) { b.style.display = ''; b.src = m.files['ball' + fr.ball]; b.style.width = m.meta.ball * k + 'px'; b.style.transform = `translate(${fr.bx * k}px,${fr.by * k}px)`; } else b.style.display = 'none';
+      const u = d.querySelector('.bub'); if (fr.say) { u.style.display = ''; u.textContent = fr.say; u.style.left = Math.max(0, Math.min(m.w, fr.hx * k)) + 'px'; u.style.top = Math.max(m.h >= 110 ? 56 : 30, fr.hy * k) + 'px'; } else u.style.display = 'none';
+    } f++; };
+    tick(); timer = setInterval(tick, 1000 / made[0].meta.fps);
+  }
+  start();
+})();
+</script></body></html>
