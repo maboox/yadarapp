@@ -1,0 +1,24 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/room_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@drawable/widget_room_bg" android:clipToOutline="true">
+    <ImageView android:id="@+id/room_bg" android:layout_width="match_parent" android:layout_height="match_parent"
+        android:scaleType="fitXY" android:importantForAccessibility="no" />
+    <!-- Yadimo's pictures; the padding puts them in their place in the room -->
+    <FrameLayout android:id="@+id/room_char_box" android:layout_width="match_parent" android:layout_height="match_parent"
+        android:layoutDirection="ltr">
+        <ViewFlipper android:id="@+id/room_flipper" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_gravity="top|left" android:autoStart="true" android:flipInterval="66" />
+    </FrameLayout>
+    <TextView android:id="@+id/room_bubble" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal" android:layout_marginTop="6dp" android:background="@drawable/widget_room_bubble"
+        android:paddingStart="10dp" android:paddingEnd="10dp" android:paddingTop="3dp" android:paddingBottom="3dp"
+        android:textColor="#231C47" android:textSize="12sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+    <LinearLayout android:id="@+id/room_buttons" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_gravity="bottom|right" android:layout_margin="5dp" android:orientation="horizontal" android:layoutDirection="ltr">
+        <TextView android:id="@+id/room_b_feed" style="@style/RoomButton" android:text="🍪" />
+        <TextView android:id="@+id/room_b_play" style="@style/RoomButton" android:text="⚽" />
+        <TextView android:id="@+id/room_b_charge" style="@style/RoomButton" android:text="⚡" />
+        <TextView android:id="@+id/room_b_pet" style="@style/RoomButton" android:text="🤚" />
+        <TextView android:id="@+id/room_b_sleep" style="@style/RoomButton" android:text="😴" />
+    </LinearLayout>
+</FrameLayout>

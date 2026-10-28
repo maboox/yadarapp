@@ -14,8 +14,8 @@ android {
         applicationIdSuffix = ".plus"
         minSdk = 26
         targetSdk = 35
-        versionCode = 51
-        versionName = "3.7.2"
+        versionCode = 52
+        versionName = "3.8.0"
     }
     // Test builds use one fixed, public key so each new APK installs over the previous one.
     // Store builds use the private Bazaar key from CI secrets (see .github/workflows/android.yml); when it is not

@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -87,6 +88,7 @@ object YadimoStore {
     fun set(context: Context, value: YadimoConfig) {
         ensure(context); config = value; Prefs.setMascotJson(context, value.toJson())
         YadimoShop.lookChanged(context, value)
+        RoomWidgets.lookChanged(context)
     }
 
     /** The look saved on the account replaces the one on the phone (signing in on a new phone). */
@@ -145,8 +147,13 @@ fun YadimoView(mood: YadimoMood, modifier: Modifier = Modifier, size: Dp = 120.d
             runCatching { JSONArray("[$raw]").getString(0) }.getOrNull()?.let(onCatalog)
         }
     }
+    // Hidden until the page has its look, mood and place: otherwise the first frame shows the default character
+    // in the middle for a moment and then it jumps.
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(ready) { if (ready) { delay(120); shown = true } }
+    val fade by androidx.compose.animation.core.animateFloatAsState(if (shown) 1f else 0f, androidx.compose.animation.core.tween(220), label = "yadimo")
     Box(modifier.size(size)) {
-        AndroidView({ web }, Modifier.fillMaxSize())
+        AndroidView({ web }, Modifier.fillMaxSize().graphicsLayer { alpha = fade })
         // A layer on top takes the touches, so lists still scroll over Yadimo and taps reach us, not the page.
         Box(Modifier.matchParentSize().pointerInput(tappable) {
             if (tappable) detectTapGestures(onTap = { js("yadimo.poke()") })
@@ -212,10 +219,11 @@ fun YadimoGreeting(modifier: Modifier = Modifier) {
 
 /**
  * Every now and then Yadimo peeks in from the right edge, says something short and slides away again.
- * [trigger] is what may start a visit (a tab change, opening the app); at most once every two minutes.
+ * [trigger] is what may start a visit (a tab change, opening the app); at most once every two minutes. [message]
+ * gives what to say, or null when there is nothing new to say today.
  */
 @Composable
-fun YadimoPeekHost(trigger: Any, message: () -> String, modifier: Modifier = Modifier) {
+fun YadimoPeekHost(trigger: Any, message: () -> String?, modifier: Modifier = Modifier) {
     if (!rememberYadimoEnabled()) return
     var msg by remember { mutableStateOf<String?>(null) }
     var inside by remember { mutableStateOf(false) }
@@ -226,9 +234,10 @@ fun YadimoPeekHost(trigger: Any, message: () -> String, modifier: Modifier = Mod
         try {
             val now = System.currentTimeMillis()
             if (YadimoStore.lastPeek != 0L && (now - YadimoStore.lastPeek < 120_000 || Math.random() > .4)) return@LaunchedEffect
-            YadimoStore.lastPeek = now
             delay(1500)
-            msg = message(); inside = false
+            msg = message() ?: return@LaunchedEffect
+            YadimoStore.lastPeek = now
+            inside = false
             delay(400); inside = true
             delay(900); talking = true
             delay(2800); talking = false

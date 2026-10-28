@@ -962,7 +962,7 @@ function layout(cols, rows, W, H) {
   if (rows >= 4 && !two) { D(g => P.clock(g, W * .27, 34)); D(g => P.shelf(g, W - 96, 70, 60)); D(g => P.toybox(g, 112, f)); }
   if (two) {                   // the house: bedroom upstairs, living room downstairs, stairs on the right
     const up = floors[1];
-    D(g => P.bed(g, 10, up, 106)); D(g => P.desk(g, 146, up)); D(g => P.clock(g, W * .55, 28)); D(g => P.picture(g, W - 70, 22)); D(g => P.window(g, W * .38, 24, 56, 46));
+    D(g => P.bed(g, 10, up, 106)); D(g => P.desk(g, 146, up)); D(g => P.clock(g, W * .74, 30)); D(g => P.picture(g, W - 70, 22)); D(g => P.window(g, W * .38, 24, 56, 46));
     D(g => P.sofa(g, 92, f, 78)); D(g => P.tv(g, 182, f)); D(g => P.stairs(g, W - 84, f, up + 6, 80));
     spots.bed = 58; spots.bedFloor = 1; spots.sofa = 130;
   }
@@ -1053,7 +1053,7 @@ class Widget {
     const f = this.floorY(s.floor), fl = s.climb ? f - (f - this.L.floors[1]) * s.climb : f;
     const lieY = (this.L.spots.bedFloor ? this.L.floors[1] : f) - 40;
     const cy = this.L.strip ? this.H - this.size * .5 : fl - this.size * .42 + (lieY - (fl - this.size * .42) + 12) * s.lying;
-    this.svgEl.style.transform = `translate(${(s.x - this.size / 2).toFixed(1)}px, ${(cy - this.size * .5).toFixed(1)}px) rotate(${(-s.lying * 77).toFixed(1)}deg)`;
+    this.svgEl.style.transform = `translate(${(s.x - this.size / 2).toFixed(1)}px, ${(cy - this.size * .5).toFixed(1)}px) rotate(${(s.lying * 77).toFixed(1)}deg)`;
     if (this.dirty) { currentFood = this.food; const g = this.bg.getContext('2d'); g.clearRect(0, 0, this.W, this.H); this.L.draw.forEach(d => d(g));
       if (NIGHT) { g.fillStyle = 'rgba(10,6,30,.25)'; g.fillRect(0, 0, this.W, this.H); } this.dirty = false; }
     const g = this.fx.getContext('2d'); g.clearRect(0, 0, this.W, this.H);

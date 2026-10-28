@@ -187,6 +187,20 @@ object YadimoTalk {
         p.edit().putLong("slots_day", day).putStringSet("slots", current + slot.toString()).apply()
     }
 
+    // ---- in the app: each line at most once a day ----
+
+    /** [text] if the line called [key] was not said in the app today (and marks it said), otherwise null. */
+    fun inApp(context: Context, key: String, text: String): String? {
+        val zone = ZoneId.systemDefault()
+        if ("app:$key" in saidToday(context, zone)) return null
+        markSaid(context, "app:$key"); return text
+    }
+
+    /** The first of [lines] not said today. */
+    fun inAppAny(context: Context, lines: List<Pair<String, String>>): String? =
+        lines.firstNotNullOfOrNull { (k, text) -> if ("app:$k" in saidToday(context, ZoneId.systemDefault())) null else k to text }
+            ?.let { (k, text) -> inApp(context, k, text) }
+
     // ---- the phone's state ----
 
     /** Screen on and unlocked, and not on a call. */

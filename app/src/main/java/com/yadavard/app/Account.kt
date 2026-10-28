@@ -32,6 +32,8 @@ object Account {
         val phone: String, val name: String, val balance: Double, val unlimited: Boolean,
         val plan: String, val textModel: String, val audioModel: String, val aiEnabled: Boolean,
         val id: String = "", val bazaar: Boolean = false,
+        /** Ticked in the admin panel: may open the hidden settings and send messages to everyone. */
+        val admin: Boolean = false,
     )
 
     /** A token pack sold through Cafe Bazaar; prices are set in the Bazaar panel, [price] is only shown. */
@@ -73,7 +75,7 @@ object Account {
 
     private fun parse(o: JSONObject) = Profile(o.optString("phone"), o.optString("name"), o.optDouble("balance", 0.0),
         o.optBoolean("unlimited"), o.optString("plan"), o.optString("text_model"), o.optString("audio_model"),
-        o.optBoolean("ai_enabled", true), o.optString("id"), o.optBoolean("bazaar"))
+        o.optBoolean("ai_enabled", true), o.optString("id"), o.optBoolean("bazaar"), o.optBoolean("admin"))
 
     private fun store(context: Context, profile: JSONObject) {
         prefs(context).edit().putString("profile", profile.toString()).apply()
@@ -280,6 +282,11 @@ object Account {
         call(context, "POST", "/api/yadar/game/claim", JSONObject().put("mission", mission).put("device", device)).also { res ->
             res.optJSONObject("profile")?.let { store(context, it) }
         }
+    }
+
+    /** Sends a message to every user (admin accounts only). */
+    suspend fun announce(context: Context, body: JSONObject): JSONObject = withContext(Dispatchers.IO) {
+        call(context, "POST", "/api/yadar/announcements", body)
     }
 
     /** Today's weather near a city, cached by the server; works without signing in. */

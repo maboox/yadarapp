@@ -264,7 +264,9 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
         item { AiCard() }
 
         item {
-            SettingsCard(t("پشتیبان‌گیری", "Backup"), Icons.Rounded.Backup, onIconHold = { hidden = true },
+            // The hidden settings exist only for the admin account; for everyone else the icon is just an icon.
+            val admin = Account.profile.collectAsState().value?.admin == true
+            SettingsCard(t("پشتیبان‌گیری", "Backup"), Icons.Rounded.Backup, onIconHold = if (admin) ({ hidden = true }) else null,
                 summary = t("${n(count)} یادآوری • داده‌ها فقط روی این گوشی است؛ پشتیبان بگیر", "$count reminders • data is only on this phone; back it up"), collapsible = true) {
                 Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.tertiaryContainer) {
                     Row(Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
@@ -305,6 +307,7 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
                     Text(t("تنظیمات پنهان", "Hidden settings"), style = MaterialTheme.typography.titleLarge)
                 }
                 LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(16.dp, 4.dp, 16.dp, 48.dp)) {
+                    item { AnnounceCard() }
                     item { AiCard(advancedUnlocked = true) }
                 }
             }

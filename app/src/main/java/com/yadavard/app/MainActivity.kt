@@ -97,6 +97,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         claimBazaarLogin()
         YadimoTalk.schedule(this)
+        Announce.schedule(this)
+        lifecycleScope.launch { Announce.check(this@MainActivity, inApp = true) }
         // If an alarm is still ringing, always give the user its screen so it can be stopped.
         val ringing = AlertService.ringingId()
         if (ringing != 0L) runCatching {
@@ -402,14 +404,20 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
             val name = Prefs.userName(context).let { if (it.isBlank()) "" else t("، $it", ", $it") }
             val today = items.count { !it.done && (it.needsAttention(System.currentTimeMillis()) ||
                 Dates.localDate(it.nextAt, it.zoneId) == LocalDate.now()) }
+            // Each line at most once a day: the hello only on the first visit, then other short notes.
             when (tab) {
-                Tab.HOME -> if (today > 0) t("سلام$name! امروز ${n(today)} کار داری", "Hi$name! ${today} things today") else t("سلام$name! امروز خلوته 🌿", "Hi$name! A quiet day 🌿")
-                Tab.CALENDAR -> t("برنامهٔ روزهات اینجاست 📅", "Your days at a glance 📅")
-                Tab.NOTES -> t("یه یادداشت تازه بنویسیم؟ ✍️", "Shall we write a note? ✍️")
-                Tab.STATS -> t("ببین چقدر خوب پیش رفتی! ⭐", "Look how well you did! ⭐")
-                Tab.PROFILE -> Game.state?.let { g -> g.levelEnd?.let { end -> t("${n(end - g.xp)} امتیاز دیگه تا سطح ${n(g.level + 1)}! 🚀", "${end - g.xp} points to level ${g.level + 1}! 🚀") } }
-                    ?: t("اینجا می‌تونی من رو هم عوض کنی 😉", "You can dress me up here 😉")
-                Tab.SETTINGS -> t("هر چیزی رو می‌خوای تنظیم کن ⚙️", "Set things up your way ⚙️")
+                Tab.HOME -> YadimoTalk.inApp(context, "hello", if (today > 0) t("سلام$name! امروز ${n(today)} کار داری", "Hi$name! ${today} things today") else t("سلام$name! امروز خلوته 🌿", "Hi$name! A quiet day 🌿"))
+                    ?: YadimoTalk.inAppAny(context, listOfNotNull(
+                        today.takeIf { it > 1 }?.let { "left" to t("هنوز ${n(it)} کار مونده؛ از پسش برمیای 💪", "$it still to go; you've got this 💪") },
+                        "water" to t("یه لیوان آب بخور 💧", "Have a glass of water 💧"),
+                        "voice" to t("هر کاری یادت اومد، فقط بگو 🎙️", "Remember something? Just say it 🎙️"),
+                        "good" to t("داری خوب پیش می‌ری! ✨", "You're doing great! ✨")))
+                Tab.CALENDAR -> YadimoTalk.inApp(context, "calendar", t("برنامهٔ روزهات اینجاست 📅", "Your days at a glance 📅"))
+                Tab.NOTES -> YadimoTalk.inApp(context, "notes", t("یه یادداشت تازه بنویسیم؟ ✍️", "Shall we write a note? ✍️"))
+                Tab.STATS -> YadimoTalk.inApp(context, "stats", t("ببین چقدر خوب پیش رفتی! ⭐", "Look how well you did! ⭐"))
+                Tab.PROFILE -> YadimoTalk.inApp(context, "profile", Game.state?.let { g -> g.levelEnd?.let { end -> t("${n(end - g.xp)} امتیاز دیگه تا سطح ${n(g.level + 1)}! 🚀", "${end - g.xp} points to level ${g.level + 1}! 🚀") } }
+                    ?: t("اینجا می‌تونی من رو هم عوض کنی 😉", "You can dress me up here 😉"))
+                Tab.SETTINGS -> YadimoTalk.inApp(context, "settings", t("هر چیزی رو می‌خوای تنظیم کن ⚙️", "Set things up your way ⚙️"))
             }
         // Bottom right, above the "new" button and the tab bar, whatever the language direction.
         }, modifier = Modifier.align(androidx.compose.ui.AbsoluteAlignment.BottomRight).navigationBarsPadding().padding(bottom = 170.dp))
@@ -420,6 +428,7 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
         packExport?.let { pre -> PackExportDialog(items, pre) { packExport = null } }
         if (loginRequested) LoginDialog { Account.loginRequested.value = false }
         GameCheerDialog()
+        AnnounceDialog()
         if (bazaarSignIn.error.isNotBlank()) AlertDialog(onDismissRequest = { bazaarSignIn.error = "" },
             text = { Text(bazaarSignIn.error) },
             confirmButton = { TextButton(onClick = { bazaarSignIn.error = "" }) { Text(t("باشه", "OK")) } })

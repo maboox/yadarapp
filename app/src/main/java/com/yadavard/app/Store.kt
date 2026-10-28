@@ -247,6 +247,7 @@ object Repo {
         val now = System.currentTimeMillis()
         runCatching { store(context).record(r, ReminderLogic.occurrence(r).takeIf { it > 0 } ?: now, true, now) }
             .onFailure { android.util.Log.e("Yadar", "history write failed", it) }
+        runCatching { YadimoPet.onDone(context) }
         return save(context, ReminderLogic.complete(r, now))
     }
 

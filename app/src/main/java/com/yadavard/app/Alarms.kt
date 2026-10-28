@@ -370,6 +370,7 @@ class BootReceiver : BroadcastReceiver() {
                 Scheduler.rescheduleAll(context)
                 WidgetUpdater.update(context)
                 YadimoTalk.schedule(context)
+                Announce.schedule(context)
             } finally { pending.finish() }
         }.start()
     }

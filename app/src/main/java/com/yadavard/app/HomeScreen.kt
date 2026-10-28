@@ -92,16 +92,10 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
                     val other = if (AppDisplay.calendar == CalendarSystem.PERSIAN) CalendarSystem.GREGORIAN else CalendarSystem.PERSIAN
                     Text(Dates.formatDate(today, other, AppDisplay.language), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    // One friendly line about today, so the top of the screen says something useful.
-                    if (items.isNotEmpty()) Text(when {
-                        sections.attention.isNotEmpty() -> t("${n(sections.attention.size)} مورد منتظر توجه توست", "${sections.attention.size} waiting for you")
-                        sections.todayCount > 0 -> t("امروز ${n(sections.todayCount)} کار داری", "${sections.todayCount} to do today")
-                        else -> t("امروز کاری نداری؛ خوش بگذره 🌿", "Nothing today — enjoy 🌿")
-                    }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 2.dp))
-                    // Level and streak; a tap opens the profile.
-                    Game.state?.let { g ->
+                    // The streak, when there is one; a tap opens the profile.
+                    Game.state?.takeIf { it.facts.streak > 1 }?.let { g ->
                         AssistChip(onClick = onProfile, modifier = Modifier.padding(top = 4.dp),
-                            label = { Text(t("⭐ سطح ${n(g.level)}", "⭐ Level ${g.level}") + if (g.facts.streak > 1) t(" • 🔥 ${n(g.facts.streak)} روز", " • 🔥 ${g.facts.streak} days") else "") })
+                            label = { Text(t("🔥 ${n(g.facts.streak)} روز پشت سر هم", "🔥 ${g.facts.streak}-day streak")) })
                     }
                 }
                 if (rememberYadimoEnabled()) run {

@@ -11,6 +11,7 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.Face
 import androidx.compose.material.icons.rounded.Flag
+import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.MilitaryTech
 import androidx.compose.material3.*
@@ -45,6 +46,7 @@ fun ProfileScreen(padding: PaddingValues) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp, padding.calculateTopPadding() + 8.dp, 16.dp,
         padding.calculateBottomPadding() + 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { LevelHeader(s) }
+        item { RoomCard() }
         if (s != null) {
             item { MissionsCard(s) }
             item { BadgesCard(s) }
@@ -56,6 +58,31 @@ fun ProfileScreen(padding: PaddingValues) {
                 "Points: 10 for each thing done (5 if over two hours late), 5 for each active day, 5 for creating a reminder or 10 by voice (up to 40 a day), 2 per note, 50 per badge, plus missions."),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp))
         }
+    }
+}
+
+/** Yadimo's room: open it in the app, and how smooth the home-screen widget should be. */
+@Composable
+private fun RoomCard() {
+    val context = LocalContext.current
+    var fps by remember { mutableIntStateOf(RoomWidgets.fps(context)) }
+    SettingsCard(t("اتاق یادیمو", "Yadimo's room"), Icons.Rounded.Home) {
+        Text(t("به یادیمو غذا بده، باهاش بازی کن، شارژش کن و نازش کن. با هر کاری که انجام می‌دهی هم شادتر می‌شود.",
+            "Feed Yadimo, play, charge and pat it. It gets happier with every reminder you get done."),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Button(onClick = { context.startActivity(android.content.Intent(context, YadimoRoomActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) {
+            Text(t("رفتن به اتاق 🏠", "Open the room 🏠"))
+        }
+        Text(t("ویجت «اتاق یادیمو» را هم می‌توانی از ویجت‌های گوشی روی صفحهٔ اصلی بگذاری؛ هر چه بزرگ‌تر باشد، اتاق وسیله‌های بیشتری دارد.",
+            "Put the “Yadimo's room” widget on your home screen too; the bigger it is, the more the room holds."),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SettingLabel(t("روانی حرکت در ویجت", "Widget smoothness"))
+        SettingSegmented(listOf(5 to t("کم (۵)", "Low (5)"), 15 to t("معمولی (۱۵)", "Normal (15)"), 30 to t("روان (۳۰)", "Smooth (30)")), fps) {
+            fps = it; RoomWidgets.setFps(context, it)
+        }
+        Text(t("اگر ویجت روی گوشی‌ات کند یا ناقص حرکت کرد، «معمولی» یا «کم» را انتخاب کن.",
+            "If the widget stutters on your phone, pick Normal or Low."),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
