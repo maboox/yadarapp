@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>سبک‌های اتاق یادیمو</title>
+<style>
+:root{--bg:#f3f0fb;--card:#fff;--ink:#231c47;--mut:#6d6690;--line:#e6e0f6;--pri:#7a5cf0;--chip:#f0ecfd}
+@media (prefers-color-scheme:dark){:root{--bg:#13102a;--card:#1d1840;--ink:#f1eeff;--mut:#a9a1d0;--line:#332a62;--pri:#9d86ff;--chip:#2a2352}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Vazirmatn",Tahoma,sans-serif;line-height:1.85;padding:18px 16px 60px}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font-size:24px;margin:4px 0 2px}p{color:var(--mut);margin:0 0 12px}
+.bar{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px 0 10px}
+.bar button{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--chip);color:var(--ink);padding:4px 13px;border-radius:999px;cursor:pointer}
+.bar button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+.bar .sep{width:1px;height:24px;background:var(--line);margin:0 4px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:12px}
+.tag{font-size:15px;font-weight:800;margin:0 4px}.sub{font-size:12.5px;color:var(--mut);margin:0 4px 8px}
+.view{position:relative;border-radius:16px;overflow:hidden;aspect-ratio:2/1;cursor:pointer}
+.view canvas{display:block;width:100%;height:100%;image-rendering:pixelated}
+#v-soft canvas{image-rendering:auto}
+.bubble{position:absolute;top:8px;left:50%;transform:translateX(-50%) scale(.6);opacity:0;transition:.25s;background:#fff;color:#231c47;
+  font-weight:700;font-size:13px;padding:4px 12px;border-radius:14px;box-shadow:0 4px 14px #0002;white-space:nowrap;pointer-events:none}
+.bubble.on{opacity:1;transform:translateX(-50%) scale(1)}
+.hud{position:absolute;bottom:6px;right:8px;display:flex;gap:6px;pointer-events:none}
+.hud span{display:flex;align-items:center;gap:3px;font-size:11px;background:#0005;color:#fff;border-radius:999px;padding:0 6px 0 4px}
+.hud i{display:block;height:5px;width:30px;border-radius:3px;background:#fff4;overflow:hidden}.hud b{display:block;height:100%;background:#7dffb0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>اتاق یادیمو — سه سبک کنار هم</h1>
+<p>هر سه اتاق یک دنیا هستند و دقیقاً یک کار را می‌کنند؛ فقط سبک کشیدنشان فرق دارد. دکمه‌ها را بزنید (روی اتاق هم بزنید تا نازش کنید). یادیمو خودش هم گاهی چرت می‌زند و روی تخت می‌خوابد.</p>
+<div class="bar">
+  <button data-a="feed">🍪 غذا</button><button data-a="play">⚽ بازی</button><button data-a="charge">⚡ شارژ</button><button data-a="pet">🤚 ناز</button><button data-a="sleep">😴 خواب</button>
+  <button id="night">🌙 شب</button><span class="sep"></span>
+  <span>فریم:</span><span id="fps"><button data-f="6">۶</button><button data-f="10" class="on">۱۰</button><button data-f="15">۱۵</button><button data-f="30">۳۰</button><button data-f="60">۶۰</button></span>
+  <span class="sep"></span><span id="look">
+  <button class="on" data-l='{"variant":"robot","color":"lilac","hat":"party","glass":"sun","neck":"none","costume":"none","item":"none"}'>ربات</button>
+  <button data-l='{"variant":"bell","color":"peach","hat":"crown","glass":"none","neck":"none","costume":"none","item":"none"}'>زنگوله</button>
+  <button data-l='{"variant":"robot","color":"sky","hat":"none","glass":"none","neck":"none","costume":"pirate","item":"none"}'>ناخدا</button></span>
+</div>
+<div class="grid">
+  <div class="card"><div class="tag">۱. پیکسل‌آرت</div><div class="sub">جزئیات بیشتر، حس بازی‌های پیکسلی؛ ۸ تا ۱۲ فریم کاملاً طبیعی است</div><div class="view" id="v-pixel"></div></div>
+  <div class="card"><div class="tag">۲. بلوکی (ماینکرفتی)</div><div class="sub">بلوک‌های بافت‌دار؛ خود یادیمو هم بلوکی می‌شود</div><div class="view" id="v-block"></div></div>
+  <div class="card"><div class="tag">۳. ۲.۵بعدی نرم</div><div class="sub">هم‌سبک خود یادیمو در برنامه؛ نور و سایه و شکل‌های نرم</div><div class="view" id="v-soft"></div></div>
+</div>
+</div>
+<script src="art.js"></script>
+<script src="volume.js"></script>
+<script src="acc.js"></script>
+<script src="costumes.js"></script>
+<script src="warp.js"></script>
+<script src="engine.js"></script>
+<script src="styles-demo.js"></script>
+</body>
+</html>
