@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ویجت اتاق یادیمو</title>
+<style>
+:root{--bg:#f3f0fb;--card:#fff;--ink:#231c47;--mut:#6d6690;--line:#e6e0f6;--pri:#7a5cf0;--chip:#f0ecfd}
+@media (prefers-color-scheme:dark){:root{--bg:#13102a;--card:#1d1840;--ink:#f1eeff;--mut:#a9a1d0;--line:#332a62;--pri:#9d86ff;--chip:#2a2352}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Vazirmatn",Tahoma,sans-serif;line-height:1.85;padding:18px 16px 60px}
+.wrap{max-width:1560px;margin:0 auto}
+h1{font-size:24px;margin:4px 0 2px}p{color:var(--mut);margin:0 0 10px}
+.bar{position:sticky;top:0;z-index:20;background:var(--bg);display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px 0 12px}
+.bar button{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--chip);color:var(--ink);padding:4px 13px;border-radius:999px;cursor:pointer}
+.bar button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+.sep{width:1px;height:24px;background:var(--line);margin:0 4px}
+#phones{display:flex;flex-wrap:wrap;gap:22px;align-items:flex-start}
+.ptitle{font-weight:800;font-size:14px;margin:0 6px 6px}
+.phone{width:376px;height:740px;border-radius:44px;padding:14px 12px;background:linear-gradient(160deg,#2b6cb0,#7a5cf0 55%,#e2689a);border:8px solid #111;position:relative;overflow:hidden;direction:ltr}
+.status{color:#fff;font-size:12px;font-weight:700;padding:2px 14px 10px}
+.home{display:flex;flex-direction:column;gap:8px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.app{width:80px;height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-size:11px}
+.app i{width:52px;height:52px;border-radius:16px;background:#ffffff40;display:block;margin-bottom:4px}
+.dock{position:absolute;bottom:14px;left:16px;right:16px;height:72px;border-radius:26px;background:#ffffff30;display:flex;justify-content:space-around;align-items:center}
+.dock i{width:50px;height:50px;border-radius:16px;background:#ffffff55}
+.widget{position:relative;border-radius:22px;overflow:hidden;box-shadow:0 6px 20px #0004;cursor:pointer;direction:rtl}
+.widget canvas{position:absolute;inset:0;width:100%;height:100%}
+.widget svg.yad{position:absolute;left:0;top:0;transform-origin:50% 50%;pointer-events:none}
+.wtag{position:absolute;top:6px;left:8px;font-size:10px;font-weight:800;background:#0006;color:#fff;border-radius:8px;padding:0 6px;pointer-events:none}
+.bubble{position:absolute;top:8px;left:50%;transform:translateX(-50%) scale(.6);opacity:0;transition:.25s;background:#fff;color:#231c47;
+  font-weight:700;font-size:12px;padding:3px 10px;border-radius:12px;box-shadow:0 3px 10px #0002;white-space:nowrap;pointer-events:none;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+.bubble.on{opacity:1;transform:translateX(-50%) scale(1)}
+.wbtns{position:absolute;bottom:5px;right:6px;display:flex;gap:3px}
+.wbtns button{font-size:13px;line-height:1;border:0;background:#ffffffcc;border-radius:10px;padding:4px 5px;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>ویجت اتاق یادیمو — همهٔ اندازه‌ها</h1>
+<p>سبک ۲.۵بعدی با روش سه‌لایه: اتاق یک عکس ثابت است، یادیمو با فریمی که انتخاب می‌کنید حرکت می‌کند، و هر دکمه یک انیمیشن کوتاه دارد. یادیمو بین چند «جا» (پنجره، ظرف غذا، تخت، کاناپه) جابه‌جا می‌شود. دکمه‌های داخل هر ویجت مخصوص همان ویجت‌اند؛ دکمه‌های بالا برای همه.</p>
+<div class="bar">
+  <span>فریم:</span><span id="fps"><button data-f="5">۵</button><button data-f="15">۱۵</button><button data-f="30" class="on">۳۰</button><button data-f="60">۶۰ (داخل برنامه)</button></span>
+  <span class="sep"></span><span id="all"><button data-a="feed">🍪 غذا</button><button data-a="play">⚽ بازی</button><button data-a="charge">⚡ شارژ</button><button data-a="pet">🤚 ناز</button><button data-a="sleep">😴 خواب</button></span>
+  <button id="night">🌙 شب</button><span class="sep"></span>
+  <span id="look"><button class="on" data-l='{"variant":"robot","color":"lilac","hat":"party","glass":"sun","neck":"none","costume":"none","item":"none"}'>ربات</button>
+  <button data-l='{"variant":"bell","color":"peach","hat":"crown","glass":"none","neck":"none","costume":"none","item":"none"}'>زنگوله</button>
+  <button data-l='{"variant":"robot","color":"sky","hat":"none","glass":"none","neck":"none","costume":"pirate","item":"none"}'>ناخدا</button></span>
+</div>
+<div id="phones"></div>
+</div>
+<script src="art.js"></script>
+<script src="volume.js"></script>
+<script src="acc.js"></script>
+<script src="costumes.js"></script>
+<script src="warp.js"></script>
+<script src="engine.js"></script>
+<script src="sizes-demo.js"></script>
+</body>
+</html>
