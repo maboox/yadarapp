@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>اتاق یادیمو</title>
+<style>
+:root{--bg:#f3f0fb;--card:#fff;--ink:#231c47;--mut:#6d6690;--line:#e6e0f6;--pri:#7a5cf0;--chip:#f0ecfd;--wall:#d8ccf7}
+@media (prefers-color-scheme:dark){:root{--bg:#13102a;--card:#1d1840;--ink:#f1eeff;--mut:#a9a1d0;--line:#332a62;--pri:#9d86ff;--chip:#2a2352;--wall:#2a2352}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Vazirmatn",Tahoma,sans-serif;line-height:1.85;padding:18px 16px 60px}
+.wrap{max-width:1100px;margin:0 auto}
+h1{font-size:24px;margin:4px 0 2px}h2{font-size:18px;margin:30px 0 4px}
+p{color:var(--mut);margin:0 0 12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:14px}@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:12px}
+.tag{font-size:13px;font-weight:700;margin:0 4px 8px}
+.w{position:relative;border-radius:18px;overflow:hidden;background:linear-gradient(180deg,#bfe6ff,#e9dcff);cursor:pointer}
+body.night .w{background:linear-gradient(180deg,#141a3a,#2a2050)}
+.w svg.room{display:block;width:100%;height:100%}
+.w22{aspect-ratio:1/1;max-width:220px}.w42{aspect-ratio:2/1}.w43{aspect-ratio:4/3}.w44{aspect-ratio:1/1}.wfull{aspect-ratio:9/15;max-width:380px}
+.sizes{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start}
+.size.w22{width:250px}.size.w42{width:min(100%,440px)}.size.w43{width:min(100%,420px)}.size.w44{width:min(100%,400px)}.size.wfull{width:min(100%,400px)}
+.bubble{position:absolute;top:10px;left:50%;transform:translateX(-50%) scale(.6);opacity:0;transition:.25s;background:#fff;color:#231c47;
+  font-weight:700;font-size:13px;padding:5px 12px;border-radius:14px;box-shadow:0 4px 14px #0002;white-space:nowrap;pointer-events:none}
+.bubble.on{opacity:1;transform:translateX(-50%) scale(1)}
+.btns{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.btns button,.bar button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--chip);color:var(--ink);padding:3px 11px;border-radius:999px;cursor:pointer}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0 12px}
+.bar button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>اتاق یادیمو — نمونهٔ ویجت</h1>
+<p>این صفحه فقط برای دیدن حس کار است. اتاق‌ها و وسیله‌ها طرح اولیه‌اند و در نسخهٔ واقعی قشنگ‌تر و کامل‌تر می‌شوند.</p>
+
+<h2>۱. روان یا ورق‌ورق؟</h2>
+<p>هر چهار اتاق یک کار را می‌کنند. اولی مثل داخل برنامه روان است. بقیه نشان می‌دهند ویجتی که چند عکس آماده را پشت سر هم ورق می‌زند، با ۱۵، ۸ و ۴ فریم در ثانیه چه شکلی است.</p>
+<div class="grid" id="fps-grid"></div>
+
+<h2>۲. اتاق در اندازه‌های مختلف ویجت</h2>
+<p>هر چه ویجت بزرگ‌تر باشد، اتاق بزرگ‌تر و وسیله‌هایش بیشتر است. دکمه‌ها را بزنید یا روی اتاق بزنید تا نازش کنید.</p>
+<div class="bar"><span>سرعت این بخش:</span><span id="size-fps">
+  <button data-f="0" class="on">روان</button><button data-f="15">۱۵</button><button data-f="8">۸</button><button data-f="4">۴</button></span>
+  <button id="night">🌙 شب</button></div>
+<div class="sizes" id="size-grid"></div>
+</div>
+<script src="art.js"></script>
+<script src="volume.js"></script>
+<script src="acc.js"></script>
+<script src="costumes.js"></script>
+<script src="warp.js"></script>
+<script src="engine.js"></script>
+<script src="room.js"></script>
+<script src="widget-demo.js"></script>
+<script>document.getElementById('night').addEventListener('click', () => document.body.classList.toggle('night'));</script>
+</body>
+</html>
