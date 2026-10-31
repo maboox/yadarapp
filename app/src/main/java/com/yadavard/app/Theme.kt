@@ -11,6 +11,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.composed
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
@@ -111,6 +114,8 @@ class ThemeSpec(
     val corner: Int = 24,
     /** Always dark, whatever the light/dark setting says. */
     val alwaysDark: Boolean = false,
+    /** Offered only to accounts ticked as admin; it also shimmers. */
+    val adminOnly: Boolean = false,
 )
 
 val themes = listOf(
@@ -128,6 +133,10 @@ val themes = listOf(
         0xFFF5F1E8, 0xFFFFFDF7, 0xFF151412, 0xFF201F1C, listOf(0xFF2B2B2B, 0xFF4A4740, 0xFF8A8270), corner = 12),
     ThemeSpec(ThemeColor.MIDNIGHT, "نیمه‌شب", "Midnight", 0xFF00BFA6, 0xFF4DE8CF, 0xFF7C6CFF, 0xFFFFB454,
         0xFF000000, 0xFF0E0E10, 0xFF000000, 0xFF0E0E10, listOf(0xFF001E1A, 0xFF00796B, 0xFF00BFA6), corner = 20, alwaysDark = true),
+    // the admin's own: deep night purple with gold, a shine running over the headers
+    ThemeSpec(ThemeColor.ROYAL, "سلطنتی 👑", "Royal 👑", 0xFFB8860B, 0xFFFFD36B, 0xFFB46CFF, 0xFFFF6FB1,
+        0xFF0B0716, 0xFF171026, 0xFF0B0716, 0xFF171026, listOf(0xFF2A0E5C, 0xFF7B2FBF, 0xFFD4A017, 0xFFFFE08A), corner = 26,
+        alwaysDark = true, adminOnly = true),
 )
 
 fun themeSpec(id: ThemeColor): ThemeSpec = themes.firstOrNull { it.id == id } ?: themes.first()
@@ -231,4 +240,17 @@ fun leadLabel(minutes: Int): String = when {
     minutes < 1440 -> t("${n(minutes / 60)} ساعت", "${minutes / 60} h")
     minutes % 10080 == 0 -> t("${n(minutes / 10080)} هفته", "${minutes / 10080} wk")
     else -> t("${n(minutes / 1440)} روز", "${minutes / 1440} d")
+}
+
+/** A soft band of light sweeping across, for the admin's shining theme (and other special things). */
+fun androidx.compose.ui.Modifier.shimmer(on: Boolean, alpha: Float = .28f): androidx.compose.ui.Modifier = if (!on) this else composed {
+    val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "shimmer")
+    val p by t.animateFloat(-0.4f, 1.4f, androidx.compose.animation.core.infiniteRepeatable(
+        androidx.compose.animation.core.tween(2400, easing = androidx.compose.animation.core.LinearEasing)), label = "p")
+    drawWithContent {
+        drawContent()
+        val x = size.width * p
+        drawRect(Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = alpha), Color(0xFFFFE08A).copy(alpha = alpha * .6f), Color.Transparent),
+            start = androidx.compose.ui.geometry.Offset(x - size.height, 0f), end = androidx.compose.ui.geometry.Offset(x + size.height * .6f, size.height)))
+    }
 }

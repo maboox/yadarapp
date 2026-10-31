@@ -29,7 +29,11 @@ import java.util.concurrent.TimeUnit
  * for what the others changed when the app opens and every so often in the background.
  */
 object Groups {
-    data class Member(val id: String, val name: String, val username: String, val role: String, val active: Boolean)
+    data class Member(val id: String, val name: String, val username: String, val role: String, val active: Boolean,
+                      val level: Int = 1, val badges: List<String> = emptyList(), val streak: Int = 0, val done: Int = 0,
+                      val purchased: Double = 0.0, val admin: Boolean = false) {
+        val tier: Tier? get() = Tier.of(purchased, admin)
+    }
     data class Group(val id: String, val name: String, val owner: String, val ownerName: String, val editMode: String, val role: String,
                      val members: List<Member>, val invitedBy: String = "") {
         val isOwner: Boolean get() = role == "owner"
@@ -274,7 +278,10 @@ object Groups {
             Group(g.getString("id"), g.optString("name"), g.optString("owner"), g.optString("owner_name"), g.optString("edit_mode", "owner"),
                 g.optString("role"), List(m.length()) { j ->
                     val x = m.getJSONObject(j)
-                    Member(x.getString("id"), x.optString("name"), x.optString("username"), x.optString("role"), x.optString("status") == "active")
+                    val badges = x.optJSONArray("badges")
+                    Member(x.getString("id"), x.optString("name"), x.optString("username"), x.optString("role"), x.optString("status") == "active",
+                        x.optInt("level", 1).coerceAtLeast(1), badges?.let { b -> List(b.length()) { b.getString(it) } }.orEmpty(),
+                        x.optInt("streak"), x.optInt("done"), x.optDouble("purchased", 0.0), x.optBoolean("admin"))
                 }, g.optString("invited_by"))
         }
     }

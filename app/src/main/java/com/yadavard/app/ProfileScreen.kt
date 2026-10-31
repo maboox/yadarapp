@@ -232,9 +232,13 @@ private fun LevelHeader(s: Game.State?, onName: () -> Unit, onUsername: () -> Un
     val level = s?.level ?: 1
     Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            LevelRing(s?.progress ?: 0f, level, 168.dp) {
-                if (rememberYadimoEnabled()) YadimoView(YadimoMood.IDLE, size = 140.dp)
-                else Icon(Icons.Rounded.Face, null, Modifier.size(72.dp), tint = MaterialTheme.colorScheme.primary)
+            // the ring your token purchases earned goes round the level ring
+            val tier = profile?.let { Tier.of(it.purchased, it.admin) }
+            TierRing(tier, 196.dp, 7.dp) {
+                LevelRing(s?.progress ?: 0f, level, 168.dp) {
+                    if (rememberYadimoEnabled()) YadimoView(YadimoMood.IDLE, size = 140.dp)
+                    else Icon(Icons.Rounded.Face, null, Modifier.size(72.dp), tint = MaterialTheme.colorScheme.primary)
+                }
             }
             Spacer(Modifier.height(10.dp))
             val name = remember(Names.tick) { Prefs.userName(context) }
@@ -249,6 +253,7 @@ private fun LevelHeader(s: Game.State?, onName: () -> Unit, onUsername: () -> Un
                     style = MaterialTheme.typography.labelLarge)
             }
             Text(GameRules.title(level, fa), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+            if (tier != null) { Spacer(Modifier.height(6.dp)); TierChip(tier) }
             if (s != null) {
                 Spacer(Modifier.height(10.dp))
                 LinearProgressIndicator({ s.progress }, Modifier.fillMaxWidth().height(8.dp).clip(CircleShape))
@@ -319,12 +324,16 @@ private fun MissionsCard(s: Game.State, onOpen: (String) -> Unit) {
 
 @Composable
 private fun BadgesCard(s: Game.State) {
+    var shown by remember { mutableStateOf<GameGoal?>(null) }
+    shown?.let { b -> BadgeDialog(b, b.key in s.earned) { shown = null } }
     SettingsCard(t("نشان‌ها", "Badges"), Icons.Rounded.MilitaryTech) {
+        Text(t("روی هر نشان بزن تا ببینی چطور به دستش می‌آوری.", "Tap a badge to see how to earn it."),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         s.badges.chunked(4).forEach { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { b ->
                     val got = b.key in s.earned
-                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).clickable { shown = b }, horizontalAlignment = Alignment.CenterHorizontally) {
                         Box(Modifier.size(56.dp).clip(CircleShape)
                             .background(if (got) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceVariant),
                             contentAlignment = Alignment.Center) {
@@ -339,6 +348,24 @@ private fun BadgesCard(s: Game.State) {
             }
         }
     }
+}
+
+/** What a badge is and how to earn it (also used for other people's badges in groups). */
+@Composable
+fun BadgeDialog(b: GameGoal, got: Boolean, onDone: () -> Unit) {
+    val how = GameRules.badgeHow(b.key)
+    AlertDialog(onDismissRequest = onDone,
+        icon = { Text(b.emoji, fontSize = 40.sp) },
+        title = { Text(t(b.fa, b.en)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(t(how.first, how.second), style = MaterialTheme.typography.bodyLarge)
+                Text(if (got) t("این نشان را گرفته‌ای! 🎉", "You have this badge! 🎉")
+                    else t("پیشرفت: ${n(b.progress)} از ${n(b.target)} • جایزه: ${n(b.xp)} امتیاز", "Progress: ${b.progress} of ${b.target} • reward: ${b.xp} points"),
+                    style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            }
+        },
+        confirmButton = { TextButton(onClick = onDone) { Text(t("باشه", "OK")) } })
 }
 
 @Composable

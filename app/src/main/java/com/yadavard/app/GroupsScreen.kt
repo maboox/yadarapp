@@ -149,6 +149,7 @@ private fun GroupPage(g: Groups.Group, me: String, onEdit: (EditorRequest) -> Un
     val items = remember(g.id, changes, state.tick) { Groups.items(context, g.id) }
     var inviting by remember { mutableStateOf(false) }
     var removing by remember { mutableStateOf<Groups.Member?>(null) }
+    var viewing by remember { mutableStateOf<Groups.Member?>(null) }
     var showDone by remember { mutableStateOf(false) }
     val names = g.members.associate { it.id to it.name }
     Box(Modifier.fillMaxSize()) {
@@ -158,15 +159,19 @@ private fun GroupPage(g: Groups.Group, me: String, onEdit: (EditorRequest) -> Un
                     items(g.members, key = { it.id }) { m ->
                         val label = m.name + when { m.role == "owner" -> t(" 👑", " 👑"); !m.active -> t(" (دعوت‌شده)", " (invited)"); else -> "" }
                         Surface(shape = CircleShape, color = if (m.active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                            modifier = Modifier.combinedClickable(onClick = {}, onLongClick = { if (g.isOwner && m.id != me) removing = m })) {
-                            Text(label, Modifier.padding(horizontal = 12.dp, vertical = 6.dp), style = MaterialTheme.typography.labelLarge)
+                            modifier = Modifier.combinedClickable(onClick = { viewing = m }, onLongClick = { if (g.isOwner && m.id != me) removing = m })) {
+                            Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                m.tier?.let { Text(it.emoji, fontSize = 13.sp); Spacer(Modifier.width(4.dp)) }
+                                Text(label, style = MaterialTheme.typography.labelLarge)
+                            }
                         }
                     }
                     if (g.canEdit) item {
                         AssistChip(onClick = { inviting = true }, label = { Text(t("+ افزودن عضو", "+ Add")) })
                     }
                 }
-                if (g.isOwner) Text(t("برای حذف یک عضو، اسمش را نگه دار.", "Long-press a member to remove them."), style = MaterialTheme.typography.labelSmall,
+                Text(t("روی اسم هر کس بزن تا پروفایلش را ببینی" + if (g.isOwner) "؛ برای حذفش، اسمش را نگه دار." else ".",
+                    "Tap a name to see their profile" + if (g.isOwner) "; long-press to remove." else "."), style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             }
             val open = items.filter { !it.done }
@@ -189,6 +194,7 @@ private fun GroupPage(g: Groups.Group, me: String, onEdit: (EditorRequest) -> Un
         }, icon = { Icon(Icons.Rounded.Add, null) }, text = { Text(t("یادآوری مشترک", "Shared reminder")) },
             modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp))
     }
+    viewing?.let { m -> MemberDialog(m) { viewing = null } }
     if (inviting) InviteDialog { u -> inviting = false; if (u != null) act { Groups.invite(context, g.id, u) } }
     removing?.let { m ->
         AlertDialog(onDismissRequest = { removing = null }, title = { Text(t("حذف ${m.name} از گروه؟", "Remove ${m.name}?")) },
@@ -291,4 +297,45 @@ private fun InviteDialog(onDone: (String?) -> Unit) {
         },
         confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { onDone(name.trim().removePrefix("@")) }) { Text(t("دعوت", "Invite")) } },
         dismissButton = { TextButton(onClick = { onDone(null) }) { Text(t("انصراف", "Cancel")) } })
+}
+
+/** Someone's profile in a group: their ring, level, streak and badges. */
+@Composable
+private fun MemberDialog(m: Groups.Member, onDone: () -> Unit) {
+    val fa = AppDisplay.language == AppLanguage.FA
+    val all = remember { GameRules.badges(GameFacts()) }
+    var badge by remember { mutableStateOf<GameGoal?>(null) }
+    AlertDialog(onDismissRequest = onDone, confirmButton = { TextButton(onClick = onDone) { Text(t("بستن", "Close")) } },
+        text = {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                TierRing(m.tier, 112.dp, 5.dp) {
+                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(84.dp)) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(m.name.trim().removePrefix("@").take(1).uppercase().ifBlank { "?" }, fontSize = 36.sp, fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+                    }
+                }
+                Text(m.name, style = MaterialTheme.typography.titleLarge)
+                if (m.username.isNotBlank()) Text("@" + m.username, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                m.tier?.let { TierChip(it) }
+                Text(t("سطح ${n(m.level)} • ", "Level ${m.level} • ") + GameRules.title(m.level, fa), style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary)
+                Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                    Text(t("🔥 ${n(m.streak)} روز", "🔥 ${m.streak} days"), style = MaterialTheme.typography.labelLarge)
+                    Text(t("✅ ${n(m.done)} کار", "✅ ${m.done} done"), style = MaterialTheme.typography.labelLarge)
+                }
+                val got = all.filter { it.key in m.badges }
+                if (got.isEmpty()) Text(t("هنوز نشانی نگرفته.", "No badges yet."), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                else LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(got, key = { it.key }) { b ->
+                        Surface(onClick = { badge = b }, shape = CircleShape, color = MaterialTheme.colorScheme.tertiaryContainer, modifier = Modifier.size(48.dp)) {
+                            Box(contentAlignment = Alignment.Center) { Text(b.emoji, fontSize = 24.sp) }
+                        }
+                    }
+                }
+            }
+        })
+    badge?.let { b -> BadgeDialog(b, true) { badge = null } }
 }

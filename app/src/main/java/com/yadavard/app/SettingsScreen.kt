@@ -205,7 +205,10 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onBa
                     AppDisplay.theme) { AppDisplay.theme = it; Prefs.setTheme(context, it) }
                 Label(t("تم", "Theme style"))
                 ThemePicker(AppDisplay.color) { AppDisplay.color = it; Prefs.setThemeColor(context, it); WidgetUpdater.update(context) }
-                if (themeSpec(AppDisplay.color).alwaysDark) Text(t("«نیمه‌شب» همیشه تیره است (مناسب صفحه‌های OLED).",
+                if (themeSpec(AppDisplay.color).adminOnly) Text(t("👑 «سلطنتی» فقط برای مدیر است: بنفش شب با طلایی و برقی که روی صفحه می‌دود.",
+                    "👑 “Royal” is for the admin only: night purple with gold and a running shine."), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary)
+                else if (themeSpec(AppDisplay.color).alwaysDark) Text(t("«نیمه‌شب» همیشه تیره است (مناسب صفحه‌های OLED).",
                     "“Midnight” is always dark (made for OLED screens)."), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -576,8 +579,9 @@ fun <T> SettingSegmented(options: List<Pair<T, String>>, selected: T, onSelect: 
 @Composable
 private fun ThemePicker(selected: ThemeColor, onSelect: (ThemeColor) -> Unit) {
     val dark = isDarkTheme()
+    val admin = Account.profile.collectAsState().value?.admin == true
     androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        items(themes, key = { it.id.name }) { spec ->
+        items(themes.filter { !it.adminOnly || admin || it.id == selected }, key = { it.id.name }) { spec ->
             val scheme = appColors(dark || spec.alwaysDark, spec.id)
             val isSelected = spec.id == selected
             Column(horizontalAlignment = Alignment.CenterHorizontally) {

@@ -8,8 +8,18 @@
 
 قرص، قسط، تولد، جلسه، خرید… فقط بگو یا بنویس؛ یادیمو سر وقت یادت می‌آورد.
 
-[![دریافت از کافه‌بازار](https://img.shields.io/badge/%D8%AF%D8%B1%DB%8C%D8%A7%D9%81%D8%AA%20%D8%A7%D8%B2-%DA%A9%D8%A7%D9%81%D9%87%E2%80%8C%D8%A8%D8%A7%D8%B2%D8%A7%D8%B1-27ae60?style=for-the-badge)](https://cafebazaar.ir/app/com.yadavard.app.plus)
-[![آخرین نسخهٔ آزمایشی](https://img.shields.io/badge/APK-%D9%86%D8%B3%D8%AE%D9%87%D9%94%20%D8%A2%D8%B2%D9%85%D8%A7%DB%8C%D8%B4%DB%8C-7a5cf0?style=for-the-badge)](https://github.com/maboox/yadarapp/releases/tag/apk-claude-yadar-accounts)
+<a href="https://cafebazaar.ir/app/com.yadavard.app.plus"><img src="https://img.shields.io/badge/%DA%A9%D8%A7%D9%81%D9%87%E2%80%8C%D8%A8%D8%A7%D8%B2%D8%A7%D8%B1-%D8%AF%D8%B1%DB%8C%D8%A7%D9%81%D8%AA-27ae60?style=for-the-badge&logo=android&logoColor=white" alt="دریافت از کافه‌بازار"></a>
+<a href="https://github.com/maboox/yadarapp/releases/tag/apk-claude-yadar-accounts"><img src="https://img.shields.io/badge/APK-%D9%86%D8%B3%D8%AE%D9%87%D9%94%20%D8%A2%D8%B2%D9%85%D8%A7%DB%8C%D8%B4%DB%8C-7a5cf0?style=for-the-badge&logo=android&logoColor=white" alt="نسخهٔ آزمایشی"></a>
+<a href="#چه-کارهایی-میکند"><img src="https://img.shields.io/badge/%D8%A7%D9%85%DA%A9%D8%A7%D9%86%D8%A7%D8%AA-%D8%A8%D8%A8%DB%8C%D9%86-ff8fb6?style=for-the-badge&logo=sparkles&logoColor=white" alt="امکانات"></a>
+
+<br>
+
+<img src="https://img.shields.io/github/actions/workflow/status/maboox/yadarapp/android.yml?branch=claude%2Fyadar-accounts&style=flat-square&label=build&logo=githubactions&logoColor=white" alt="build">
+<img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android 8+">
+<img src="https://img.shields.io/badge/Kotlin-Compose-7F52FF?style=flat-square&logo=kotlin&logoColor=white" alt="Kotlin">
+<img src="https://img.shields.io/badge/Server-Go%20%2B%20PocketBase-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go">
+<img src="https://img.shields.io/badge/%D8%B2%D8%A8%D8%A7%D9%86-%D9%81%D8%A7%D8%B1%D8%B3%DB%8C%20%7C%20English-e07a2e?style=flat-square" alt="فارسی و انگلیسی">
+<img src="https://img.shields.io/badge/%D8%AA%D9%82%D9%88%DB%8C%D9%85-%D8%B4%D9%85%D8%B3%DB%8C%20%7C%20%D9%85%DB%8C%D9%84%D8%A7%D8%AF%DB%8C-0f9d8a?style=flat-square" alt="شمسی و میلادی">
 
 </div>
 

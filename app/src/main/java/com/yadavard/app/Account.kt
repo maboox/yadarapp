@@ -36,6 +36,8 @@ object Account {
         val admin: Boolean = false,
         /** The unique @name people find each other by; "" until chosen. */
         val username: String = "",
+        /** Tokens bought in all (decides the ring around the picture). */
+        val purchased: Double = 0.0,
     )
 
     /** A token pack sold through Cafe Bazaar; prices are set in the Bazaar panel, [price] is only shown. */
@@ -77,7 +79,7 @@ object Account {
 
     private fun parse(o: JSONObject) = Profile(o.optString("phone"), o.optString("name"), o.optDouble("balance", 0.0),
         o.optBoolean("unlimited"), o.optString("plan"), o.optString("text_model"), o.optString("audio_model"),
-        o.optBoolean("ai_enabled", true), o.optString("id"), o.optBoolean("bazaar"), o.optBoolean("admin"), o.optString("username"))
+        o.optBoolean("ai_enabled", true), o.optString("id"), o.optBoolean("bazaar"), o.optBoolean("admin"), o.optString("username"), o.optDouble("purchased", 0.0))
 
     private fun store(context: Context, profile: JSONObject) {
         prefs(context).edit().putString("profile", profile.toString()).apply()

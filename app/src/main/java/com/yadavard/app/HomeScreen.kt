@@ -72,7 +72,6 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
     val exactOk = Scheduler.canExact(context)
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { onFixPermissions() }
 
-    val yadimoOn = rememberYadimoEnabled()
     LazyColumn(Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = padding.calculateTopPadding() + 8.dp,
             bottom = padding.calculateBottomPadding() + 96.dp),
@@ -112,8 +111,6 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
                 }
             }
         }
-        // Yadimo lives across the top of the home screen
-        if (yadimoOn) item(key = "yadimo") { HomeYadimo(items, now) }
         if (searching) item(key = "search") {
             OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true,
                 placeholder = { Text(t("جست‌وجو در یادآوری‌ها", "Search reminders")) },
@@ -362,7 +359,7 @@ private fun QuickAddCard(text: String, onText: (String) -> Unit, now: Long, acti
 
     Surface(shape = MaterialTheme.shapes.large, color = Color.Transparent, modifier = Modifier.fillMaxWidth()) {
         Box(Modifier.background(Brush.linearGradient(if (lowTokens) listOf(Color(0xFF8E1F2F), Color(0xFFC0392B), Color(0xFFE5735A))
-            else heroColors())).padding(16.dp)) {
+            else heroColors())).shimmer(themeSpec(AppDisplay.color).adminOnly).padding(16.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.AutoAwesome, null, tint = Color(0xFFFFDC83), modifier = Modifier.size(20.dp))

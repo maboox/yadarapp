@@ -39,6 +39,15 @@ func gameLevel(user *core.Record) int {
 	return loadGame(user).Level
 }
 
+// purchasedTokens is how many tokens the user has bought in all (it decides the ring around their picture).
+func purchasedTokens(app core.App, userID string) float64 {
+	var row struct {
+		Total float64 `db:"total"`
+	}
+	_ = app.DB().NewQuery("SELECT COALESCE(SUM(tokens), 0) AS total FROM purchases WHERE user = {:u}").Bind(dbx.Params{"u": userID}).One(&row)
+	return row.Total
+}
+
 func union(a, b []string) []string {
 	seen := map[string]bool{}
 	out := []string{}

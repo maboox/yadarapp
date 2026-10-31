@@ -81,6 +81,19 @@ object GameRules {
         GameGoal("streak7", "🔥", "۷ روز پشت سر هم کار انجام بده", "Get something done 7 days in a row", minOf(f.bestStreak, 7), 7, 30, tokens = 5),
     )
 
+    /** How each badge is earned, shown when it is tapped. */
+    fun badgeHow(key: String): Pair<String, String> = when (key) {
+        "early" -> "۵ بار کاری را قبل از ساعت ۸ صبح انجام بده (تیک «انجام شد» قبل از ۸)." to "Get something done before 8 am, 5 times."
+        "night" -> "۵ بار کاری را بعد از ساعت ۱۱ شب انجام بده." to "Get something done after 11 pm, 5 times."
+        "streak7" -> "۷ روز پشت سر هم، هر روز دست‌کم یک کار را انجام بده." to "Get at least one thing done every day for 7 days in a row."
+        "streak30" -> "۳۰ روز پشت سر هم، هر روز دست‌کم یک کار را انجام بده." to "Get at least one thing done every day for 30 days in a row."
+        "hundred" -> "در مجموع ۱۰۰ کار را «انجام شد» بزن." to "Mark 100 things done in all."
+        "voice25" -> "۲۵ یادآوری را با صدا (دکمهٔ میکروفون) بساز." to "Create 25 reminders by voice (the microphone button)."
+        "perfect" -> "یک هفته (شنبه تا جمعه) با دست‌کم ۷ کار، که هیچ‌کدامش «انجام نشد» نباشد." to "One week (Saturday to Friday) with at least 7 things, none of them missed."
+        "collector" -> "۵ لباس یا وسیله برای یادیمو در کمدش بگیر." to "Get 5 outfits or items for Yadimo in its wardrobe."
+        else -> "" to ""
+    }
+
     fun badges(f: GameFacts): List<GameGoal> = listOf(
         GameGoal("early", "🌅", "سحرخیز", "Early bird", minOf(f.early, 5), 5, XP_BADGE),
         GameGoal("night", "🦉", "شب‌زنده‌دار", "Night owl", minOf(f.night, 5), 5, XP_BADGE),

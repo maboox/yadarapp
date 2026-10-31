@@ -82,6 +82,7 @@ func profile(app core.App, user *core.Record) map[string]any {
 		"admin":       user.GetBool("is_admin"),
 		"name":        user.GetString("name"),
 		"username":    user.GetString("username"),
+		"purchased":   purchasedTokens(app, user.Id),
 		"balance":     user.GetFloat("balance"),
 		"unlimited":   user.GetBool("unlimited"),
 		"plan":        planName,

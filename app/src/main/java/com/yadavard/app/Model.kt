@@ -12,7 +12,7 @@ enum class AlertStyle { NOTIFICATION, ALARM }
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
 /** Look of the app: colours, backgrounds, header gradient and corners (light/dark is [ThemeMode]). */
-enum class ThemeColor { VIOLET, OCEAN, FOREST, SUNSET, BLOSSOM, PAPER, MIDNIGHT }
+enum class ThemeColor { VIOLET, OCEAN, FOREST, SUNSET, BLOSSOM, PAPER, MIDNIGHT, ROYAL }
 
 data class Reminder(
     val id: Long = 0,
