@@ -357,6 +357,102 @@ func ensureSchema(app core.App) error {
 		return err
 	}
 
+	// Cloud sync (sync.go): one row per reminder or note, encrypted by the phone.
+	if _, err := ensureCollection(app, "sync_items", func(c *core.Collection) {
+		addField(c, &core.RelationField{Name: "user", CollectionId: users.Id, MaxSelect: 1, CascadeDelete: true})
+		addField(c, &core.TextField{Name: "uid", Max: 64, Presentable: true})
+		addField(c, &core.TextField{Name: "kind", Max: 20})
+		addField(c, &core.TextField{Name: "data", Max: syncMaxData, Help: "رمزنگاری‌شده؛ قابل خواندن نیست"})
+		addField(c, &core.BoolField{Name: "deleted"})
+		addField(c, &core.NumberField{Name: "updated", Help: "زمان تغییر روی گوشی (میلی‌ثانیه)"})
+		addField(c, &core.NumberField{Name: "at", Help: "زمان رسیدن به سرور (میلی‌ثانیه)"})
+		if !hasIndex(c, "idx_sync_user_uid") {
+			c.AddIndex("idx_sync_user_uid", true, "user, uid", "")
+		}
+		if !hasIndex(c, "idx_sync_user_at") {
+			c.AddIndex("idx_sync_user_at", false, "user, at", "")
+		}
+	}); err != nil {
+		return err
+	}
+
+	// Groups (groups.go).
+	groups, err := ensureCollection(app, "groups", func(c *core.Collection) {
+		addField(c, &core.TextField{Name: "name", Max: 40, Presentable: true})
+		addField(c, &core.RelationField{Name: "owner", CollectionId: users.Id, MaxSelect: 1})
+		addField(c, &core.SelectField{Name: "edit_mode", Values: []string{"owner", "all"}, MaxSelect: 1, Help: "owner = فقط سازنده یادآوری می‌سازد؛ all = همه"})
+		addField(c, &core.AutodateField{Name: "created", OnCreate: true})
+	})
+	if err != nil {
+		return err
+	}
+	if _, err := ensureCollection(app, "group_members", func(c *core.Collection) {
+		addField(c, &core.RelationField{Name: "grp", CollectionId: groups.Id, MaxSelect: 1, CascadeDelete: true})
+		addField(c, &core.RelationField{Name: "user", CollectionId: users.Id, MaxSelect: 1, CascadeDelete: true})
+		addField(c, &core.TextField{Name: "role", Max: 10})
+		addField(c, &core.TextField{Name: "status", Max: 10, Help: "invited یا active"})
+		addField(c, &core.RelationField{Name: "invited_by", CollectionId: users.Id, MaxSelect: 1})
+		addField(c, &core.AutodateField{Name: "created", OnCreate: true})
+		if !hasIndex(c, "idx_group_members") {
+			c.AddIndex("idx_group_members", true, "grp, user", "")
+		}
+		if !hasIndex(c, "idx_group_members_user") {
+			c.AddIndex("idx_group_members_user", false, "user, status", "")
+		}
+	}); err != nil {
+		return err
+	}
+	if _, err := ensureCollection(app, "group_items", func(c *core.Collection) {
+		addField(c, &core.RelationField{Name: "grp", CollectionId: groups.Id, MaxSelect: 1, CascadeDelete: true})
+		addField(c, &core.TextField{Name: "uid", Max: 64, Presentable: true})
+		addField(c, &core.TextField{Name: "data", Max: 70000, Help: "رمزنگاری‌شده با کلید گروه"})
+		addField(c, &core.TextField{Name: "assignee", Max: 30, Help: "خالی = همه"})
+		addField(c, &core.TextField{Name: "mode", Max: 5, Help: "one = یک نفر کافیه؛ all = همه"})
+		addField(c, &core.BoolField{Name: "notify"})
+		addField(c, &core.BoolField{Name: "deleted"})
+		addField(c, &core.BoolField{Name: "finished"})
+		addField(c, &core.TextField{Name: "by", Max: 30})
+		addField(c, &core.NumberField{Name: "updated"})
+		addField(c, &core.NumberField{Name: "at"})
+		if !hasIndex(c, "idx_group_items_uid") {
+			c.AddIndex("idx_group_items_uid", true, "grp, uid", "")
+		}
+		if !hasIndex(c, "idx_group_items_at") {
+			c.AddIndex("idx_group_items_at", false, "grp, at", "")
+		}
+	}); err != nil {
+		return err
+	}
+	if _, err := ensureCollection(app, "group_done", func(c *core.Collection) {
+		addField(c, &core.RelationField{Name: "grp", CollectionId: groups.Id, MaxSelect: 1, CascadeDelete: true})
+		addField(c, &core.TextField{Name: "uid", Max: 64})
+		addField(c, &core.TextField{Name: "user", Max: 30})
+		addField(c, &core.NumberField{Name: "occurrence"})
+		addField(c, &core.BoolField{Name: "undone"})
+		addField(c, &core.NumberField{Name: "at"})
+		if !hasIndex(c, "idx_group_done") {
+			c.AddIndex("idx_group_done", true, "grp, uid, user, occurrence", "")
+		}
+		if !hasIndex(c, "idx_group_done_at") {
+			c.AddIndex("idx_group_done_at", false, "grp, at", "")
+		}
+	}); err != nil {
+		return err
+	}
+	if _, err := ensureCollection(app, "group_events", func(c *core.Collection) {
+		addField(c, &core.RelationField{Name: "grp", CollectionId: groups.Id, MaxSelect: 1, CascadeDelete: true})
+		addField(c, &core.TextField{Name: "kind", Max: 10})
+		addField(c, &core.TextField{Name: "actor", Max: 30})
+		addField(c, &core.TextField{Name: "target", Max: 30})
+		addField(c, &core.TextField{Name: "text", Max: 2000})
+		addField(c, &core.NumberField{Name: "at"})
+		if !hasIndex(c, "idx_group_events_at") {
+			c.AddIndex("idx_group_events_at", false, "grp, at", "")
+		}
+	}); err != nil {
+		return err
+	}
+
 	if _, err := ensureCollection(app, "otps", func(c *core.Collection) {
 		addField(c, &core.TextField{Name: "phone", Max: 15})
 		addField(c, &core.TextField{Name: "code_hash", Max: 100, Hidden: true})

@@ -51,7 +51,22 @@ data class Reminder(
     val alertedAt: Long = 0,
     val snoozeAt: Long = 0,
     val createdAt: Long = System.currentTimeMillis(),
+    /** Stable id across phones (cloud sync and groups); made when first saved. */
+    val uid: String = "",
+    /** When it was last changed on this phone; the newer change wins when phones sync. */
+    val updatedAt: Long = 0,
+    /** The group it belongs to; "" for your own reminders (only those count in stats, points and the home list). */
+    val groupId: String = "",
+    /** Group reminder: who it is for (a user id); "" = everyone. */
+    val assignee: String = "",
+    /** Group reminder: "one" = one person doing it is enough, "all" = everyone does it. */
+    val groupMode: String = "one",
+    /** Group reminder: tell the others when someone does it. */
+    val notifyOthers: Boolean = false,
+    /** Group reminder: who did which occurrence, {"<occurrence>": ["<user id>", …]} (last few only). */
+    val doneBy: String = "",
 ) {
+    val inGroup: Boolean get() = groupId.isNotEmpty()
     val repeating: Boolean get() = unit != RepeatUnit.NONE && unit != RepeatUnit.AFTER_DONE_DAYS
     /** Repeats at least once every day (hourly, daily or every weekday); such routines are not "events" on a calendar. */
     val isDaily: Boolean get() = unit == RepeatUnit.HOURS || (unit == RepeatUnit.DAYS && every == 1) ||
@@ -83,6 +98,8 @@ data class Note(
     val pinned: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = createdAt,
+    /** Stable id across phones (cloud sync). */
+    val uid: String = "",
 )
 
 /** State transitions shared by the app UI, notification actions and widgets. */

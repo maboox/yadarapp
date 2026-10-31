@@ -262,19 +262,10 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onBa
         item { AiCard() }
 
         item {
-            // The hidden settings exist only for the admin account; for everyone else the icon is just an icon.
-            val admin = Account.profile.collectAsState().value?.admin == true
-            SettingsCard(t("پشتیبان‌گیری", "Backup"), Icons.Rounded.Backup, onIconHold = if (admin) ({ hidden = true }) else null,
-                summary = t("${n(count)} یادآوری • داده‌ها فقط روی این گوشی است؛ پشتیبان بگیر", "$count reminders • data is only on this phone; back it up"), collapsible = true) {
-                Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.tertiaryContainer) {
-                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
-                        Icon(Icons.Rounded.WarningAmber, null, tint = MaterialTheme.colorScheme.onTertiaryContainer, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(t("اطلاعاتت فقط روی همین گوشی است و روی سرور نیست. اگر گوشی عوض یا ریست شود، فقط با نسخهٔ پشتیبان برمی‌گردد؛ گاهی یک نسخه بگیر و جای دیگری نگه دار.",
-                            "Your data is only on this phone, not on a server. After a phone change or reset only a backup brings it back; export one now and then and keep it elsewhere."),
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
-                    }
-                }
+            // A 3-second hold on the icon opens the hidden settings (groups for everyone; more for the admin).
+            SettingsCard(t("پشتیبان‌گیری", "Backup"), Icons.Rounded.Backup, onIconHold = { hidden = true },
+                summary = t("${n(count)} یادآوری • همگام‌سازی ابری و فایل پشتیبان", "$count reminders • cloud sync and backup files"), collapsible = true) {
+                CloudSyncSection()
                 Text(t("${n(count)} یادآوری روی این گوشی ذخیره است. نسخه‌های جدید را روی همین نصب کن تا اطلاعات بماند. یادیمو بعد از هر تغییر یک نسخهٔ پشتیبان خودکار در پوشهٔ Download/Yadar می‌گذارد که با حذف برنامه هم پاک نمی‌شود؛ با «بازیابی» برش گردان. کلید هوش مصنوعی داخل پشتیبان نیست.",
                     "$count reminders on this phone. Install new versions over this one to keep your data. Yadimo also saves an automatic backup to Download/Yadar after every change, which survives uninstalling; bring it back with Restore. Your AI key is not included."),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -291,7 +282,7 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onBa
 
         item {
             val version = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: ""
-            Text(t("یادیمو نسخهٔ ${n(version)} • یادآوری‌ها و یادداشت‌ها فقط روی گوشی خودت", "Yadimo $version • reminders and notes stay on your phone"),
+            Text(t("یادیمو نسخهٔ ${n(version)}", "Yadimo $version"),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth().padding(8.dp))
         }
@@ -304,12 +295,93 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onBa
                     IconButton(onClick = { hidden = false }) { Icon(Icons.Rounded.Close, t("بستن", "Close")) }
                     Text(t("تنظیمات پنهان", "Hidden settings"), style = MaterialTheme.typography.titleLarge)
                 }
-                LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(16.dp, 4.dp, 16.dp, 48.dp)) {
-                    item { AnnounceCard() }
-                    item { AiCard(advancedUnlocked = true) }
+                // everyone may try groups from here; the rest is only for the admin account
+                val admin = Account.profile.collectAsState().value?.admin == true
+                LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(16.dp, 4.dp, 16.dp, 48.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    item { GroupsToggleCard() }
+                    if (admin) {
+                        item { AnnounceCard() }
+                        item { AiCard(advancedUnlocked = true) }
+                    }
                 }
             }
         }
+    }
+}
+
+/**
+ * Cloud sync: a switch for signed-in users. Off, everything stays only on this phone (as before); on, an encrypted
+ * copy is kept on the Yadimo server and a new phone gets it back by signing in.
+ */
+@Composable
+private fun CloudSyncSection() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val profile by Account.profile.collectAsState()
+    var on by remember(profile) { mutableStateOf(CloudSync.on(context)) }
+    var confirmWipe by remember { mutableStateOf(false) }
+    var tick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(on, tick) { while (on) { kotlinx.coroutines.delay(3000); tick++ } }
+    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.CloudSync, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                Spacer(Modifier.width(8.dp))
+                Text(t("همگام‌سازی ابری", "Cloud sync"), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer)
+                Switch(on, {
+                    if (profile == null) { Account.loginRequested.value = true; return@Switch }
+                    on = it; CloudSync.setOn(context, it)
+                })
+            }
+            Text(if (on) t("یادآوری‌ها، یادداشت‌ها و دسته‌هایت رمزنگاری‌شده روی سرور یادیمو هم نگه داشته می‌شود. روی گوشی جدید فقط وارد همین حساب شو و این را روشن کن تا همه‌چیز برگردد؛ روی دو گوشی هم با هم هماهنگ می‌ماند.",
+                    "Your reminders, notes and categories are also kept, encrypted, on the Yadimo server. On a new phone just sign in and turn this on to get everything back; two phones stay in step.")
+                else t("خاموش است: اطلاعاتت فقط روی همین گوشی است. با روشن کردنش (باید وارد حساب باشی) یک نسخهٔ رمزنگاری‌شده روی سرور یادیمو نگه داشته می‌شود تا با عوض شدن گوشی از دست نرود.",
+                    "Off: your data is only on this phone. Turn it on (signed in) to keep an encrypted copy on the Yadimo server so a new phone gets it back."),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+            if (on) {
+                @Suppress("UNUSED_VARIABLE") val read = tick
+                val last = CloudSync.lastSync(context)
+                val err = CloudSync.lastError(context)
+                Text(when {
+                    err.isNotBlank() -> t("آخرین تلاش انجام نشد: ", "Last try failed: ") + err
+                    last > 0 -> t("آخرین همگام‌سازی: ", "Last synced: ") + Dates.formatDateTime(last, java.time.ZoneId.systemDefault(), AppDisplay.calendar, AppDisplay.language, withYear = false)
+                    else -> t("در حال همگام‌سازی…", "Syncing…")
+                }, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { CloudSync.soon(context, 0) }) { Text(t("الان همگام کن", "Sync now")) }
+                    TextButton(onClick = { confirmWipe = true }) { Text(t("پاک کردن نسخهٔ ابری", "Delete cloud copy")) }
+                }
+            }
+        }
+    }
+    if (confirmWipe) AlertDialog(onDismissRequest = { confirmWipe = false },
+        title = { Text(t("نسخهٔ ابری پاک شود؟", "Delete the cloud copy?")) },
+        text = { Text(t("همه‌چیز روی این گوشی می‌ماند؛ فقط نسخهٔ روی سرور پاک و همگام‌سازی خاموش می‌شود.", "Everything stays on this phone; only the server copy is deleted and sync turns off.")) },
+        confirmButton = { TextButton(onClick = {
+            confirmWipe = false
+            scope.launch {
+                runCatching { kotlinx.coroutines.withContext(Dispatchers.IO) { CloudSync.wipe(context) } }
+                    .onSuccess { on = false; Toast.makeText(context, t("نسخهٔ ابری پاک شد", "Cloud copy deleted"), Toast.LENGTH_SHORT).show() }
+                    .onFailure { Toast.makeText(context, it.message, Toast.LENGTH_LONG).show() }
+            }
+        }) { Text(t("پاک کن", "Delete")) } },
+        dismissButton = { TextButton(onClick = { confirmWipe = false }) { Text(t("انصراف", "Cancel")) } })
+}
+
+/** Hidden settings: turn groups (shared reminders, still being tried out) on or off. */
+@Composable
+private fun GroupsToggleCard() {
+    val context = LocalContext.current
+    var on by remember { mutableStateOf(Groups.enabled(context)) }
+    SettingsCard(t("گروه‌ها (آزمایشی)", "Groups (preview)"), Icons.Rounded.Groups) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(t("یادآوری گروهی روشن باشد", "Turn on group reminders"), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+            Switch(on, { on = it; Groups.setEnabled(context, it) })
+        }
+        Text(t("با روشن کردنش، بالای صفحهٔ خانه دکمهٔ «گروه‌ها» می‌آید: گروه بساز، دیگران را با نام کاربری دعوت کن و یادآوری مشترک داشته باشید. برای این کار باید وارد حساب باشی و نام کاربری داشته باشی.",
+            "Turning it on adds a Groups button at the top of the home screen: make a group, invite people by username and share reminders. You need to be signed in and have a username."),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

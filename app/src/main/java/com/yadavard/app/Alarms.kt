@@ -74,6 +74,8 @@ object Scheduler {
     fun schedule(context: Context, r: Reminder) {
         cancel(context, r.id)
         if (r.done || r.id == 0L) return
+        // a group's reminder given to someone else rings only on their phone
+        if (r.inGroup && !Groups.forMe(context, r)) return
         val now = System.currentTimeMillis()
         if (r.nextAt > 0 && r.nextAt != r.pendingAt) {
             set(context, r.id, AlarmKind.DUE, r.nextAt, r.nextAt, clock = true)
@@ -94,7 +96,7 @@ object Scheduler {
         }
     }
 
-    fun rescheduleAll(context: Context) = Repo.all(context).forEach { schedule(context, it) }
+    fun rescheduleAll(context: Context) = (Repo.all(context) + Repo.store(context).groupItems()).forEach { schedule(context, it) }
 
     fun scheduleTest(context: Context, delayMillis: Long, alarm: Boolean) {
         val pi = PendingIntent.getBroadcast(context, if (alarm) 2 else 1,

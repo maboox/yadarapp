@@ -172,11 +172,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // One writer thread keeps user actions in order (for example "done" followed by "undo").
     private val writer = java.util.concurrent.Executors.newSingleThreadExecutor().asCoroutineDispatcher()
     private fun io(block: () -> Unit) { viewModelScope.launch(writer) { block() } }
+    // a group's reminders go to the group too
     fun save(r: Reminder, done: (Reminder) -> Unit = {}) = viewModelScope.launch {
-        val saved = withContext(writer) { Repo.save(context, r) }
+        val saved = withContext(writer) { if (r.inGroup) Groups.saveItem(context, r) else Repo.save(context, r) }
         done(saved)
     }
-    fun delete(r: Reminder) = io { Repo.delete(context, r) }
+    fun delete(r: Reminder) = io { if (r.inGroup) Groups.deleteItem(context, r) else Repo.delete(context, r) }
     fun complete(r: Reminder) = io { Repo.complete(context, r.id) }
     fun snooze(r: Reminder, minutes: Int) = io { Repo.snooze(context, r.id, minutes) }
     fun skip(r: Reminder) = io { Repo.skip(context, r.id) }
@@ -187,7 +188,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun saveNote(n: Note) = io { Repo.saveNote(context, n) }
     fun deleteNote(n: Note) = io { Repo.deleteNote(context, n.id) }
     /** Restores an exact earlier state, used by "Undo". */
-    fun restore(r: Reminder) = io { Repo.save(context, r) }
+    fun restore(r: Reminder) = io { if (r.inGroup) Groups.saveItem(context, r) else Repo.save(context, r) }
 }
 
 /** The screens; SETTINGS has no tab of its own, it opens from the gear on the profile. */
@@ -216,7 +217,12 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
     var packExport by remember { mutableStateOf<Set<Long>?>(null) }
     var packImport by remember { mutableStateOf<Packs.Pack?>(null) }
 
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { permissionTick++; vm.refresh() }
+    var showGroups by rememberSaveable { mutableStateOf(false) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        permissionTick++; vm.refresh()
+        // the cloud copy and the groups catch up whenever the app is opened
+        CloudSync.soon(context, 2); Groups.load(context); Groups.soon(context, 1); SyncWork.ensure(context)
+    }
 
     var capturing by remember { mutableStateOf(false) }
     val session by AssistantSession.state.collectAsState()
@@ -272,6 +278,7 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
             }
             WidgetCommands.NEW_NOTE -> { tab = Tab.NOTES; noteEditor = Note(title = "") }
             WidgetCommands.BUY -> { tab = Tab.SETTINGS; Account.buyRequested.value = true }
+            WidgetCommands.GROUPS -> { tab = Tab.HOME; showGroups = true }
             WidgetCommands.OPEN_NOTE -> {
                 val id = c.getLongExtra(WidgetCommands.EXTRA_ID, 0)
                 tab = Tab.NOTES
@@ -387,7 +394,7 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
             AnimatedContent(tab, transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) }, label = "tab") { current ->
                 when (current) {
                     Tab.HOME -> HomeScreen(items, now, padding, actions, quickText, { quickText = it }, permissionTick,
-                        onFixPermissions = { tab = Tab.SETTINGS }, onProfile = { tab = Tab.PROFILE })
+                        onFixPermissions = { tab = Tab.SETTINGS }, onProfile = { tab = Tab.PROFILE }, onGroups = { showGroups = true })
                     Tab.CALENDAR -> CalendarScreen(items, now, padding, calendarDay, { calendarDay = it }, actions)
                     Tab.NOTES -> NotesScreen(notes, padding, onOpen = { noteEditor = it ?: Note(title = "") },
                         onPin = { vm.saveNote(it.copy(pinned = !it.pinned)) }, onDelete = { vm.deleteNote(it) },
@@ -459,6 +466,10 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
             }
         }
         packImport?.let { pack -> PackImportDialog(pack) { packImport = null } }
+        // the groups open over the home screen; the editor (for a group's reminder) opens over them
+        AnimatedVisibility(showGroups, enter = slideInVertically { it / 4 } + fadeIn(), exit = slideOutVertically { it / 4 } + fadeOut()) {
+            GroupsScreen(onClose = { showGroups = false }, onEdit = { editor = it }, actions = actions)
+        }
         if (showHelp) HelpScreen { showHelp = false }
         var shown by remember { mutableStateOf<EditorRequest?>(null) }
         if (editor != null) shown = editor

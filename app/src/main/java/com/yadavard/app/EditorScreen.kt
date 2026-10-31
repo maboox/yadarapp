@@ -64,6 +64,11 @@ fun EditorScreen(request: EditorRequest, onClose: () -> Unit, onSave: (Reminder)
     var alert by remember { mutableStateOf(source?.alertStyle ?: Prefs.defaultAlert(context)) }
     var lead by remember { mutableIntStateOf(source?.leadMinutes ?: if (original == null) Prefs.defaultLead(context) else 0) }
     var nag by remember { mutableIntStateOf(source?.nagMinutes ?: 0) }
+    // a group's reminder: who it is for, whether one person is enough, and whether the others hear about it
+    val group = source?.groupId?.takeIf { it.isNotEmpty() }?.let { id -> Groups.state.value.groups.firstOrNull { it.id == id } }
+    var assignee by remember { mutableStateOf(source?.assignee.orEmpty()) }
+    var groupMode by remember { mutableStateOf(source?.groupMode ?: "one") }
+    var notifyOthers by remember { mutableStateOf(source?.notifyOthers ?: true) }
     var choice by remember {
         mutableStateOf(when {
             unit == RepeatUnit.NONE -> RepeatChoice.ONCE
@@ -89,7 +94,7 @@ fun EditorScreen(request: EditorRequest, onClose: () -> Unit, onSave: (Reminder)
 
     fun build(): Reminder? {
         val interval = every.toIntOrNull() ?: 0
-        val base = original ?: Reminder(title = "", firstAt = dueAt)
+        val base = original ?: request.draft?.takeIf { it.inGroup }?.copy(id = 0) ?: Reminder(title = "", firstAt = dueAt)
         val draft = base.copy(
             title = title.trim(), note = note.trim(), category = category, important = important, alertStyle = alert,
             firstAt = dueAt, unit = unit, every = if (unit == RepeatUnit.NONE) 1 else interval,
@@ -98,7 +103,8 @@ fun EditorScreen(request: EditorRequest, onClose: () -> Unit, onSave: (Reminder)
             untilAt = if (unit == RepeatUnit.NONE || unit == RepeatUnit.AFTER_DONE_DAYS) null
                 else until?.let { Dates.at(it, 23, 59, zone) },
             leadMinutes = lead, nagMinutes = nag, zone = zone.id, calendar = cal,
-            done = false, pendingAt = 0, alertedAt = 0, snoozeAt = 0)
+            done = false, pendingAt = 0, alertedAt = 0, snoozeAt = 0,
+            assignee = if (base.inGroup) assignee else "", groupMode = groupMode, notifyOthers = base.inGroup && notifyOthers)
         var aligned = Recurrence.align(draft)
         if (aligned.repeating && aligned.nextAt <= System.currentTimeMillis()) {
             val next = Recurrence.nextAfter(aligned, System.currentTimeMillis()) ?: return null
@@ -270,6 +276,21 @@ fun EditorScreen(request: EditorRequest, onClose: () -> Unit, onSave: (Reminder)
                             }
                         }
                     }
+                }
+
+                if (group != null) Block(t("در گروه «${group.name}»", "In “${group.name}”"), Icons.Rounded.Groups) {
+                    Text(t("برای چه کسی؟", "For whom?"), style = MaterialTheme.typography.labelLarge)
+                    ChoiceChips(listOf("") + group.activeMembers.map { it.id }, assignee,
+                        { id -> if (id.isEmpty()) t("همه", "Everyone") else group.activeMembers.firstOrNull { it.id == id }?.name ?: "?" }, { assignee = it })
+                    if (assignee.isEmpty()) {
+                        Text(t("کِی انجام‌شده حساب شود؟", "When is it done?"), style = MaterialTheme.typography.labelLarge)
+                        SettingSegmented(listOf("one" to t("یک نفر کافیه", "One is enough"), "all" to t("همه باید انجام بدن", "Everyone does it")), groupMode) { groupMode = it }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(t("وقتی انجام شد به بقیه خبر بده", "Tell the others when it is done"), Modifier.weight(1f))
+                        Switch(notifyOthers, { notifyOthers = it })
+                    }
+                    Hint(t("اگر برای یک نفر باشد، فقط گوشی همان یک نفر زنگ می‌زند.", "When it is for one person, only their phone rings."))
                 }
 
                 // Alert

@@ -46,7 +46,8 @@ import java.time.ZoneId
 
 @Composable
 fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions: ReminderActions,
-               quickText: String, onQuickText: (String) -> Unit, permissionTick: Int, onFixPermissions: () -> Unit, onProfile: () -> Unit = {}) {
+               quickText: String, onQuickText: (String) -> Unit, permissionTick: Int, onFixPermissions: () -> Unit, onProfile: () -> Unit = {},
+               onGroups: () -> Unit = {}) {
     val context = LocalContext.current
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now(zone)
@@ -109,6 +110,13 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
                         sections.attention.isNotEmpty() -> YadimoMood.THINK
                         else -> YadimoMood.IDLE
                     }, size = 72.dp)
+                }
+                // groups (when turned on): a small door to them; the home screen stays yours
+                val groups by Groups.state.collectAsState()
+                if (remember(groups.tick) { Groups.enabled(context) }) FilledTonalIconButton(onClick = onGroups) {
+                    BadgedBox(badge = { if (groups.invites.isNotEmpty()) Badge { Text(n(groups.invites.size)) } }) {
+                        Icon(Icons.Rounded.Groups, t("گروه‌ها", "Groups"))
+                    }
                 }
                 FilledTonalIconButton(onClick = { searching = !searching; if (!searching) query = "" }) {
                     Icon(if (searching) Icons.Rounded.Close else Icons.Rounded.Search, t("جست‌وجو", "Search"))

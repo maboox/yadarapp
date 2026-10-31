@@ -133,7 +133,7 @@ private fun NameDialog(onDone: () -> Unit) {
 
 /** Your username: unique, English letters, digits and "_"; checked with the server while you type. */
 @Composable
-private fun UsernameDialog(onDone: () -> Unit) {
+fun UsernameDialog(onDone: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val current = Account.profile.collectAsState().value?.username.orEmpty()

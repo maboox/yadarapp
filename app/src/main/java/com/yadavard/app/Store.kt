@@ -15,13 +15,36 @@ import java.time.ZoneId
  * Local SQLite storage. Version 5 replaced the older schema; version 6 adds "missed" counters and the
  * outcome history in place, keeping every row.
  */
-class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db", null, 7) {
-    override fun onCreate(db: SQLiteDatabase) { createTable(db); createHistory(db); createNotes(db) }
+class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db", null, 8) {
+    override fun onCreate(db: SQLiteDatabase) { createTable(db); createHistory(db); createNotes(db); addSyncColumns(db) }
 
     // Safety net: the statistics table must exist whatever path the database took to get here.
     override fun onOpen(db: SQLiteDatabase) {
         super.onOpen(db)
-        if (!db.isReadOnly) runCatching { createHistory(db); createNotes(db) }
+        if (!db.isReadOnly) runCatching { createHistory(db); createNotes(db); createGone(db) }
+    }
+
+    /** 7 → 8: what cloud sync and groups need; every existing row gets its own stable id. */
+    private fun addSyncColumns(db: SQLiteDatabase) {
+        for (sql in listOf(
+            "ALTER TABLE reminders ADD COLUMN uid TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE reminders ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE reminders ADD COLUMN group_id TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE reminders ADD COLUMN g_assignee TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE reminders ADD COLUMN g_mode TEXT NOT NULL DEFAULT 'one'",
+            "ALTER TABLE reminders ADD COLUMN g_notify INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE reminders ADD COLUMN g_done TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE notes ADD COLUMN uid TEXT NOT NULL DEFAULT ''",
+        )) runCatching { db.execSQL(sql) }
+        db.execSQL("UPDATE reminders SET uid = lower(hex(randomblob(16))) WHERE uid = ''")
+        db.execSQL("UPDATE reminders SET updated_at = created_at WHERE updated_at = 0")
+        db.execSQL("UPDATE notes SET uid = lower(hex(randomblob(16))) WHERE uid = ''")
+        createGone(db)
+    }
+
+    /** Reminders and notes deleted here that the cloud copy still has to hear about. */
+    private fun createGone(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS sync_gone (uid TEXT PRIMARY KEY, kind TEXT NOT NULL, at INTEGER NOT NULL)")
     }
 
     private fun createNotes(db: SQLiteDatabase) {
@@ -64,6 +87,7 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
             runCatching { db.execSQL("ALTER TABLE reminders ADD COLUMN missed INTEGER NOT NULL DEFAULT 0") }
             createHistory(db)
             createNotes(db)
+            addSyncColumns(db)
             return
         }
         // Older versions (1-4) all used a "reminders" table with a subset of these columns.
@@ -100,8 +124,10 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
         db.execSQL("DROP TABLE IF EXISTS reminders")
         db.execSQL("DROP TABLE IF EXISTS reminders_local")
         createTable(db)
-        migrated.forEach { db.insertOrThrow("reminders", null, values(it).apply { put("id", it.id) }) }
         createHistory(db)
+        createNotes(db)
+        addSyncColumns(db)
+        migrated.forEach { db.insertOrThrow("reminders", null, values(it.copy(uid = newUid())).apply { put("id", it.id) }) }
     }
 
     private fun values(r: Reminder) = ContentValues().apply {
@@ -115,10 +141,17 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
         put("done", if (r.done) 1 else 0); put("completed_at", r.completedAt); put("completed_count", r.completedCount)
         put("pending_at", r.pendingAt); put("alerted_at", r.alertedAt); put("snooze_at", r.snoozeAt)
         put("created_at", r.createdAt); put("missed_count", r.missedCount); put("missed", if (r.missed) 1 else 0)
+        put("uid", r.uid); put("updated_at", r.updatedAt); put("group_id", r.groupId); put("g_assignee", r.assignee)
+        put("g_mode", r.groupMode); put("g_notify", if (r.notifyOthers) 1 else 0); put("g_done", r.doneBy)
     }
 
+    /**
+     * Saves [r]. [touch] marks it changed now (so cloud sync sends it); a copy that came from the cloud or a group
+     * keeps its own time.
+     */
     @Synchronized
-    fun save(r: Reminder): Reminder {
+    fun save(r0: Reminder, touch: Boolean = true): Reminder {
+        val r = r0.copy(uid = r0.uid.ifEmpty { newUid() }, updatedAt = if (touch) System.currentTimeMillis() else r0.updatedAt)
         val db = writableDatabase
         if (r.id == 0L) return r.copy(id = db.insertOrThrow("reminders", null, values(r)))
         val updated = db.update("reminders", values(r), "id=?", arrayOf(r.id.toString()))
@@ -127,12 +160,43 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
     }
 
     @Synchronized
-    fun delete(id: Long) { writableDatabase.delete("reminders", "id=?", arrayOf(id.toString())) }
+    fun delete(id: Long) {
+        // the cloud copy has to hear about it (group reminders are handled by the group)
+        get(id)?.takeIf { !it.inGroup && it.uid.isNotEmpty() }?.let { gone(it.uid, "reminder") }
+        writableDatabase.delete("reminders", "id=?", arrayOf(id.toString()))
+    }
+
+    fun gone(uid: String, kind: String) {
+        writableDatabase.insertWithOnConflict("sync_gone", null, ContentValues().apply { put("uid", uid); put("kind", kind); put("at", System.currentTimeMillis()) },
+            SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    /** Deleted items not sent to the cloud yet: uid → kind. */
+    fun goneList(): Map<String, String> = readableDatabase.query("sync_gone", null, null, null, null, null, null).use { c ->
+        buildMap { while (c.moveToNext()) put(c.getString(0), c.getString(1)) }
+    }
+
+    @Synchronized
+    fun forgetGone(uids: Collection<String>) = uids.forEach { writableDatabase.delete("sync_gone", "uid=?", arrayOf(it)) }
+
+    fun byUid(uid: String): Reminder? = readableDatabase.query("reminders", null, "uid=?", arrayOf(uid), null, null, null).use { c ->
+        if (c.moveToFirst()) read(c) else null
+    }
+
+    /** Group reminders (kept apart from your own: they never show in the home list, stats or points). */
+    fun groupItems(groupId: String? = null): List<Reminder> = readableDatabase.query("reminders", null,
+        if (groupId == null) "group_id != ''" else "group_id = ?", groupId?.let { arrayOf(it) }, null, null, "next_at ASC").use { c ->
+        buildList { while (c.moveToNext()) add(read(c)) }
+    }
+
+    @Synchronized
+    fun deleteGroup(groupId: String) { writableDatabase.delete("reminders", "group_id = ?", arrayOf(groupId)) }
 
     fun get(id: Long): Reminder? = readableDatabase.query("reminders", null, "id=?", arrayOf(id.toString()),
         null, null, null).use { c -> if (c.moveToFirst()) read(c) else null }
 
-    fun all(): List<Reminder> = readableDatabase.query("reminders", null, null, null, null, null, "next_at ASC").use { c ->
+    /** Your own reminders (not those of groups). */
+    fun all(): List<Reminder> = readableDatabase.query("reminders", null, "group_id = ''", null, null, null, "next_at ASC").use { c ->
         buildList { while (c.moveToNext()) add(read(c)) }
     }
 
@@ -140,6 +204,7 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
         fun long(name: String) = c.getLong(c.getColumnIndexOrThrow(name))
         fun int(name: String) = c.getInt(c.getColumnIndexOrThrow(name))
         fun str(name: String) = c.getString(c.getColumnIndexOrThrow(name))
+        fun opt(name: String) = c.optString(name)
         val until = c.getColumnIndexOrThrow("until_at")
         return Reminder(
             id = long("id"), title = str("title"), note = str("note"),
@@ -154,14 +219,20 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
             calendar = runCatching { CalendarSystem.valueOf(str("calendar_type")) }.getOrDefault(CalendarSystem.PERSIAN),
             done = int("done") == 1, completedAt = long("completed_at"), completedCount = int("completed_count"),
             pendingAt = long("pending_at"), alertedAt = long("alerted_at"), snoozeAt = long("snooze_at"),
-            createdAt = long("created_at"), missedCount = int("missed_count"), missed = int("missed") == 1)
+            createdAt = long("created_at"), missedCount = int("missed_count"), missed = int("missed") == 1,
+            uid = opt("uid"), updatedAt = c.getColumnIndex("updated_at").let { if (it < 0) 0L else c.getLong(it) },
+            groupId = opt("group_id"), assignee = opt("g_assignee"), groupMode = opt("g_mode").ifEmpty { "one" },
+            notifyOthers = c.getColumnIndex("g_notify").let { it >= 0 && c.getInt(it) == 1 }, doneBy = opt("g_done"))
     }
 
+    private fun Cursor.optString(name: String): String = getColumnIndex(name).let { if (it < 0 || isNull(it)) "" else getString(it) }
+
     @Synchronized
-    fun saveNote(n: Note): Note {
+    fun saveNote(n0: Note): Note {
+        val n = n0.copy(uid = n0.uid.ifEmpty { newUid() })
         val v = ContentValues().apply {
             put("title", n.title); put("body", n.body); put("color", n.color); put("pinned", if (n.pinned) 1 else 0)
-            put("created_at", n.createdAt); put("updated_at", n.updatedAt)
+            put("created_at", n.createdAt); put("updated_at", n.updatedAt); put("uid", n.uid)
         }
         val db = writableDatabase
         if (n.id == 0L) return n.copy(id = db.insertOrThrow("notes", null, v))
@@ -170,14 +241,19 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
     }
 
     @Synchronized
-    fun deleteNote(id: Long) { writableDatabase.delete("notes", "id=?", arrayOf(id.toString())) }
+    fun deleteNote(id: Long) {
+        readableDatabase.query("notes", arrayOf("uid"), "id=?", arrayOf(id.toString()), null, null, null).use { c ->
+            if (c.moveToFirst()) c.getString(0)?.takeIf { it.isNotEmpty() }?.let { gone(it, "note") }
+        }
+        writableDatabase.delete("notes", "id=?", arrayOf(id.toString()))
+    }
 
     fun notes(): List<Note> = readableDatabase.query("notes", null, null, null, null, null, "pinned DESC, updated_at DESC").use { c ->
         buildList {
             while (c.moveToNext()) add(Note(c.getLong(c.getColumnIndexOrThrow("id")), c.getString(c.getColumnIndexOrThrow("title")),
                 c.getString(c.getColumnIndexOrThrow("body")), c.getInt(c.getColumnIndexOrThrow("color")),
                 c.getInt(c.getColumnIndexOrThrow("pinned")) == 1, c.getLong(c.getColumnIndexOrThrow("created_at")),
-                c.getLong(c.getColumnIndexOrThrow("updated_at"))))
+                c.getLong(c.getColumnIndexOrThrow("updated_at")), c.optString("uid")))
         }
     }
 
@@ -219,6 +295,8 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
     }
 }
 
+fun newUid(): String = java.util.UUID.randomUUID().toString().replace("-", "")
+
 /**
  * Single entry point for every change, used by the UI, notification actions, the alarm receiver and widgets,
  * so storage, alarms, notifications and widgets always stay in sync.
@@ -238,6 +316,7 @@ object Repo {
     /** Saves and reschedules; used for both user edits and alarm-state updates. */
     fun save(context: Context, r: Reminder): Reminder {
         val saved = store(context).save(r)
+        if (saved.inGroup) { Scheduler.schedule(context, saved); changedQuietly(context); return saved }
         // brought back with "Undo": its "not done" outcomes come back too
         deletedMisses.remove(saved.id)?.let { runCatching { store(context).putBack(it) } }
         Scheduler.schedule(context, saved)
@@ -262,6 +341,8 @@ object Repo {
     fun complete(context: Context, id: Long): Reminder? {
         val r = get(context, id) ?: return null
         if (r.done) return r
+        // a group's reminder: the group hears about it; nothing goes into your own stats or points
+        if (r.inGroup) return Groups.markDone(context, r)
         Notifier.cancel(context, id)
         val now = System.currentTimeMillis()
         runCatching { store(context).record(r, ReminderLogic.occurrence(r).takeIf { it > 0 } ?: now, true, now) }
@@ -274,6 +355,7 @@ object Repo {
     fun miss(context: Context, id: Long): Reminder? {
         val r = get(context, id) ?: return null
         if (r.done) return r
+        if (r.inGroup) { Notifier.cancel(context, id); return save(context, ReminderLogic.miss(r, System.currentTimeMillis())) }
         Notifier.cancel(context, id)
         val now = System.currentTimeMillis()
         runCatching { store(context).record(r, ReminderLogic.occurrence(r).takeIf { it > 0 } ?: now, false, now) }
@@ -296,6 +378,7 @@ object Repo {
     }
 
     fun undoOutcome(context: Context, previous: Reminder) {
+        if (previous.inGroup) { Groups.undoDone(context, previous); return }
         runCatching { store(context).unrecordLast(previous.id) }
         save(context, previous)
     }
@@ -303,7 +386,8 @@ object Repo {
     fun notes(context: Context): List<Note> = runCatching { store(context).notes() }.getOrDefault(emptyList())
     fun note(context: Context, id: Long): Note? = notes(context).firstOrNull { it.id == id }
     fun saveNote(context: Context, n: Note): Note {
-        val saved = store(context).saveNote(n)
+        // any change (even a pin) is a change for cloud sync
+        val saved = store(context).saveNote(n.copy(updatedAt = maxOf(n.updatedAt, System.currentTimeMillis())))
         if (n.id == 0L) runCatching { Game.onNote(context) }
         changed(context); return saved
     }
@@ -324,7 +408,14 @@ object Repo {
         return save(context, ReminderLogic.skip(r))
     }
 
+    /** Something changed that the cloud or a group already knows about: refresh the screens and widgets only. */
+    fun changedQuietly(context: Context) {
+        _changes.value = _changes.value + 1
+        WidgetUpdater.update(context)
+    }
+
     fun changed(context: Context) {
+        CloudSync.soon(context)
         _changes.value = _changes.value + 1
         WidgetUpdater.update(context)
         Backup.scheduleAuto(context)

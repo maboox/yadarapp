@@ -97,6 +97,9 @@ object Account {
     private fun fa() = AppDisplay.language == AppLanguage.FA
 
     /** Calls the Yadimo server and returns the JSON answer; maps 401/402 to dedicated exceptions. */
+    /** A signed-in request to the Yadimo server (cloud sync, groups); throws with a readable message. */
+    fun api(context: Context, method: String, path: String, body: JSONObject? = null): JSONObject = call(context, method, path, body)
+
     private fun call(context: Context, method: String, path: String, body: JSONObject? = null, timeout: Int = 30_000,
                      auth: Boolean = true): JSONObject {
         val conn = (URL(server(context) + path).openConnection() as HttpURLConnection).apply {

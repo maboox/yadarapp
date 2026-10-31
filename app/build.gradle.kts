@@ -14,8 +14,8 @@ android {
         applicationIdSuffix = ".plus"
         minSdk = 26
         targetSdk = 35
-        versionCode = 58
-        versionName = "3.10.1"
+        versionCode = 59
+        versionName = "3.11.0"
     }
     // Test builds use one fixed, public key so each new APK installs over the previous one.
     // Store builds use the private Bazaar key from CI secrets (see .github/workflows/android.yml); when it is not
@@ -63,6 +63,7 @@ dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
     implementation(composeBom)
     implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
     implementation("com.github.cafebazaar.Poolakey:poolakey:2.2.0")
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")

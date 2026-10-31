@@ -46,8 +46,8 @@ fun OnboardingScreen(onFinish: () -> Unit) {
     val pages = listOf(
         Page(Icons.Rounded.NotificationsActive, listOf(Color(0xFF3B2DB0), Color(0xFF8F7BFF)),
             { t("به یادیمو خوش آمدی", "Welcome to Yadimo") },
-            { t("دستیار یادآوری و یادداشت فارسی برای همهٔ کارها: قرص، قسط، تولد، جلسه، خرید و هر چیز دیگر. یادآوری‌ها و یادداشت‌هایت فقط روی گوشی خودت می‌مانند.",
-                "A reminder and notes assistant for everything — pills, bills, birthdays, meetings and more. Your reminders and notes stay on your phone.") }) {
+            { t("دستیار یادآوری و یادداشت فارسی برای همهٔ کارها: قرص، قسط، تولد، جلسه، خرید و هر چیز دیگر. یادآوری‌ها و یادداشت‌هایت روی گوشی خودت می‌مانند (مگر خودت همگام‌سازی ابری را روشن کنی).",
+                "A reminder and notes assistant for everything — pills, bills, birthdays, meetings and more. Your reminders and notes stay on your phone (unless you turn on cloud sync).") }) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 listOf(AppLanguage.FA to "فارسی", AppLanguage.EN to "English").forEach { (lang, label) ->
                     FilterChip(AppDisplay.language == lang, {
@@ -123,8 +123,8 @@ fun OnboardingScreen(onFinish: () -> Unit) {
         },
         Page(Icons.Rounded.Backup, listOf(Color(0xFF5E6F64), Color(0xFF9DB3A4)),
             { t("اطلاعاتت مال خودت است", "Your data stays with you") },
-            { t("یادآوری‌ها و یادداشت‌ها فقط روی همین گوشی ذخیره می‌شوند، نه روی سرور. یعنی اگر گوشی عوض شود، برنامه پاک شود یا گوشی ریست شود، بدون نسخهٔ پشتیبان از دست می‌روند.",
-                "Reminders and notes are stored only on this phone, not on a server. If you change or reset the phone or uninstall the app, they are lost without a backup.") }) {
+            { t("یادآوری‌ها و یادداشت‌ها روی همین گوشی ذخیره می‌شوند. اگر گوشی عوض شود، برنامه پاک شود یا گوشی ریست شود، بدون نسخهٔ پشتیبان از دست می‌روند؛ مگر «همگام‌سازی ابری» را در تنظیمات روشن کنی تا یک نسخهٔ رمزنگاری‌شده روی سرور هم بماند.",
+                "Reminders and notes are stored on this phone. If you change or reset the phone or uninstall the app, they are lost without a backup, unless you turn on cloud sync in Settings to keep an encrypted copy on the server too.") }) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Feature(Icons.Rounded.Download, t("یادیمو بعد از هر تغییر یک پشتیبان خودکار در پوشهٔ Download/Yadar می‌گذارد", "Yadimo saves an automatic backup in Download/Yadar after every change"))
                 Feature(Icons.Rounded.Upload, t("گاهی از «پروفایل ← ⚙️ تنظیمات ← پشتیبان‌گیری» یک نسخه بگیر و جای دیگری (مثلاً پیام‌رسان یا ایمیل) نگه دار", "Now and then export a copy from Settings → Backup and keep it somewhere else"))
