@@ -30,6 +30,7 @@ func registerRoutes(se *core.ServeEvent) {
 		return e.JSON(http.StatusOK, profile(e.App, e.Auth))
 	})
 	auth.POST("/me", handleUpdateProfile)
+	auth.GET("/username/check", handleUsernameCheck)
 	auth.GET("/usage", handleUsage)
 	auth.POST("/ai/chat", handleChat)
 	auth.POST("/ai/transcribe", handleTranscribe)
@@ -65,6 +66,7 @@ func profile(app core.App, user *core.Record) map[string]any {
 		"bazaar":      user.GetString("bazaar_id") != "",
 		"admin":       user.GetBool("is_admin"),
 		"name":        user.GetString("name"),
+		"username":    user.GetString("username"),
 		"balance":     user.GetFloat("balance"),
 		"unlimited":   user.GetBool("unlimited"),
 		"plan":        planName,
@@ -75,22 +77,38 @@ func profile(app core.App, user *core.Record) map[string]any {
 }
 
 func handleUpdateProfile(e *core.RequestEvent) error {
+	// only what is sent changes
 	var body struct {
-		Name string `json:"name"`
+		Name     *string `json:"name"`
+		Username *string `json:"username"`
 	}
 	if err := e.BindBody(&body); err != nil {
 		return apis.NewBadRequestError("درخواست نامعتبر است", nil)
-	}
-	name := strings.TrimSpace(body.Name)
-	if utf8.RuneCountInString(name) > 60 {
-		return apis.NewBadRequestError("نام خیلی بلند است", nil)
 	}
 	user, err := e.App.FindRecordById("users", e.Auth.Id)
 	if err != nil {
 		return err
 	}
-	user.Set("name", name)
+	if body.Name != nil {
+		name := strings.TrimSpace(*body.Name)
+		if utf8.RuneCountInString(name) > 60 {
+			return apis.NewBadRequestError("نام خیلی بلند است", nil)
+		}
+		if why := nameProblem(name); why != "" && !user.GetBool("is_admin") {
+			return apis.NewBadRequestError(why, nil)
+		}
+		user.Set("name", name)
+	}
+	if body.Username != nil {
+		if err := setUsername(e.App, user, *body.Username); err != nil {
+			return err
+		}
+	}
 	if err := e.App.Save(user); err != nil {
+		// two people chose the same name at the same moment: the database lets only one have it
+		if body.Username != nil && strings.Contains(strings.ToLower(err.Error()), "unique") {
+			return apis.NewBadRequestError("این نام را کس دیگری برداشته", nil)
+		}
 		return err
 	}
 	return e.JSON(http.StatusOK, profile(e.App, user))

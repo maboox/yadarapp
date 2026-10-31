@@ -13,6 +13,10 @@ import androidx.compose.material.icons.rounded.Face
 import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.rounded.MilitaryTech
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -37,28 +41,138 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Profile: Yadimo with the level ring, missions, badges, what the next levels open, and Yadimo's settings. */
+/**
+ * Profile: you and Yadimo. Your name and username, the level ring, missions (tap one to go and do it), Yadimo's
+ * home and settings, badges and level rewards. The app's settings open from the gear at the top.
+ * [onMission] takes the missions that are done elsewhere in the app; [settingsAlert] puts a dot on the gear.
+ */
 @Composable
-fun ProfileScreen(padding: PaddingValues) {
+fun ProfileScreen(padding: PaddingValues, settingsAlert: Boolean, onSettings: () -> Unit, onMission: (String) -> Unit) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { withContext(Dispatchers.IO) { Game.sync(context) } }
     val s = Game.state
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp, padding.calculateTopPadding() + 8.dp, 16.dp,
+    val list = androidx.compose.foundation.lazy.rememberLazyListState()
+    var editName by remember { mutableStateOf(false) }
+    var editUsername by remember { mutableStateOf(false) }
+    var openYadimo by remember { mutableIntStateOf(0) }
+    LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(16.dp, padding.calculateTopPadding() + 8.dp, 16.dp,
         padding.calculateBottomPadding() + 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { LevelHeader(s) }
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                Text(t("پروفایل", "Profile"), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                FilledTonalIconButton(onClick = onSettings) {
+                    BadgedBox(badge = { if (settingsAlert) Badge() }) { Icon(Icons.Rounded.Settings, t("تنظیمات", "Settings")) }
+                }
+            }
+        }
+        item { LevelHeader(s, onName = { editName = true }, onUsername = { editUsername = true }) }
+        if (s != null) item {
+            MissionsCard(s) { key ->
+                when (key) {
+                    "name" -> editName = true
+                    // the morning hello is in Yadimo's card below: open it and scroll to it
+                    "hello" -> { openYadimo++; scope.launch { list.animateScrollToItem(4) } }
+                    else -> onMission(key)
+                }
+            }
+        }
         item { RoomCard() }
+        item { YadimoSettingsCard(openYadimo) }
         if (s != null) {
-            item { MissionsCard(s) }
             item { BadgesCard(s) }
             item { UnlocksCard(s) }
         }
-        item { YadimoSettingsCard() }
         item {
             Text(t("امتیاز از کجا می‌آید: هر کار انجام‌شده ۱۰ (دیرتر از دو ساعت ۵)، هر روزی که کاری انجام بدهی ۵، ساختن یادآوری ۵ و با صدا ۱۰ (تا ۴۰ امتیاز در روز)، هر یادداشت ۲، هر نشان ۵۰ و مأموریت‌ها.",
                 "Points: 10 for each thing done (5 if over two hours late), 5 for each active day, 5 for creating a reminder or 10 by voice (up to 40 a day), 2 per note, 50 per badge, plus missions."),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp))
         }
     }
+    if (editName) NameDialog { editName = false }
+    if (editUsername) UsernameDialog { editUsername = false }
+}
+
+/** Lets the profile header show a name changed elsewhere (onboarding, this dialog). */
+object Names { var tick by mutableIntStateOf(0) }
+
+/** Your name: what Yadimo calls you. Signed in, it is also the name others see (in groups, later). */
+@Composable
+private fun NameDialog(onDone: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var name by remember { mutableStateOf(Prefs.userName(context)) }
+    var error by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    AlertDialog(onDismissRequest = { if (!busy) onDone() },
+        title = { Text(t("چی صدات کنیم؟", "What should we call you?")) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(name, { name = it.take(30); error = "" }, singleLine = true, shape = RoundedCornerShape(14.dp),
+                    placeholder = { Text(t("اسم یا لقب", "Name or nickname")) }, isError = error.isNotBlank(), modifier = Modifier.fillMaxWidth())
+                Text(error.ifBlank { t("یادیمو با همین اسم صدایت می‌کند.", "Yadimo calls you by this name.") },
+                    style = MaterialTheme.typography.bodySmall, color = if (error.isNotBlank()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        confirmButton = { TextButton(enabled = !busy, onClick = {
+            busy = true
+            scope.launch {
+                // signed in, the account keeps the same name; a name the server refuses (e.g. "admin") is not saved
+                val failed = if (Account.isLoggedIn(context)) runCatching { Account.setName(context, name.trim()) }.exceptionOrNull() else null
+                busy = false
+                if (failed != null && failed.message?.contains("رزرو") == true) { error = failed.message.orEmpty(); return@launch }
+                Prefs.setUserName(context, name); Names.tick++
+                withContext(Dispatchers.IO) { Game.sync(context) }
+                onDone()
+            }
+        }) { Text(t("ذخیره", "Save")) } },
+        dismissButton = { TextButton(onClick = onDone) { Text(t("انصراف", "Cancel")) } })
+}
+
+/** Your username: unique, English letters, digits and "_"; checked with the server while you type. */
+@Composable
+private fun UsernameDialog(onDone: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val current = Account.profile.collectAsState().value?.username.orEmpty()
+    var name by remember { mutableStateOf(current) }
+    var verdict by remember { mutableStateOf<String?>(null) }   // null: not checked yet, "": free, otherwise why not
+    var busy by remember { mutableStateOf(false) }
+    LaunchedEffect(name) {
+        verdict = null
+        val u = name.trim().removePrefix("@").lowercase()
+        if (u.isEmpty() || u == current) return@LaunchedEffect
+        kotlinx.coroutines.delay(500)
+        verdict = runCatching { Account.checkUsername(context, u) ?: "" }.getOrElse { it.message ?: t("بررسی نشد", "Could not check") }
+    }
+    AlertDialog(onDismissRequest = { if (!busy) onDone() },
+        title = { Text(t("نام کاربری", "Username")) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
+                    OutlinedTextField(name, { name = it.filter { c -> c.isLetterOrDigit() || c == '_' || c == '@' }.take(21) }, singleLine = true,
+                        shape = RoundedCornerShape(14.dp), prefix = { Text("@") }, modifier = Modifier.fillMaxWidth(),
+                        isError = !verdict.isNullOrEmpty(),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.None,
+                            autoCorrectEnabled = false, keyboardType = androidx.compose.ui.text.input.KeyboardType.Ascii))
+                }
+                Text(when (verdict) {
+                    null -> t("با این نام دیگران پیدایت می‌کنند (مثلاً برای گروه‌ها). فقط حروف انگلیسی، عدد و _ .", "Others find you by this (e.g. for groups). English letters, digits and _ only.")
+                    "" -> t("آزاد است ✓", "Available ✓")
+                    else -> verdict!!
+                }, style = MaterialTheme.typography.bodySmall,
+                    color = when (verdict) { "" -> MaterialTheme.colorScheme.primary; null -> MaterialTheme.colorScheme.onSurfaceVariant; else -> MaterialTheme.colorScheme.error })
+            }
+        },
+        confirmButton = { TextButton(enabled = !busy && verdict == "", onClick = {
+            busy = true
+            scope.launch {
+                runCatching { Account.setUsername(context, name.trim().removePrefix("@").lowercase()) }
+                    .onSuccess { onDone() }.onFailure { verdict = it.message ?: t("ذخیره نشد", "Not saved") }
+                busy = false
+            }
+        }) { Text(t("ذخیره", "Save")) } },
+        dismissButton = { TextButton(onClick = onDone) { Text(t("انصراف", "Cancel")) } })
 }
 
 /** Yadimo's room: open it in the app, and how smooth the home-screen widget should be. */
@@ -109,8 +223,9 @@ fun LevelRing(progress: Float, level: Int, size: Dp, content: @Composable () -> 
 }
 
 @Composable
-private fun LevelHeader(s: Game.State?) {
+private fun LevelHeader(s: Game.State?, onName: () -> Unit, onUsername: () -> Unit) {
     val context = LocalContext.current
+    val profile by Account.profile.collectAsState()
     val fa = AppDisplay.language == AppLanguage.FA
     val level = s?.level ?: 1
     Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
@@ -120,8 +235,17 @@ private fun LevelHeader(s: Game.State?) {
                 else Icon(Icons.Rounded.Face, null, Modifier.size(72.dp), tint = MaterialTheme.colorScheme.primary)
             }
             Spacer(Modifier.height(10.dp))
-            val name = remember { Prefs.userName(context) }
-            Text(name.ifBlank { t("دوست یادیمو", "Yadimo friend") }, style = MaterialTheme.typography.titleLarge)
+            val name = remember(Names.tick) { Prefs.userName(context) }
+            // your name (what Yadimo calls you) and your username (how others find you), each edited with a tap
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onName).padding(horizontal = 8.dp)) {
+                Text(name.ifBlank { t("اسمت چیه؟", "What's your name?") }, style = MaterialTheme.typography.titleLarge)
+                Spacer(Modifier.width(6.dp)); Icon(Icons.Rounded.Edit, t("ویرایش اسم", "Edit name"), Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+            }
+            val p = profile
+            if (p != null) TextButton(onClick = onUsername, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
+                Text(if (p.username.isNotBlank()) "@${p.username}" else t("+ انتخاب نام کاربری", "+ Pick a username"),
+                    style = MaterialTheme.typography.labelLarge)
+            }
             Text(GameRules.title(level, fa), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
             if (s != null) {
                 Spacer(Modifier.height(10.dp))
@@ -149,7 +273,7 @@ private fun Stat(emoji: String, value: String, label: String) {
 }
 
 @Composable
-private fun MissionsCard(s: Game.State) {
+private fun MissionsCard(s: Game.State, onOpen: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf<String?>(null) }
@@ -157,7 +281,10 @@ private fun MissionsCard(s: Game.State) {
     SettingsCard(t("مأموریت‌ها", "Missions"), Icons.Rounded.Flag) {
         s.missions.forEach { m ->
             val claimed = m.key in s.claimed
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            // a mission not done yet takes you to where it is done
+            val open = !claimed && !m.complete
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).then(if (open) Modifier.clickable { onOpen(m.key) } else Modifier),
+                verticalAlignment = Alignment.CenterVertically) {
                 Text(m.emoji, fontSize = 24.sp, modifier = Modifier.width(36.dp))
                 Column(Modifier.weight(1f)) {
                     Text(t(m.fa, m.en), style = MaterialTheme.typography.bodyLarge)
@@ -177,13 +304,13 @@ private fun MissionsCard(s: Game.State) {
                     }, enabled = busy == null, contentPadding = PaddingValues(horizontal = 12.dp)) {
                         if (busy == m.key) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp) else Text(t("دریافت", "Claim"))
                     }
-                    else -> Icon(Icons.Rounded.Lock, null, tint = MaterialTheme.colorScheme.outline)
+                    else -> Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, t("برو", "Go"), tint = MaterialTheme.colorScheme.primary)
                 }
             }
         }
         message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
-        Text(t("جایزهٔ هر مأموریت فقط یک بار داده می‌شود. توکن‌ها به حساب بازارت اضافه می‌شوند.",
-            "Each mission pays once. Tokens go to your Bazaar account."),
+        Text(t("روی هر مأموریت بزن تا به جای انجامش بروی. جایزهٔ هر مأموریت فقط یک بار داده می‌شود و توکن‌ها به حسابت اضافه می‌شوند.",
+            "Tap a mission to go and do it. Each mission pays once; tokens go to your account."),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

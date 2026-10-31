@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -38,7 +39,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPermissionChanged: () -> Unit,
+fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onBack: () -> Unit, onPermissionChanged: () -> Unit,
                    onPackExport: () -> Unit = {}, onPackImport: (Packs.Pack) -> Unit = {}, onHelp: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -111,6 +112,7 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, t("بازگشت", "Back")) }
                 Text(t("تنظیمات", "Settings"), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
                 FilledTonalButton(onClick = onHelp) {
                     Icon(Icons.Rounded.HelpOutline, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(t("راهنما", "Guide"))
@@ -189,10 +191,6 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onPe
         item {
             SettingsCard(t("ظاهر و زبان", "Appearance"), Icons.Rounded.Palette,
                 summary = t("زبان، تقویم، حالت روشن/تیره و تم", "Language, calendar, light/dark and theme"), collapsible = true) {
-                Label(t("چی صدایت کنیم؟", "What should we call you?"))
-                var userName by remember { mutableStateOf(Prefs.userName(context)) }
-                OutlinedTextField(userName, { userName = it.take(30); Prefs.setUserName(context, userName) }, Modifier.fillMaxWidth(),
-                    singleLine = true, placeholder = { Text(t("اسم یا لقب (اختیاری)", "Name or nickname (optional)")) })
                 Label(t("زبان", "Language"))
                 Segmented(listOf(AppLanguage.FA to "فارسی", AppLanguage.EN to "English"), AppDisplay.language) {
                     AppDisplay.language = it; Prefs.setLanguage(context, it)

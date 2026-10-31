@@ -21,6 +21,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.animation.core.*
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -44,7 +49,6 @@ fun AccountCard() {
     val scope = rememberCoroutineScope()
     val profile by Account.profile.collectAsState()
     var loggingIn by remember { mutableStateOf(false) }
-    var editingName by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
     var buying by remember { mutableStateOf(false) }
     val signIn = rememberBazaarSignIn()
@@ -73,37 +77,18 @@ fun AccountCard() {
                     Icon(Icons.Rounded.Person, null, tint = MaterialTheme.colorScheme.primary)
                 }
                 Spacer(Modifier.width(10.dp))
+                // the name and username are edited on the profile; here only who is signed in
                 Column(Modifier.weight(1f)) {
-                    Text(p.name.ifBlank { t("بدون نام", "No name") }, style = MaterialTheme.typography.titleSmall)
+                    Text(p.name.ifBlank { t("حساب یادیمو", "Yadimo account") } + (if (p.username.isNotBlank()) "  @${p.username}" else ""),
+                        style = MaterialTheme.typography.titleSmall)
                     Text(if (p.phone.isNotBlank()) n(p.phone) else if (p.bazaar) t("حساب کافه‌بازار", "Cafe Bazaar account") else "",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                IconButton(onClick = { editingName = true }) { Icon(Icons.Rounded.Edit, t("ویرایش نام", "Edit name")) }
             }
-            Surface(onClick = { usage = true }, shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.fillMaxWidth()) {
-                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Toll, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(t("موجودی توکن", "Token balance"), style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer)
-                        Text(if (p.unlimited) t("نامحدود", "Unlimited") else tokensLabel(p.balance),
-                            style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer)
-                    }
-                    if (p.plan.isNotBlank()) Text(p.plan, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.width(6.dp))
-                    Text(t("جزئیات مصرف ›", "Usage ›"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                }
-            }
+            TokenCard(p, onUsage = { usage = true }, onBuy = { buying = true })
             if (AiSettings(context).personal) Text(t("الان از هوش مصنوعی خودت (کلید شخصی) استفاده می‌کنی و توکن یادیمو کم نمی‌شود.",
                 "You are using your own AI key, so no Yadimo tokens are used."),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (!p.unlimited) Button(onClick = { buying = true }, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Rounded.AddShoppingCart, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
-                Text(t("خرید توکن", "Buy tokens"))
-            }
             Text(t("توکن برای دستیار هوشمند و لوازم یادیمو خرج می‌شود. هر دستور به دستیار معمولاً کمتر از ۱ توکن است؛ کارهای ساده کمتر و کارهای سنگین کمی بیشتر.",
                 "Tokens pay for the smart assistant and Yadimo's outfits. A command usually costs under 1 token; simple ones less, heavy ones a bit more."),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -115,17 +100,6 @@ fun AccountCard() {
     if (loggingIn) LoginDialog(startWithPhone = true) { loggingIn = false }
     if (buying) PacksDialog { buying = false }
     if (usage) UsageDialog { usage = false }
-    if (editingName) {
-        var name by remember { mutableStateOf(profile?.name.orEmpty()) }
-        AlertDialog(onDismissRequest = { editingName = false }, title = { Text(t("نام", "Name")) },
-            text = { OutlinedTextField(name, { name = it.take(60) }, singleLine = true, shape = RoundedCornerShape(14.dp)) },
-            confirmButton = { TextButton(onClick = {
-                editingName = false
-                scope.launch { runCatching { Account.setName(context, name) }.onFailure {
-                    Toast.makeText(context, it.message, Toast.LENGTH_LONG).show() } }
-            }) { Text(t("ذخیره", "Save")) } },
-            dismissButton = { TextButton(onClick = { editingName = false }) { Text(t("انصراف", "Cancel")) } })
-    }
     if (confirmLogout) AlertDialog(onDismissRequest = { confirmLogout = false },
         title = { Text(t("خروج از حساب؟", "Sign out?")) },
         text = { Text(t("یادآوری‌هایت روی گوشی می‌مانند؛ فقط دستیار هوشمند تا ورود دوباره غیرفعال می‌شود.",
@@ -244,6 +218,53 @@ fun LoginDialog(startWithPhone: Boolean = false, onDone: () -> Unit) {
 }
 
 /** Token packs sold through Bazaar; the server checks each payment (Bazaar's signature) before adding the tokens. */
+/** The token balance as a bright card that invites a purchase: what tokens do, and a big buy button. */
+@Composable
+private fun TokenCard(p: Account.Profile, onUsage: () -> Unit, onBuy: () -> Unit) {
+    val glow = rememberInfiniteTransition(label = "tokens")
+    val shine by glow.animateFloat(0f, 1f, infiniteRepeatable(tween(2600), RepeatMode.Restart), label = "shine")
+    val low = !p.unlimited && p.balance <= Account.LOW_BALANCE
+    Surface(onClick = onUsage, shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth(), color = Color.Transparent) {
+        Box(Modifier.background(Brush.linearGradient(listOf(Color(0xFF7A5CF0), Color(0xFFB45CF0), Color(0xFFFF8FB6))))
+            .drawWithContent {
+                drawContent()
+                // a soft light sweeping over the card
+                val x = size.width * (shine * 1.6f - .3f)
+                drawRect(Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = .22f), Color.Transparent),
+                    start = Offset(x - 120f, 0f), end = Offset(x + 120f, size.height)))
+            }) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("🪙", fontSize = 30.sp)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(t("توکن‌های تو", "Your tokens"), style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = .85f))
+                        Text(if (p.unlimited) t("نامحدود ✨", "Unlimited ✨") else tokensLabel(p.balance),
+                            style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = Color.White)
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        if (p.plan.isNotBlank()) Text(p.plan, style = MaterialTheme.typography.labelLarge, color = Color.White)
+                        Text(t("جزئیات مصرف ›", "Usage ›"), style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = .85f))
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(t("🤖 دستیار هوشمند", "🤖 Smart assistant"), t("🎙️ ساخت با صدا", "🎙️ Voice"), t("👕 لباس یادیمو", "👕 Outfits")).forEach {
+                        Surface(shape = CircleShape, color = Color.White.copy(alpha = .2f)) {
+                            Text(it, Modifier.padding(horizontal = 9.dp, vertical = 3.dp), style = MaterialTheme.typography.labelSmall, color = Color.White, maxLines = 1)
+                        }
+                    }
+                }
+                if (low) Text(t("توکنت داره تموم می‌شه! 🔋", "Running low on tokens! 🔋"), style = MaterialTheme.typography.labelLarge, color = Color.White, fontWeight = FontWeight.Bold)
+                if (!p.unlimited) Button(onClick = onBuy, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF6A40E0))) {
+                    Icon(Icons.Rounded.AddShoppingCart, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
+                    Text(t("خرید توکن", "Buy tokens"), fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun PacksDialog(onDone: () -> Unit) {
     val context = LocalContext.current

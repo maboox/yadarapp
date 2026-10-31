@@ -49,8 +49,12 @@ func ensureSchema(app core.App) error {
 	addField(users, &core.JSONField{Name: "game", MaxSize: 20000, Help: "امتیاز، سطح، نشان‌ها و مأموریت‌ها (برنامه می‌فرستد)"})
 	addField(users, &core.NumberField{Name: "level_override", Help: "سطح دستی؛ ۰ یعنی همان سطحی که برنامه حساب می‌کند"})
 	addField(users, &core.BoolField{Name: "is_admin", Help: "مدیر: منوی مخفی برنامه و ارسال پیام همگانی"})
+	addField(users, &core.TextField{Name: "username", Max: 20, Help: "نام کاربری یکتا (حروف کوچک انگلیسی)"})
 	if !hasIndex(users, "idx_users_phone") {
 		users.AddIndex("idx_users_phone", true, "phone", "phone != ''")
+	}
+	if !hasIndex(users, "idx_users_username") {
+		users.AddIndex("idx_users_username", true, "username", "username != ''")
 	}
 	if !hasIndex(users, "idx_users_bazaar") {
 		users.AddIndex("idx_users_bazaar", true, "bazaar_id", "bazaar_id != ''")

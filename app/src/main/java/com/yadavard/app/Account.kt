@@ -34,6 +34,8 @@ object Account {
         val id: String = "", val bazaar: Boolean = false,
         /** Ticked in the admin panel: may open the hidden settings and send messages to everyone. */
         val admin: Boolean = false,
+        /** The unique @name people find each other by; "" until chosen. */
+        val username: String = "",
     )
 
     /** A token pack sold through Cafe Bazaar; prices are set in the Bazaar panel, [price] is only shown. */
@@ -75,7 +77,7 @@ object Account {
 
     private fun parse(o: JSONObject) = Profile(o.optString("phone"), o.optString("name"), o.optDouble("balance", 0.0),
         o.optBoolean("unlimited"), o.optString("plan"), o.optString("text_model"), o.optString("audio_model"),
-        o.optBoolean("ai_enabled", true), o.optString("id"), o.optBoolean("bazaar"), o.optBoolean("admin"))
+        o.optBoolean("ai_enabled", true), o.optString("id"), o.optBoolean("bazaar"), o.optBoolean("admin"), o.optString("username"))
 
     private fun store(context: Context, profile: JSONObject) {
         prefs(context).edit().putString("profile", profile.toString()).apply()
@@ -243,6 +245,16 @@ object Account {
 
     suspend fun setName(context: Context, name: String) = withContext(Dispatchers.IO) {
         store(context, call(context, "POST", "/api/yadar/me", JSONObject().put("name", name)))
+    }
+
+    suspend fun setUsername(context: Context, username: String) = withContext(Dispatchers.IO) {
+        store(context, call(context, "POST", "/api/yadar/me", JSONObject().put("username", username)))
+    }
+
+    /** Whether [username] can be had: null when it can, otherwise why not. */
+    suspend fun checkUsername(context: Context, username: String): String? = withContext(Dispatchers.IO) {
+        val o = call(context, "GET", "/api/yadar/username/check?u=" + java.net.URLEncoder.encode(username, "UTF-8"))
+        if (o.optBoolean("ok")) null else o.optString("reason")
     }
 
     // ---- Yadimo's wardrobe: owned parts and the chosen look live on the account ----

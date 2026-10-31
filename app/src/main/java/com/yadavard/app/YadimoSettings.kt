@@ -21,9 +21,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
-/** Settings → Yadimo: on/off, the wardrobe, how chatty it is, the morning hello and the city for the weather. */
+/** Profile → Yadimo: on/off, the wardrobe, how chatty it is, the morning hello and the city for the weather. */
 @Composable
-fun YadimoSettingsCard() {
+fun YadimoSettingsCard(openSignal: Int = 0) {
     val context = LocalContext.current
     val on = rememberYadimoEnabled()
     var level by remember { mutableIntStateOf(YadimoTalk.level(context)) }
@@ -39,7 +39,7 @@ fun YadimoSettingsCard() {
 
     SettingsCard(t("یادیمو", "Yadimo"), Icons.Rounded.Face,
         summary = t("دوست زندهٔ برنامه: لباس و لوازم، سلام صبح و پیام‌های کوتاه", "The app's living buddy: outfits, morning hello and short notes"),
-        collapsible = true) {
+        collapsible = true, openSignal = openSignal) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(t("یادیمو روشن باشد", "Show Yadimo"), style = MaterialTheme.typography.bodyLarge)

@@ -380,9 +380,12 @@ fun TimePickerSheet(hour: Int, minute: Int, onDismiss: () -> Unit, onPick: (Int,
 
 @Composable
 fun SettingsCard(title: String, icon: ImageVector, summary: String? = null, collapsible: Boolean = false,
-                 startExpanded: Boolean = !collapsible, onIconHold: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
+                 startExpanded: Boolean = !collapsible, onIconHold: (() -> Unit)? = null, openSignal: Int = 0,
+                 content: @Composable ColumnScope.() -> Unit) {
     // Collapsible cards keep the settings page short; each remembers whether it is open.
     var open by rememberSaveable(title) { mutableStateOf(startExpanded) }
+    // something elsewhere asked for this card (e.g. a mission that is done here)
+    LaunchedEffect(openSignal) { if (openSignal > 0) open = true }
     val rotation by animateFloatAsState(if (open) 180f else 0f, label = "chevron")
     Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, shadowElevation = 1.dp,
         modifier = Modifier.fillMaxWidth()) {

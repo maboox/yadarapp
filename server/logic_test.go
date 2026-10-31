@@ -109,3 +109,28 @@ func TestWavSeconds(t *testing.T) {
 		t.Fatalf("seconds = %v", got)
 	}
 }
+
+func TestUsernames(t *testing.T) {
+	ok := map[string]string{"Amin": "amin", "@ami1998": "ami1998", " sara_k ": "sara_k"}
+	for in, want := range ok {
+		if got, why := checkUsername(in); got != want || why != "" {
+			t.Errorf("%q: got %q %q", in, got, why)
+		}
+	}
+	for _, bad := range []string{"ab", "1amin", "amin!", "امین", "admin", "admin123", "my_admin", "yadimo_team", "god", "kami_sama", "kamisama",
+		"support", "khoda", "a_d_m_i_n", "abcdefghijklmnopqrstu"} {
+		if got, why := checkUsername(bad); why == "" {
+			t.Errorf("%q should be refused, got %q", bad, got)
+		}
+	}
+	for _, bad := range []string{"ادمین", "پشتیبانی یادیمو", "مدیر", "خدا", "God", "کامی سما", "Admin Team", "پشتيباني"} {
+		if nameProblem(bad) == "" {
+			t.Errorf("name %q should be refused", bad)
+		}
+	}
+	for _, good := range []string{"امین", "خداداد", "مدیری", "سارا", "Amin Rahimi", ""} {
+		if why := nameProblem(good); why != "" {
+			t.Errorf("name %q refused: %s", good, why)
+		}
+	}
+}

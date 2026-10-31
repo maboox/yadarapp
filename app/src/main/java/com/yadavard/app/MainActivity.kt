@@ -190,6 +190,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun restore(r: Reminder) = io { Repo.save(context, r) }
 }
 
+/** The screens; SETTINGS has no tab of its own, it opens from the gear on the profile. */
 enum class Tab { HOME, CALENDAR, NOTES, STATS, PROFILE, SETTINGS }
 
 /** What the editor is opened with: an existing reminder or a pre-filled draft for a new one. */
@@ -348,7 +349,9 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
         )
     }
 
-    BackHandler(enabled = editor == null && tab != Tab.HOME) { tab = Tab.HOME }
+    BackHandler(enabled = editor == null && tab != Tab.HOME) { tab = if (tab == Tab.SETTINGS) Tab.PROFILE else Tab.HOME }
+    // something in the settings needs attention (e.g. notification permission): a dot on the profile tab and the gear
+    val settingsAlert = remember(permissionTick) { !allCriticalGranted(context) }
 
     Box(Modifier.fillMaxSize()) {
         Scaffold(
@@ -363,10 +366,9 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                         icon = { Icon(Icons.Rounded.StickyNote2, null) }, label = { Text(t("یادداشت", "Notes")) })
                     NavigationBarItem(selected = tab == Tab.STATS, onClick = { tab = Tab.STATS },
                         icon = { Icon(Icons.Rounded.Insights, null) }, label = { Text(t("آمار", "Stats")) })
-                    NavigationBarItem(selected = tab == Tab.PROFILE, onClick = { tab = Tab.PROFILE },
-                        icon = { Icon(Icons.Rounded.AccountCircle, null) }, label = { Text(t("پروفایل", "Profile"), maxLines = 1) })
-                    NavigationBarItem(selected = tab == Tab.SETTINGS, onClick = { tab = Tab.SETTINGS },
-                        icon = { Icon(Icons.Rounded.Settings, null) }, label = { Text(t("تنظیمات", "Settings")) })
+                    NavigationBarItem(selected = tab == Tab.PROFILE || tab == Tab.SETTINGS, onClick = { tab = Tab.PROFILE },
+                        icon = { BadgedBox(badge = { if (settingsAlert) Badge() }) { Icon(Icons.Rounded.AccountCircle, null) } },
+                        label = { Text(t("پروفایل", "Profile"), maxLines = 1) })
                 }
             },
             floatingActionButton = {
@@ -391,8 +393,17 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                         onPin = { vm.saveNote(it.copy(pinned = !it.pinned)) }, onDelete = { vm.deleteNote(it) },
                         onSave = { vm.saveNote(it) })
                     Tab.STATS -> StatsScreen(items, now, padding)
-                    Tab.PROFILE -> ProfileScreen(padding)
-                    Tab.SETTINGS -> SettingsScreen(padding, items.size, permissionTick, onPermissionChanged = { permissionTick++ },
+                    Tab.PROFILE -> ProfileScreen(padding, settingsAlert, onSettings = { tab = Tab.SETTINGS }) { mission ->
+                        // each mission takes you to where it is done
+                        when (mission) {
+                            "first_reminder" -> { tab = Tab.HOME; editor = EditorRequest(null, null) }
+                            "customize" -> context.startActivity(Intent(context, YadimoWardrobeActivity::class.java))
+                            "first_note" -> { tab = Tab.NOTES; noteEditor = Note(title = "") }
+                            "voice3" -> { tab = Tab.HOME; startVoice() }
+                            else -> tab = Tab.HOME
+                        }
+                    }
+                    Tab.SETTINGS -> SettingsScreen(padding, items.size, permissionTick, onBack = { tab = Tab.PROFILE }, onPermissionChanged = { permissionTick++ },
                         onPackExport = { packExport = emptySet() }, onPackImport = { packImport = it }, onHelp = { showHelp = true })
                 }
             }

@@ -196,6 +196,18 @@ class ReminderStore(context: Context) : SQLiteOpenHelper(context, "reminders.db"
         writableDatabase.execSQL("DELETE FROM history WHERE id = (SELECT MAX(id) FROM history WHERE reminder_id = ?)", arrayOf<Any>(reminderId))
     }
 
+    /** Takes out a reminder's "not done" outcomes (it was deleted, so they no longer count) and gives them back for "Undo". */
+    @Synchronized
+    fun takeMissed(reminderId: Long): List<ContentValues> {
+        val rows = readableDatabase.query("history", null, "reminder_id = ? AND outcome = 'MISSED'", arrayOf(reminderId.toString()),
+            null, null, null).use { c -> buildList { while (c.moveToNext()) add(ContentValues().also { android.database.DatabaseUtils.cursorRowToContentValues(c, it); it.remove("id") }) } }
+        writableDatabase.delete("history", "reminder_id = ? AND outcome = 'MISSED'", arrayOf(reminderId.toString()))
+        return rows
+    }
+
+    @Synchronized
+    fun putBack(rows: List<ContentValues>) = rows.forEach { writableDatabase.insert("history", null, it) }
+
     fun history(since: Long = 0): List<HistoryEntry> = readableDatabase.query("history", null, "recorded_at >= ?",
         arrayOf(since.toString()), null, null, "recorded_at ASC").use { c ->
         buildList {
@@ -226,15 +238,22 @@ object Repo {
     /** Saves and reschedules; used for both user edits and alarm-state updates. */
     fun save(context: Context, r: Reminder): Reminder {
         val saved = store(context).save(r)
+        // brought back with "Undo": its "not done" outcomes come back too
+        deletedMisses.remove(saved.id)?.let { runCatching { store(context).putBack(it) } }
         Scheduler.schedule(context, saved)
         if (r.id == 0L) runCatching { Game.onCreated(context, saved.id) }
         changed(context)
         return saved
     }
 
+    /** "Not done" outcomes of reminders deleted a moment ago, kept in case of "Undo". */
+    private val deletedMisses = java.util.concurrent.ConcurrentHashMap<Long, List<ContentValues>>()
+
+    /** Deleting a reminder also takes its "not done" outcomes out of the stats; what was done stays counted. */
     fun delete(context: Context, r: Reminder) {
         Scheduler.cancel(context, r.id)
         Notifier.cancel(context, r.id)
+        runCatching { deletedMisses[r.id] = store(context).takeMissed(r.id) }
         store(context).delete(r.id)
         runCatching { Game.onDeleted(context, r) }
         changed(context)

@@ -97,8 +97,8 @@ object AssistantSession {
 
     /** Out of tokens or signed out: say so plainly instead of as a technical failure. */
     private fun accountProblem(e: Exception): String? = when (e) {
-        is NoBalanceException -> t("توکن‌هایت تمام شده. از «تنظیمات ← حساب کاربری» موجودی را ببین و شارژ کن.",
-            "You are out of tokens. See Settings → Account to top up.")
+        is NoBalanceException -> t("توکن‌هایت تمام شده. از «پروفایل ← ⚙️ تنظیمات ← حساب کاربری» موجودی را ببین و شارژ کن.",
+            "You are out of tokens. See Profile → ⚙️ Settings → Account to top up.")
         is LoggedOutException -> e.message
         else -> null
     }

@@ -58,8 +58,8 @@ fun OnboardingScreen(onFinish: () -> Unit) {
         },
         Page(Icons.Rounded.Face, listOf(Color(0xFFB8436B), Color(0xFFF08AA8)),
             { t("چی صدات کنم؟", "What should I call you?") },
-            { t("اگر دوست داری، اسمت را بنویس تا یادیمو با اسم صدایت کند. لازم نیست؛ هر وقت خواستی از تنظیمات عوضش کن.",
-                "If you like, type your name so Yadimo can greet you. It is optional and you can change it in Settings.") }) {
+            { t("اگر دوست داری، اسمت را بنویس تا یادیمو با اسم صدایت کند. لازم نیست؛ هر وقت خواستی از «پروفایل» عوضش کن.",
+                "If you like, type your name so Yadimo can greet you. It is optional and you can change it on your Profile.") }) {
             OutlinedTextField(name, { name = it.take(30); Prefs.setUserName(context, name) }, singleLine = true,
                 modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
                 placeholder = { Text(t("اسم یا لقب", "Name or nickname")) })
@@ -127,14 +127,14 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                 "Reminders and notes are stored only on this phone, not on a server. If you change or reset the phone or uninstall the app, they are lost without a backup.") }) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Feature(Icons.Rounded.Download, t("یادیمو بعد از هر تغییر یک پشتیبان خودکار در پوشهٔ Download/Yadar می‌گذارد", "Yadimo saves an automatic backup in Download/Yadar after every change"))
-                Feature(Icons.Rounded.Upload, t("گاهی از «تنظیمات ← پشتیبان‌گیری» یک نسخه بگیر و جای دیگری (مثلاً پیام‌رسان یا ایمیل) نگه دار", "Now and then export a copy from Settings → Backup and keep it somewhere else"))
+                Feature(Icons.Rounded.Upload, t("گاهی از «پروفایل ← ⚙️ تنظیمات ← پشتیبان‌گیری» یک نسخه بگیر و جای دیگری (مثلاً پیام‌رسان یا ایمیل) نگه دار", "Now and then export a copy from Settings → Backup and keep it somewhere else"))
                 Feature(Icons.Rounded.PhoneAndroid, t("در گوشی جدید با «بازیابی» همه‌چیز برمی‌گردد", "On a new phone, Restore brings everything back"))
             }
         },
         Page(Icons.Rounded.HealthAndSafety, listOf(Color(0xFF1F5FBF), Color(0xFF5AA0FF)),
             { t("یک قدم آخر: اعلان", "Last step: notifications") },
-            { t("برای اینکه یادآوری‌ها سر وقت برسند، فقط همین دو مورد لازم است. اجازه‌های دیگر (مثل زنگ تمام‌صفحه) را هر وقت خواستی از «تنظیمات ← سلامت اعلان‌ها» بده.",
-                "Only these two are needed for reminders to arrive on time. Other permissions (like full-screen alarms) can be given later in Settings → Notification health.") }) {
+            { t("برای اینکه یادآوری‌ها سر وقت برسند، فقط همین دو مورد لازم است. اجازه‌های دیگر (مثل زنگ تمام‌صفحه) را هر وقت خواستی از «پروفایل ← ⚙️ تنظیمات ← سلامت اعلان‌ها» بده.",
+                "Only these two are needed for reminders to arrive on time. Other permissions (like full-screen alarms) can be given later in Profile → ⚙️ Settings → Notification health.") }) {
             PermissionChecklist(tick, onChanged = { tick++ }, compact = true, group = PermGroup.ESSENTIAL)
         },
     )
