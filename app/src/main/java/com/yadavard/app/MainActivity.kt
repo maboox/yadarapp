@@ -424,12 +424,8 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                 Dates.localDate(it.nextAt, it.zoneId) == LocalDate.now()) }
             // Each line at most once a day: the hello only on the first visit, then other short notes.
             when (tab) {
-                Tab.HOME -> YadimoTalk.inApp(context, "hello", if (today > 0) t("سلام$name! امروز ${n(today)} کار داری", "Hi$name! ${today} things today") else t("سلام$name! امروز خلوته 🌿", "Hi$name! A quiet day 🌿"))
-                    ?: YadimoTalk.inAppAny(context, listOfNotNull(
-                        today.takeIf { it > 1 }?.let { "left" to t("هنوز ${n(it)} کار مونده؛ از پسش برمیای 💪", "$it still to go; you've got this 💪") },
-                        "water" to t("یه لیوان آب بخور 💧", "Have a glass of water 💧"),
-                        "voice" to t("هر کاری یادت اومد، فقط بگو 🎙️", "Remember something? Just say it 🎙️"),
-                        "good" to t("داری خوب پیش می‌ری! ✨", "You're doing great! ✨")))
+                // on the home screen Yadimo already lives at the top and talks there
+                Tab.HOME -> null
                 Tab.CALENDAR -> YadimoTalk.inApp(context, "calendar", t("برنامهٔ روزهات اینجاست 📅", "Your days at a glance 📅"))
                 Tab.NOTES -> YadimoTalk.inApp(context, "notes", t("یه یادداشت تازه بنویسیم؟ ✍️", "Shall we write a note? ✍️"))
                 Tab.STATS -> YadimoTalk.inApp(context, "stats", t("ببین چقدر خوب پیش رفتی! ⭐", "Look how well you did! ⭐"))

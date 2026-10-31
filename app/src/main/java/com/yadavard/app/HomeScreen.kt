@@ -99,18 +99,6 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
                             label = { Text(t("🔥 ${n(g.facts.streak)} روز پشت سر هم", "🔥 ${g.facts.streak}-day streak")) })
                     }
                 }
-                if (rememberYadimoEnabled()) run {
-                    // The mascot greets you; tap it to make it wave. It sleeps at night.
-                    var waving by remember { mutableStateOf(false) }
-                    LaunchedEffect(waving) { if (waving) { delay(2400); waving = false } }
-                    val hourNow = Instant.ofEpochMilli(now).atZone(zone).hour
-                    YadimoView(when {
-                        waving -> YadimoMood.WAVE
-                        hourNow !in 5..21 -> YadimoMood.SLEEP
-                        sections.attention.isNotEmpty() -> YadimoMood.THINK
-                        else -> YadimoMood.IDLE
-                    }, size = 72.dp)
-                }
                 // groups (when turned on): a small door to them; the home screen stays yours
                 val groups by Groups.state.collectAsState()
                 if (remember(groups.tick) { Groups.enabled(context) }) FilledTonalIconButton(onClick = onGroups) {
@@ -123,6 +111,8 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
                 }
             }
         }
+        // Yadimo lives across the top of the home screen
+        if (rememberYadimoEnabled()) item(key = "yadimo") { HomeYadimo(items, now) }
         if (searching) item(key = "search") {
             OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true,
                 placeholder = { Text(t("جست‌وجو در یادآوری‌ها", "Search reminders")) },
