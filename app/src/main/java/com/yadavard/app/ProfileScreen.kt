@@ -67,6 +67,8 @@ fun ProfileScreen(padding: PaddingValues, settingsAlert: Boolean, onSettings: ()
             }
         }
         item { LevelHeader(s, onName = { editName = true }, onUsername = { editUsername = true }) }
+        // Yadimo, its home and its settings in one card
+        item { YadimoSettingsCard(openYadimo) { RoomSection() } }
         if (s != null) item {
             MissionsCard(s) { key ->
                 when (key) {
@@ -74,17 +76,12 @@ fun ProfileScreen(padding: PaddingValues, settingsAlert: Boolean, onSettings: ()
                     // a username needs an account: sign in first
                     "username" -> if (Account.isLoggedIn(context)) editUsername = true else Account.loginRequested.value = true
                     // the morning hello is in Yadimo's card below: open it and scroll to it
-                    "hello" -> { openYadimo++; scope.launch { list.animateScrollToItem(4) } }
+                    "hello" -> { openYadimo++; scope.launch { list.animateScrollToItem(2) } }
                     else -> onMission(key)
                 }
             }
         }
-        item { RoomCard() }
-        item { YadimoSettingsCard(openYadimo) }
-        if (s != null) {
-            item { BadgesCard(s) }
-            item { UnlocksCard(s) }
-        }
+        if (s != null) item { UnlocksCard(s) }
         item {
             Text(t("امتیاز از کجا می‌آید: هر کار انجام‌شده ۱۰ (دیرتر از دو ساعت ۵)، هر روزی که کاری انجام بدهی ۵، ساختن یادآوری ۵ و با صدا ۱۰ (تا ۴۰ امتیاز در روز)، هر یادداشت ۲، هر نشان ۵۰ و مأموریت‌ها.",
                 "Points: 10 for each thing done (5 if over two hours late), 5 for each active day, 5 for creating a reminder or 10 by voice (up to 40 a day), 2 per note, 50 per badge, plus missions."),
@@ -179,10 +176,10 @@ fun UsernameDialog(onDone: () -> Unit) {
 
 /** Yadimo's room: open it in the app, and how smooth the home-screen widget should be. */
 @Composable
-private fun RoomCard() {
+private fun ColumnScope.RoomSection() {
     val context = LocalContext.current
     var fps by remember { mutableIntStateOf(RoomWidgets.fps(context)) }
-    SettingsCard(t("خانهٔ یادیمو", "Yadimo's home"), Icons.Rounded.Home) {
+    run {
         Text(t("یادیمو اینجا زندگی می‌کند: غذا بده، توپ‌بازی کن، شارژش کن، گل‌ها را آب بده، بلندش کن و نازش کن. با هر کاری که انجام می‌دهی هم شادتر می‌شود.",
             "Yadimo lives here: feed it, play ball, charge it, water the plant, pick it up and pat it. It gets happier with every reminder you get done."),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -266,6 +263,8 @@ private fun LevelHeader(s: Game.State?, onName: () -> Unit, onUsername: () -> Un
                     Stat("✅", n(s.facts.totalDone), t("کار انجام‌شده", "done"))
                     Stat("🏅", n(s.earned.size), t("نشان", "badges"))
                 }
+                Spacer(Modifier.height(12.dp))
+                BadgeStrip(s)
             }
         }
     }
@@ -285,7 +284,11 @@ private fun MissionsCard(s: Game.State, onOpen: (String) -> Unit) {
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf<String?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
-    SettingsCard(t("مأموریت‌ها", "Missions"), Icons.Rounded.Flag) {
+    val ready = s.missions.count { it.complete && it.key !in s.claimed }
+    val finished = s.missions.count { it.key in s.claimed }
+    SettingsCard(t("مأموریت‌ها", "Missions"), Icons.Rounded.Flag, collapsible = true, startExpanded = ready > 0,
+        summary = t("${n(finished)} از ${n(s.missions.size)} انجام شد", "${finished} of ${s.missions.size} done") +
+            if (ready > 0) t(" • ${n(ready)} جایزه آمادهٔ گرفتن 🎁", " • $ready rewards to claim 🎁") else "") {
         s.missions.forEach { m ->
             val claimed = m.key in s.claimed
             // a mission not done yet takes you to where it is done
@@ -323,10 +326,41 @@ private fun MissionsCard(s: Game.State, onOpen: (String) -> Unit) {
 }
 
 @Composable
-private fun BadgesCard(s: Game.State) {
+/** Five badges under the profile: the ones you have first, then the nearest; a tap opens them all. */
+@Composable
+private fun BadgeStrip(s: Game.State) {
+    var all by remember { mutableStateOf(false) }
+    val shown = s.badges.sortedWith(compareByDescending<GameGoal> { it.key in s.earned }.thenByDescending { it.progress.toFloat() / it.target }).take(5)
+    Surface(onClick = { all = true }, shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            shown.forEach { b ->
+                val got = b.key in s.earned
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(40.dp).clip(CircleShape)
+                        .background(if (got) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center) { Text(b.emoji, fontSize = 20.sp, modifier = Modifier.alpha(if (got) 1f else 0.3f)) }
+                }
+            }
+            Text(t("${n(s.earned.size)}/${n(s.badges.size)} ›", "${s.earned.size}/${s.badges.size} ›"), style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 6.dp))
+        }
+    }
+    if (all) Dialog(onDismissRequest = { all = false }) {
+        Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surface) {
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(t("نشان‌ها", "Badges"), style = MaterialTheme.typography.titleLarge)
+                BadgesGrid(s)
+                TextButton(onClick = { all = false }, modifier = Modifier.align(Alignment.End)) { Text(t("بستن", "Close")) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BadgesGrid(s: Game.State) {
     var shown by remember { mutableStateOf<GameGoal?>(null) }
     shown?.let { b -> BadgeDialog(b, b.key in s.earned) { shown = null } }
-    SettingsCard(t("نشان‌ها", "Badges"), Icons.Rounded.MilitaryTech) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(t("روی هر نشان بزن تا ببینی چطور به دستش می‌آوری.", "Tap a badge to see how to earn it."),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         s.badges.chunked(4).forEach { row ->
@@ -370,7 +404,8 @@ fun BadgeDialog(b: GameGoal, got: Boolean, onDone: () -> Unit) {
 
 @Composable
 private fun UnlocksCard(s: Game.State) {
-    SettingsCard(t("جایزهٔ سطح‌ها", "Level rewards"), Icons.Rounded.EmojiEvents) {
+    SettingsCard(t("جایزهٔ سطح‌ها", "Level rewards"), Icons.Rounded.EmojiEvents, collapsible = true,
+        summary = t("هر سطح چه لباس و وسیله‌ای برای یادیمو باز می‌کند", "What each level opens for Yadimo")) {
         Text(t("این وسیله‌ها فروشی نیستند و فقط با رسیدن به سطحشان در کمد یادیمو باز می‌شوند.",
             "These can't be bought; they open in Yadimo's wardrobe when you reach their level."),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

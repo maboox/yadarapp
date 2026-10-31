@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.dp
 
 /** Profile → Yadimo: on/off, the wardrobe, how chatty it is, the morning hello and the city for the weather. */
 @Composable
-fun YadimoSettingsCard(openSignal: Int = 0) {
+fun YadimoSettingsCard(openSignal: Int = 0, top: @Composable ColumnScope.() -> Unit = {}) {
     val context = LocalContext.current
     val on = rememberYadimoEnabled()
     var level by remember { mutableIntStateOf(YadimoTalk.level(context)) }
@@ -37,9 +37,11 @@ fun YadimoSettingsCard(openSignal: Int = 0) {
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) { tick++; YadimoTalk.schedule(context) }
     @Suppress("UNUSED_VARIABLE") val read = tick
 
-    SettingsCard(t("یادیمو", "Yadimo"), Icons.Rounded.Face,
-        summary = t("دوست زندهٔ برنامه: لباس و لوازم، سلام صبح و پیام‌های کوتاه", "The app's living buddy: outfits, morning hello and short notes"),
+    SettingsCard(t("یادیمو و خانه‌اش", "Yadimo and its home"), Icons.Rounded.Face,
+        summary = t("خانه و ویجت، لباس و لوازم، سلام صبح و پیام‌های کوتاه", "Home and widget, outfits, morning hello and short notes"),
         collapsible = true, openSignal = openSignal) {
+        top()
+        HorizontalDivider()
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(t("یادیمو روشن باشد", "Show Yadimo"), style = MaterialTheme.typography.bodyLarge)
