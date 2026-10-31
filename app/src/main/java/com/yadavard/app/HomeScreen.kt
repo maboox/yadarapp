@@ -72,6 +72,7 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
     val exactOk = Scheduler.canExact(context)
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { onFixPermissions() }
 
+    val yadimoOn = rememberYadimoEnabled()
     LazyColumn(Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = padding.calculateTopPadding() + 8.dp,
             bottom = padding.calculateBottomPadding() + 96.dp),
@@ -112,7 +113,7 @@ fun HomeScreen(items: List<Reminder>, now: Long, padding: PaddingValues, actions
             }
         }
         // Yadimo lives across the top of the home screen
-        if (rememberYadimoEnabled()) item(key = "yadimo") { HomeYadimo(items, now) }
+        if (yadimoOn) item(key = "yadimo") { HomeYadimo(items, now) }
         if (searching) item(key = "search") {
             OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true,
                 placeholder = { Text(t("جست‌وجو در یادآوری‌ها", "Search reminders")) },
