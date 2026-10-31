@@ -325,7 +325,6 @@ private fun MissionsCard(s: Game.State, onOpen: (String) -> Unit) {
     }
 }
 
-@Composable
 /** Five badges under the profile: the ones you have first, then the nearest; a tap opens them all. */
 @Composable
 private fun BadgeStrip(s: Game.State) {

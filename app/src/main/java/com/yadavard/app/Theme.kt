@@ -13,6 +13,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.composed
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -244,13 +250,13 @@ fun leadLabel(minutes: Int): String = when {
 
 /** A soft band of light sweeping across, for the admin's shining theme (and other special things). */
 fun androidx.compose.ui.Modifier.shimmer(on: Boolean, alpha: Float = .28f): androidx.compose.ui.Modifier = if (!on) this else composed {
-    val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "shimmer")
-    val p by t.animateFloat(-0.4f, 1.4f, androidx.compose.animation.core.infiniteRepeatable(
-        androidx.compose.animation.core.tween(2400, easing = androidx.compose.animation.core.LinearEasing)), label = "p")
+    val t = rememberInfiniteTransition(label = "shimmer")
+    val p: Float by t.animateFloat(-0.4f, 1.4f, infiniteRepeatable(tween(2400, easing = LinearEasing)), label = "p")
     drawWithContent {
         drawContent()
-        val x = size.width * p
+        val x: Float = size.width * p
+        val h: Float = size.height
         drawRect(Brush.linearGradient(listOf(Color.Transparent, Color.White.copy(alpha = alpha), Color(0xFFFFE08A).copy(alpha = alpha * .6f), Color.Transparent),
-            start = androidx.compose.ui.geometry.Offset(x - size.height, 0f), end = androidx.compose.ui.geometry.Offset(x + size.height * .6f, size.height)))
+            start = Offset(x - h, 0f), end = Offset(x + h * .6f, h)))
     }
 }
