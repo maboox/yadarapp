@@ -13,7 +13,7 @@ data class GameFacts(
     val totalDone: Int = 0, val onTime: Int = 0, val late: Int = 0, val activeDays: Int = 0,
     val streak: Int = 0, val bestStreak: Int = 0, val early: Int = 0, val night: Int = 0, val perfectWeek: Boolean = false,
     val voiceCreated: Int = 0, val createdXp: Int = 0, val noteXp: Int = 0,
-    val hasReminder: Boolean = false, val hasNote: Boolean = false, val nameSet: Boolean = false,
+    val hasReminder: Boolean = false, val hasNote: Boolean = false, val nameSet: Boolean = false, val usernameSet: Boolean = false,
     val customized: Boolean = false, val helloOn: Boolean = false, val owned: Int = 0,
 )
 
@@ -72,6 +72,7 @@ object GameRules {
     fun missions(f: GameFacts): List<GameGoal> = listOf(
         GameGoal("first_reminder", "📝", "اولین یادآوری‌ات را بساز", "Create your first reminder", if (f.hasReminder) 1 else 0, 1, 20),
         GameGoal("name", "👋", "اسمت را به یادیمو بگو", "Tell Yadimo your name", if (f.nameSet) 1 else 0, 1, 20),
+        GameGoal("username", "🆔", "نام کاربری‌ات را انتخاب کن", "Pick your username", if (f.usernameSet) 1 else 0, 1, 20),
         GameGoal("customize", "🎨", "یادیمو را شخصی کن", "Make Yadimo your own", if (f.customized) 1 else 0, 1, 20),
         GameGoal("first_note", "🗒️", "اولین یادداشت را بنویس", "Write your first note", if (f.hasNote) 1 else 0, 1, 20),
         GameGoal("hello", "☀️", "سلام صبح را روشن کن", "Turn on the morning hello", if (f.helloOn) 1 else 0, 1, 20),

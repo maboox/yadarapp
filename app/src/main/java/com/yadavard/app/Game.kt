@@ -124,7 +124,8 @@ object Game {
         val other = GameFacts(
             voiceCreated = p.getInt("voice", 0), createdXp = p.getInt("created_total", 0), noteXp = p.getInt("notes_total", 0),
             hasReminder = reminders.isNotEmpty() || history.isNotEmpty(), hasNote = Repo.notes(context).isNotEmpty(),
-            nameSet = Prefs.userName(context).isNotBlank(), customized = YadimoStore.config != YadimoConfig(),
+            nameSet = Prefs.userName(context).isNotBlank(),
+            usernameSet = Account.run { load(context); profile.value?.username?.isNotBlank() == true }, customized = YadimoStore.config != YadimoConfig(),
             helloOn = YadimoStore.enabled && YadimoTalk.hello(context), owned = YadimoShop.owned.size)
         val facts = GameRules.facts(history, zone, now, other)
         val badges = GameRules.badges(facts)

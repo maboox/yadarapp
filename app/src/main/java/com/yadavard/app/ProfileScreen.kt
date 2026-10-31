@@ -71,6 +71,8 @@ fun ProfileScreen(padding: PaddingValues, settingsAlert: Boolean, onSettings: ()
             MissionsCard(s) { key ->
                 when (key) {
                     "name" -> editName = true
+                    // a username needs an account: sign in first
+                    "username" -> if (Account.isLoggedIn(context)) editUsername = true else Account.loginRequested.value = true
                     // the morning hello is in Yadimo's card below: open it and scroll to it
                     "hello" -> { openYadimo++; scope.launch { list.animateScrollToItem(4) } }
                     else -> onMission(key)
@@ -168,7 +170,7 @@ private fun UsernameDialog(onDone: () -> Unit) {
             busy = true
             scope.launch {
                 runCatching { Account.setUsername(context, name.trim().removePrefix("@").lowercase()) }
-                    .onSuccess { onDone() }.onFailure { verdict = it.message ?: t("ذخیره نشد", "Not saved") }
+                    .onSuccess { withContext(Dispatchers.IO) { Game.sync(context) }; onDone() }.onFailure { verdict = it.message ?: t("ذخیره نشد", "Not saved") }
                 busy = false
             }
         }) { Text(t("ذخیره", "Save")) } },
