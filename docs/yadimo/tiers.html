@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>قاب‌ها و افکت‌های یادیمو</title>
+<style>
+:root{--bg:#0a0f1e;--card:#121a30;--ink:#eef0ff;--mut:#9aa3c7}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#1b2550,var(--bg));color:var(--ink);font-family:system-ui,Tahoma,sans-serif;line-height:1.8;padding:20px}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:17px;margin:28px 0 6px}p{color:var(--mut);font-size:14px;margin:4px 0 14px;max-width:820px}
+.grid{display:flex;flex-wrap:wrap;gap:18px}
+.card{background:linear-gradient(180deg,#151e38,#0f1629);border:1px solid #243058;border-radius:22px;padding:30px 12px 14px;width:200px;text-align:center}
+.card .t{font-weight:800;font-size:15px;margin-top:6px}.card .s{font-size:12px;color:var(--mut)}
+.frame{position:relative;margin:0 auto;direction:ltr}
+.frame svg.f{position:absolute;inset:0;overflow:visible}
+.frame .yad{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+.frame .yad svg{width:100%;height:100%;overflow:visible}
+.fx{position:absolute;inset:0;pointer-events:none}
+.aura{position:absolute;left:50%;top:50%;border-radius:50%;transform:translate(-50%,-50%);animation:breathe 2.6s ease-in-out infinite}
+@keyframes breathe{50%{opacity:.45;transform:translate(-50%,-50%) scale(1.12)}}
+.rays{position:absolute;left:50%;top:50%;border-radius:50%;transform:translate(-50%,-50%);animation:spin 9s linear infinite;
+  background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.0) 0 10deg,rgba(200,240,255,.28) 12deg 16deg,rgba(255,255,255,0) 18deg 30deg);
+  -webkit-mask:radial-gradient(circle,#000 30%,transparent 70%);mask:radial-gradient(circle,#000 30%,transparent 70%)}
+@keyframes spin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.spark{position:absolute;width:12px;height:12px;animation:tw 1.8s ease-in-out infinite}
+.spark:before{content:"";position:absolute;inset:0;background:currentColor;clip-path:polygon(50% 0,60% 40%,100% 50%,60% 60%,50% 100%,40% 60%,0 50%,40% 40%)}
+@keyframes tw{0%,100%{opacity:0;transform:scale(.3) rotate(0)}50%{opacity:1;transform:scale(1) rotate(45deg)}}
+.orbit{position:absolute;left:50%;top:50%;border-radius:50%;transform:translate(-50%,-50%);animation:spin 7s linear infinite}
+.orbit i{position:absolute;width:6px;height:6px;border-radius:50%;background:#fff;box-shadow:0 0 8px 2px #b69cff}
+.medal{display:inline-block;vertical-align:middle;margin-inline-start:6px}
+.name{display:flex;align-items:center;justify-content:center;gap:6px;font-weight:800;margin-top:4px}
+.members{display:flex;flex-direction:column;gap:10px;max-width:380px}
+.member{display:flex;align-items:center;gap:12px;background:#121a30;border:1px solid #243058;border-radius:16px;padding:8px 12px}
+.member .nm{font-weight:700}.member .lv{font-size:12px;color:var(--mut)}
+.profile{background:linear-gradient(180deg,#151e38,#0f1629);border:1px solid #243058;border-radius:26px;padding:18px;width:320px;text-align:center}
+.ctl{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.ctl button{font:inherit;font-size:13px;border:1px solid #2c3a6a;background:#16203c;color:#dfe4ff;padding:3px 12px;border-radius:999px;cursor:pointer}
+.ctl button.on{background:#7a5cf0;border-color:#7a5cf0}
+#scene{display:none}
+</style></head><body>
+<h1>قاب‌ها، مدال‌ها و افکت یادیمو برای خریداران و ادمین</h1>
+<p>قاب دور عکس پروفایل حالا شش‌ضلعی فلزی است و با هر سطح خرید، چیزی به آن اضافه می‌شود: لبهٔ دوطبقه، ستاره، تزئین، بال و تاج. یک برق نرم هم مدام از رویش رد می‌شود. خود یادیمو هم افکت می‌گیرد: درخشش، جرقه، پرتو و برای ادمین بدنهٔ کهکشانی با ستاره‌هایی که دورش می‌چرخند. عدد داخل مدال کوچک کنار اسم، سطح بازی است.</p>
+
+<div class="ctl" id="moods"></div>
+
+<h2>همهٔ سطح‌ها کنار هم</h2>
+<div class="grid" id="tiers"></div>
+
+<h2>در صفحهٔ پروفایل</h2>
+<div class="grid"><div class="profile" id="profile"></div></div>
+
+<h2>در فهرست اعضای گروه</h2>
+<div class="members" id="members"></div>
+
+<script src="art.js"></script><script src="volume.js"></script><script src="acc.js"></script><script src="costumes.js"></script><script src="warp.js"></script><script src="engine.js"></script>
+<script>
+const NS = 'http://www.w3.org/2000/svg';
+let uid = 0;
+const TIERS = {
+  none:    {fa: 'بدون خرید', sub: 'بدون قاب', metal: null},
+  bronze:  {fa: 'برنزی', sub: 'زیر ۲۰۰ توکن', metal: ['#5a2e12', '#b8723c', '#f6c79a', '#a8602c', '#4a240c'], gem: ['#3a1a0b', '#120703'], stars: 0, glow: '#ff9a4a'},
+  silver:  {fa: 'نقره‌ای', sub: '۲۰۰ تا ۵۰۰', metal: ['#5d6678', '#c9d2e0', '#ffffff', '#aab4c6', '#4b5466'], gem: ['#1d2a4d', '#0a1022'], stars: 1, glow: '#cfe0ff', double: true},
+  gold:    {fa: 'طلایی', sub: '۵۰۰ تا ۱۵۰۰', metal: ['#7a4e00', '#e2a92a', '#fff2b0', '#d69a1a', '#6a4200'], gem: ['#3d2300', '#140b00'], stars: 2, glow: '#ffc93d', double: true, crest: true},
+  diamond: {fa: 'الماسی', sub: 'بیش از ۱۵۰۰', metal: ['#2b6fb8', '#8fd6ff', '#ffffff', '#5fb4ff', '#1d4f8f'], gem: ['#0d2a5c', '#050c22'], stars: 3, glow: '#8fe4ff', double: true, crest: true, wings: true},
+  admin:   {fa: 'ادمین 👑', sub: 'یادیموی کهکشانی', metal: ['#3b1680', '#a067ff', '#ffe08a', '#7b3cff', '#2a0c5c'], gem: ['#1a0838', '#05010f'], stars: 3, glow: '#b98cff', double: true, wings: true, crown: true},
+};
+
+function hex(cx, cy, r) { return [...Array(6)].map((_, k) => { const a = Math.PI / 180 * (60 * k - 90); return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`; }).join(' '); }
+function star(cx, cy, r) { return [...Array(10)].map((_, k) => { const a = Math.PI / 5 * k - Math.PI / 2, rr = k % 2 ? r * .45 : r; return `${(cx + rr * Math.cos(a)).toFixed(1)},${(cy + rr * Math.sin(a)).toFixed(1)}`; }).join(' '); }
+
+/** The frame as SVG (100×100 box, the picture sits inside a hexagon of radius ~33). */
+function frameSVG(key, gemOnly) {
+  const t = TIERS[key], id = 'f' + (++uid);
+  if (!t.metal) return `<svg class="f" viewBox="0 0 100 100"><defs><radialGradient id="${id}g"><stop offset="0" stop-color="#2a3560"/><stop offset="1" stop-color="#151d38"/></radialGradient></defs>
+    <circle cx="50" cy="50" r="38" fill="url(#${id}g)" stroke="#2c3a6a" stroke-width="1.5"/></svg>`;
+  const [d1, m1, hl, m2, d2] = t.metal;
+  let s = `<svg class="f" viewBox="0 0 100 100"><defs>
+    <linearGradient id="${id}m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${m1}"/><stop offset=".35" stop-color="${hl}"/><stop offset=".55" stop-color="${m2}"/><stop offset="1" stop-color="${d2}"/></linearGradient>
+    <linearGradient id="${id}e" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${hl}"/><stop offset=".5" stop-color="${d1}"/><stop offset="1" stop-color="${m1}"/></linearGradient>
+    <radialGradient id="${id}gem" cx=".5" cy=".38" r=".7"><stop offset="0" stop-color="${t.gem[0]}"/><stop offset="1" stop-color="${t.gem[1]}"/></radialGradient>
+    <linearGradient id="${id}s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <clipPath id="${id}c"><polygon points="${hex(50, 50, 43)}"/></clipPath>
+  </defs>`;
+  // wings behind the frame (diamond, admin)
+  if (t.wings) for (const side of [-1, 1]) {
+    const w = (x, y) => `${50 + side * x},${y}`;
+    s += `<g><polygon points="${[w(30, 24), w(56, 10), w(50, 30), w(60, 26), w(48, 44), w(54, 44), w(38, 58)].join(' ')}" fill="url(#${id}m)" stroke="${d1}" stroke-width=".8"/>
+      <polyline points="${[w(36, 28), w(50, 20)].join(' ')}" stroke="${hl}" stroke-width="1.2" opacity=".8"/><polyline points="${[w(38, 40), w(50, 34)].join(' ')}" stroke="${hl}" stroke-width="1.2" opacity=".6"/></g>`;
+  }
+  // crest on top (gold+) or crown (admin)
+  if (t.crown) s += `<g transform="translate(50 6) scale(1.35) translate(-50 -6) translate(0 -7)"><polygon points="36,10 41,1 46,8 50,-1 54,8 59,1 64,10 62,15 38,15" fill="url(#${id}m)" stroke="${d1}" stroke-width=".8"/>
+      <circle cx="50" cy="5" r="2.2" fill="#ff6fb1"/><circle cx="41" cy="5" r="1.5" fill="#7fe6ff"/><circle cx="59" cy="5" r="1.5" fill="#7fe6ff"/></g>`;
+  else if (t.crest) s += `<polygon points="40,9 50,1 60,9 56,12 44,12" fill="url(#${id}m)" stroke="${d1}" stroke-width=".8"/>`;
+  // the hexagon: outer bevel, (second ring), gem
+  s += `<polygon points="${hex(50, 50, 44)}" fill="url(#${id}e)" stroke="${d2}" stroke-width=".8"/>
+    <polygon points="${hex(50, 50, 40.5)}" fill="url(#${id}m)"/>`;
+  if (t.double) s += `<polygon points="${hex(50, 50, 37.5)}" fill="${d2}"/><polygon points="${hex(50, 50, 36.2)}" fill="url(#${id}e)"/>`;
+  s += `<polygon points="${hex(50, 50, t.double ? 33.5 : 35.5)}" fill="url(#${id}gem)" stroke="${d2}" stroke-width="1"/>`;
+  // the running shine
+  s += `<g clip-path="url(#${id}c)"><rect x="-60" y="-10" width="40" height="120" fill="url(#${id}s)" transform="rotate(20 50 50)">
+      <animate attributeName="x" values="-60;130" dur="2.8s" repeatCount="indefinite"/></rect></g>`;
+  // stars at the bottom
+  const xs = t.stars === 1 ? [50] : t.stars === 2 ? [43, 57] : t.stars === 3 ? [37, 50, 63] : [];
+  xs.forEach((x, i) => { const y = t.stars === 3 && i === 1 ? 94 : 91;
+    s += `<polygon points="${star(x, y, t.stars === 3 && i === 1 ? 6.5 : 5.2)}" fill="url(#${id}m)" stroke="${d2}" stroke-width=".7"/>`; });
+  return s + '</svg>';
+}
+
+/** The small hexagon with the level number, in the tier's metal. */
+function medalSVG(key, level, size = 30) {
+  const t = TIERS[key].metal ? TIERS[key] : {metal: ['#2c3a6a', '#55608f', '#9aa6d6', '#46507c', '#1d2648'], gem: ['#1b2446', '#0c1124']};
+  const [d1, m1, hl, m2, d2] = t.metal, id = 'm' + (++uid);
+  return `<svg class="medal" width="${size}" height="${size}" viewBox="0 0 40 40"><defs>
+    <linearGradient id="${id}m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${m1}"/><stop offset=".4" stop-color="${hl}"/><stop offset="1" stop-color="${d2}"/></linearGradient>
+    <radialGradient id="${id}g" cy=".35"><stop offset="0" stop-color="${t.gem[0]}"/><stop offset="1" stop-color="${t.gem[1]}"/></radialGradient></defs>
+    <polygon points="${hex(20, 20, 19)}" fill="url(#${id}m)" stroke="${d2}"/><polygon points="${hex(20, 20, 14.5)}" fill="url(#${id}g)"/>
+    <text x="20" y="25.5" text-anchor="middle" font-size="14" font-weight="800" fill="${hl}" font-family="system-ui">${level}</text></svg>`;
+}
+
+/** Effects around Yadimo for each tier. */
+function effects(key, px) {
+  const t = TIERS[key]; if (!t.metal) return '';
+  let h = `<div class="aura" style="width:${px * .78}px;height:${px * .78}px;background:radial-gradient(circle,${t.glow}88,transparent 68%)"></div>`;
+  if (key === 'diamond' || key === 'admin') h += `<div class="rays" style="width:${px * .95}px;height:${px * .95}px"></div>`;
+  const sparks = {bronze: 0, silver: 2, gold: 5, diamond: 7, admin: 6}[key];
+  const color = {silver: '#ffffff', gold: '#ffe27a', diamond: '#d7f6ff', admin: '#ffe08a'}[key];
+  for (let i = 0; i < sparks; i++) { const a = i / sparks * Math.PI * 2 + .4, r = px * .3;
+    h += `<span class="spark" style="color:${color};left:${px / 2 + Math.cos(a) * r - 6}px;top:${px / 2 + Math.sin(a) * r - 6}px;animation-delay:${(i * .37) % 1.8}s"></span>`; }
+  if (key === 'admin') { h += `<div class="orbit" style="width:${px * .74}px;height:${px * .74}px">`;
+    for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2; h += `<i style="left:${50 + 50 * Math.cos(a)}%;top:${50 + 50 * Math.sin(a)}%;margin:-3px"></i>`; } h += '</div>'; }
+  return h;
+}
+
+/** A living Yadimo; the admin's one is the galaxy colour with stars drifting over its body. */
+const engines = [];
+function yadimo(el, key, look) {
+  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', '0 0 600 600'); el.append(svg);
+  const y = new Yadimo(svg, Object.assign({variant: 'robot', color: key === 'admin' ? 'galaxy' : 'lilac', hat: 'none', glass: 'none'}, look || {}));
+  if (key === 'admin') {
+    const base = y.render.bind(y);
+    const galaxy = () => {
+      const g = document.createElementNS(NS, 'g'); g.setAttribute('clip-path', `url(#${y.P}shell-clip)`); g.setAttribute('class', 'gx');
+      let h = `<defs><radialGradient id="${y.P}neb1"><stop offset="0" stop-color="#ff6fd8" stop-opacity=".7"/><stop offset="1" stop-color="#ff6fd8" stop-opacity="0"/></radialGradient>
+        <radialGradient id="${y.P}neb2"><stop offset="0" stop-color="#3ad6ff" stop-opacity=".6"/><stop offset="1" stop-color="#3ad6ff" stop-opacity="0"/></radialGradient></defs>
+        <ellipse cx="220" cy="230" rx="170" ry="120" fill="url(#${y.P}neb1)"><animate attributeName="cx" values="200;330;200" dur="9s" repeatCount="indefinite"/></ellipse>
+        <ellipse cx="380" cy="330" rx="160" ry="110" fill="url(#${y.P}neb2)"><animate attributeName="cy" values="300;380;300" dur="7s" repeatCount="indefinite"/></ellipse>`;
+      for (let i = 0; i < 26; i++) { const x = 120 + (i * 137) % 360, yy = 120 + (i * 89) % 300, r = i % 4 ? 2.2 : 4;
+        h += `<circle cx="${x}" cy="${yy}" r="${r}" fill="#fff"><animate attributeName="opacity" values="1;.15;1" dur="${1.5 + (i % 5) * .5}s" repeatCount="indefinite"/></circle>`; }
+      g.innerHTML = h; const face = y.q('face'); if (face) face.before(g); else svg.append(g);
+    };
+    y.render = () => { base(); galaxy(); }; y.render();
+  }
+  engines.push(y); return y;
+}
+
+function frame(key, px, look) {
+  const d = document.createElement('div'); d.className = 'frame'; d.style.width = d.style.height = px + 'px';
+  d.innerHTML = `<div class="fx">${effects(key, px)}</div>` + frameSVG(key);
+  const inner = document.createElement('div'); inner.className = 'yad'; inner.style.width = inner.style.height = px * .62 + 'px'; d.append(inner);
+  yadimo(inner, key, look); return d;
+}
+
+const LOOKS = {none: {hat: 'none'}, bronze: {color: 'peach', hat: 'cap'}, silver: {color: 'sky', glass: 'round'}, gold: {color: 'sun', hat: 'crown'},
+  diamond: {color: 'mint', hat: 'party', glass: 'sun'}, admin: {hat: 'none'}};
+const LEVELS = {none: 2, bronze: 5, silver: 8, gold: 12, diamond: 17, admin: 20};
+const grid = document.getElementById('tiers');
+for (const key of Object.keys(TIERS)) {
+  const c = document.createElement('div'); c.className = 'card';
+  c.append(frame(key, 168, LOOKS[key]));
+  c.insertAdjacentHTML('beforeend', `<div class="name">${TIERS[key].fa}${medalSVG(key, LEVELS[key])}</div><div class="s">${TIERS[key].sub}</div>`);
+  grid.append(c);
+}
+// a profile header
+const pr = document.getElementById('profile');
+pr.append(frame('gold', 230, LOOKS.gold));
+pr.insertAdjacentHTML('beforeend', `<div class="name" style="font-size:20px">امین ${medalSVG('gold', 12, 34)}</div>
+  <div class="s" style="color:#ffc93d;font-weight:700">🥇 طلایی • قهرمان کارها</div>`);
+// group members
+const mm = document.getElementById('members');
+[['امین', 'admin', 20], ['سارا', 'diamond', 17], ['رضا', 'gold', 12], ['مریم', 'silver', 8], ['علی', 'bronze', 5], ['نگار', 'none', 3]].forEach(([n, k, lv]) => {
+  const row = document.createElement('div'); row.className = 'member';
+  row.append(frame(k, 64, LOOKS[k]));
+  row.insertAdjacentHTML('beforeend', `<div><div class="nm">${n} ${medalSVG(k, lv, 24)}</div><div class="lv">${TIERS[k].fa}</div></div>`);
+  mm.append(row);
+});
+// moods, to see the effects with Yadimo doing different things
+const moods = document.getElementById('moods');
+[['idle', 'ایستاده'], ['wave', 'سلام'], ['celebrate', 'جشن'], ['love', 'ذوق'], ['sleep', 'خواب']].forEach(([m, fa], i) => {
+  const b = document.createElement('button'); b.textContent = fa; if (!i) b.className = 'on';
+  b.onclick = () => { engines.forEach(e => e.setMood(m)); [...moods.children].forEach(x => x.classList.toggle('on', x === b)); }; moods.append(b);
+});
+let last = performance.now();
+(function loop(now) { const dt = Math.min(.05, (now - last) / 1000); last = now; engines.forEach(e => e.update(dt)); requestAnimationFrame(loop); })(last);
+</script></body></html>

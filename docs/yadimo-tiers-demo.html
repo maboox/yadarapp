@@ -1,0 +1,1009 @@
+<!doctype html>
+<html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>قاب‌ها و افکت‌های یادیمو</title>
+<style>
+:root{--bg:#0a0f1e;--card:#121a30;--ink:#eef0ff;--mut:#9aa3c7}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#1b2550,var(--bg));color:var(--ink);font-family:system-ui,Tahoma,sans-serif;line-height:1.8;padding:20px}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:17px;margin:28px 0 6px}p{color:var(--mut);font-size:14px;margin:4px 0 14px;max-width:820px}
+.grid{display:flex;flex-wrap:wrap;gap:18px}
+.card{background:linear-gradient(180deg,#151e38,#0f1629);border:1px solid #243058;border-radius:22px;padding:30px 12px 14px;width:200px;text-align:center}
+.card .t{font-weight:800;font-size:15px;margin-top:6px}.card .s{font-size:12px;color:var(--mut)}
+.frame{position:relative;margin:0 auto;direction:ltr}
+.frame svg.f{position:absolute;inset:0;overflow:visible}
+.frame .yad{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+.frame .yad svg{width:100%;height:100%;overflow:visible}
+.fx{position:absolute;inset:0;pointer-events:none}
+.aura{position:absolute;left:50%;top:50%;border-radius:50%;transform:translate(-50%,-50%);animation:breathe 2.6s ease-in-out infinite}
+@keyframes breathe{50%{opacity:.45;transform:translate(-50%,-50%) scale(1.12)}}
+.rays{position:absolute;left:50%;top:50%;border-radius:50%;transform:translate(-50%,-50%);animation:spin 9s linear infinite;
+  background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.0) 0 10deg,rgba(200,240,255,.28) 12deg 16deg,rgba(255,255,255,0) 18deg 30deg);
+  -webkit-mask:radial-gradient(circle,#000 30%,transparent 70%);mask:radial-gradient(circle,#000 30%,transparent 70%)}
+@keyframes spin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.spark{position:absolute;width:12px;height:12px;animation:tw 1.8s ease-in-out infinite}
+.spark:before{content:"";position:absolute;inset:0;background:currentColor;clip-path:polygon(50% 0,60% 40%,100% 50%,60% 60%,50% 100%,40% 60%,0 50%,40% 40%)}
+@keyframes tw{0%,100%{opacity:0;transform:scale(.3) rotate(0)}50%{opacity:1;transform:scale(1) rotate(45deg)}}
+.orbit{position:absolute;left:50%;top:50%;border-radius:50%;transform:translate(-50%,-50%);animation:spin 7s linear infinite}
+.orbit i{position:absolute;width:6px;height:6px;border-radius:50%;background:#fff;box-shadow:0 0 8px 2px #b69cff}
+.medal{display:inline-block;vertical-align:middle;margin-inline-start:6px}
+.name{display:flex;align-items:center;justify-content:center;gap:6px;font-weight:800;margin-top:4px}
+.members{display:flex;flex-direction:column;gap:10px;max-width:380px}
+.member{display:flex;align-items:center;gap:12px;background:#121a30;border:1px solid #243058;border-radius:16px;padding:8px 12px}
+.member .nm{font-weight:700}.member .lv{font-size:12px;color:var(--mut)}
+.profile{background:linear-gradient(180deg,#151e38,#0f1629);border:1px solid #243058;border-radius:26px;padding:18px;width:320px;text-align:center}
+.ctl{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.ctl button{font:inherit;font-size:13px;border:1px solid #2c3a6a;background:#16203c;color:#dfe4ff;padding:3px 12px;border-radius:999px;cursor:pointer}
+.ctl button.on{background:#7a5cf0;border-color:#7a5cf0}
+#scene{display:none}
+</style></head><body>
+<h1>قاب‌ها، مدال‌ها و افکت یادیمو برای خریداران و ادمین</h1>
+<p>قاب دور عکس پروفایل حالا شش‌ضلعی فلزی است و با هر سطح خرید، چیزی به آن اضافه می‌شود: لبهٔ دوطبقه، ستاره، تزئین، بال و تاج. یک برق نرم هم مدام از رویش رد می‌شود. خود یادیمو هم افکت می‌گیرد: درخشش، جرقه، پرتو و برای ادمین بدنهٔ کهکشانی با ستاره‌هایی که دورش می‌چرخند. عدد داخل مدال کوچک کنار اسم، سطح بازی است.</p>
+
+<div class="ctl" id="moods"></div>
+
+<h2>همهٔ سطح‌ها کنار هم</h2>
+<div class="grid" id="tiers"></div>
+
+<h2>در صفحهٔ پروفایل</h2>
+<div class="grid"><div class="profile" id="profile"></div></div>
+
+<h2>در فهرست اعضای گروه</h2>
+<div class="members" id="members"></div>
+
+<script>
+/* Yadimo vector artwork. Every highlight, contour and reflection is a
+   native, independently editable SVG shape. No raster textures. */
+function mascotArt(s) {
+  const c=s.bodyColor,a=s.accentColor,robot=s.variant==='robot';
+  const light=shade(c,45), pale=shade(c,70), dark=shade(c,-37);
+  const bellPath='M164 293 C159 209 219 148 293 147 C368 145 428 204 431 286 C433 338 446 376 473 407 C484 423 464 437 439 442 Q300 474 161 442 C136 437 116 423 127 407 C154 373 168 338 164 293Z';
+  const robotPath='M159 275 C158 201 215 144 292 144 C369 139 435 200 439 274 C446 323 420 345 356 353 C314 360 268 355 222 344 C181 333 157 315 159 275Z';
+  const star=(x,y,size,fill='url(#gold)',id='')=>`<path ${id?`id="${id}"`:''} d="M0 -30 Q3 -30 5 -23 L12 -9 L27 -3 Q34 0 27 4 L12 10 L5 25 Q1 33 -3 26 L-11 10 L-27 4 Q-34 1 -27 -3 L-11 -10 L-4 -26 Q-2 -30 0 -30Z" transform="translate(${x} ${y}) scale(${size})" fill="${fill}"/>`;
+  const glint=(x,y,rx=11,ry=6,angle=25)=>`<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" transform="rotate(${angle} ${x} ${y})" fill="white" opacity=".56"/>`;
+  return `<defs>
+    <radialGradient id="shell" cx=".35" cy=".13" r=".93"><stop stop-color="${shade(c,55)}"/><stop offset=".3" stop-color="${shade(c,23)}"/><stop offset=".65" stop-color="${shade(c,-4)}"/><stop offset="1" stop-color="${shade(c,-47)}"/></radialGradient>
+    <linearGradient id="shell-side" x1="0" y1="0" x2="1" y2=".7"><stop stop-color="${c}" stop-opacity="0"/><stop offset="1" stop-color="${shade(c,-48)}" stop-opacity=".65"/></linearGradient>
+    <linearGradient id="shell-depth" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${shade(c,8)}"/><stop offset=".45" stop-color="${shade(c,-24)}"/><stop offset="1" stop-color="${shade(c,-65)}"/></linearGradient>
+    <radialGradient id="limb" cx=".35" cy=".12" r="1"><stop stop-color="${shade(c,42)}"/><stop offset=".4" stop-color="${shade(c,5)}"/><stop offset=".8" stop-color="${shade(c,-28)}"/><stop offset="1" stop-color="${shade(c,-48)}"/></radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2=".4" y2="1"><stop stop-color="${pale}"/><stop offset=".6" stop-color="${light}"/><stop offset="1" stop-color="${shade(c,15)}"/></linearGradient>
+    <linearGradient id="inside" x1="0" y1="0" x2=".15" y2="1"><stop stop-color="${shade(c,-55)}"/><stop offset=".55" stop-color="${shade(c,-34)}"/><stop offset="1" stop-color="${shade(c,-13)}"/></linearGradient>
+    <radialGradient id="gold" cx=".33" cy=".23" r=".85"><stop stop-color="#fff1a6"/><stop offset=".43" stop-color="${shade(a,12)}"/><stop offset=".8" stop-color="${a}"/><stop offset="1" stop-color="${shade(a,-33)}"/></radialGradient>
+    <linearGradient id="gold-stem" x2="1" y2="0"><stop stop-color="${shade(a,-37)}"/><stop offset="1" stop-color="${a}"/></linearGradient>
+    <radialGradient id="faceLight" cx=".5" cy=".3" r=".8"><stop offset=".3" stop-color="#fffefd"/><stop offset=".76" stop-color="#fffaff"/><stop offset="1" stop-color="#f1e7ff"/></radialGradient>
+    <linearGradient id="face-rim" x2=".2" y2="1"><stop stop-color="#eddbff"/><stop offset="1" stop-color="${shade(c,58)}"/></linearGradient>
+    <radialGradient id="cheek"><stop stop-color="${s.cheekColor}" stop-opacity=".86"/><stop offset=".4" stop-color="${s.cheekColor}" stop-opacity=".48"/><stop offset="1" stop-color="${s.cheekColor}" stop-opacity="0"/></radialGradient>
+    <radialGradient id="eye" cx=".5" cy=".2" r=".85"><stop stop-color="#241047"/><stop offset=".65" stop-color="#352066"/><stop offset="1" stop-color="#6d42a5"/></radialGradient>
+    <linearGradient id="mouth-fill" x2=".2" y2="1"><stop stop-color="#9b265f"/><stop offset="1" stop-color="#d7447f"/></linearGradient>
+    <radialGradient id="ground"><stop stop-color="${shade(c,-25)}" stop-opacity=".34"/><stop offset=".6" stop-color="${c}" stop-opacity=".14"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></radialGradient>
+    <linearGradient id="porcelain" x2=".7" y2="1"><stop stop-color="#ffffff"/><stop offset=".6" stop-color="#f8f2ff"/><stop offset="1" stop-color="#d8c3ff"/></linearGradient>
+    <radialGradient id="sculpt-light"><stop stop-color="#fff7ff" stop-opacity=".37"/><stop offset=".6" stop-color="#fff7ff" stop-opacity=".1"/><stop offset="1" stop-color="#fff7ff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="sculpt-shadow"><stop stop-color="${shade(c,-65)}" stop-opacity=".32"/><stop offset="1" stop-color="${shade(c,-65)}" stop-opacity="0"/></radialGradient>
+    <radialGradient id="ceramic-glow"><stop stop-color="#ffffff" stop-opacity=".7"/><stop offset=".5" stop-color="#fff5ff" stop-opacity=".22"/><stop offset="1" stop-color="#fff5ff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="face-inset"><stop stop-color="${shade(c,-65)}" stop-opacity=".35"/><stop offset="1" stop-color="${shade(c,-65)}" stop-opacity="0"/></radialGradient>
+    <clipPath id="shell-clip"><path d="${robot?robotPath:bellPath}"/></clipPath>
+  </defs>
+  <ellipse id="ground-shadow" cx="300" cy="540" rx="177" ry="24" fill="url(#ground)"/>
+  <g id="position"><g id="character"><g id="design-angle" transform="rotate(-11 300 300)">
+  ${s.sparkles?`<g id="sparkles" fill="url(#gold)">${star(robot?112:448,robot?368:160,.83)}${robot?star(128,424,.38):''}<path d="M139 185 L127 155 M115 202 L89 181" fill="none" stroke="${shade(a,12)}" stroke-width="12" stroke-linecap="round"/>${robot?'':`<path d="M105 393 Q89 365 103 341" fill="none" stroke="${shade(a,18)}" stroke-width="8" stroke-linecap="round"/>`}</g>`:''}
+  ${robot?robotStructure():bellStructure()}
+  <g id="face" ${robot?'transform="translate(0 -3)"':''}>
+    <ellipse id="face-contact-shadow" cx="302" cy="337" rx="105" ry="21" fill="url(#face-inset)" opacity=".75"/>
+    <path id="face-border" d="M184 278 C183 234 232 198 294 198 C355 198 405 233 412 279 C420 322 377 347 300 347 C226 347 183 325 184 278Z" fill="url(#face-rim)"/>
+    <path id="face-porcelain" d="M195 283 C194 242 238 213 295 213 C351 213 394 243 401 282 C409 319 369 339 300 339 C235 339 194 320 195 283Z" fill="url(#faceLight)"/>
+    <g id="brows" stroke="${shade(c,-25)}" stroke-width="5" stroke-linecap="round" fill="none"><path id="brow-left" d="M242 241 Q248 235 255 239"/><path id="brow-right" d="M342 238 Q349 235 355 241"/></g>
+    <g id="cheeks" ${s.blush?'':'visibility="hidden"'}><g id="cheek-left"><ellipse cx="222" cy="304" rx="27" ry="25" fill="url(#cheek)"/><circle cx="220" cy="300" r="2.3" fill="white" opacity=".95"/></g><g id="cheek-right"><ellipse cx="378" cy="304" rx="27" ry="25" fill="url(#cheek)"/><circle cx="380" cy="300" r="2.3" fill="white" opacity=".95"/></g></g>
+    <g id="eyes" transform="translate(${Number(s.gaze)} 0)">${eyes()}</g>
+    <g id="mouth">${mouth()}</g>
+  </g>
+  </g></g></g>`;
+
+  function bellStructure(){return `
+    <g id="arm-right"><path d="M401 304 C437 286 492 282 513 310 C542 346 508 371 475 358 C447 350 419 329 401 304Z" fill="url(#limb)"/>${glint(496,310,12,8)}</g>
+    <path id="shell-back" d="${bellPath}" fill="url(#shell-depth)"/>
+    <path id="bell-body" d="${bellPath}" fill="url(#shell)"/>
+    ${sculpt()}
+    <path id="shell-left-light" d="M165 294 C160 214 218 153 289 150 C214 182 189 235 188 304 C185 349 165 388 146 412 L130 416 C148 380 168 338 165 294Z" fill="${shade(c,17)}" opacity=".72"/>
+    <g id="shell-glint">${glint(354,174,17,7,30)}</g>
+    <g id="bell-rim"><ellipse cx="300" cy="428" rx="178" ry="36" fill="url(#rim)"/><ellipse cx="300" cy="433" rx="159" ry="24" fill="url(#inside)"/><path d="M127 425 C171 387 410 385 474 422" fill="none" stroke="${shade(c,75)}" stroke-width="4" stroke-linecap="round" opacity=".55"/><path d="M147 445 Q300 484 453 445" fill="none" stroke="${shade(c,48)}" stroke-width="3" opacity=".7"/></g>
+    <g id="clapper"><circle cx="300" cy="495" r="23" fill="url(#gold)"/><ellipse cx="307" cy="485" rx="7" ry="8" fill="#fffef3" transform="rotate(25 307 485)"/></g>
+    <g id="arm-left"><path d="M185 311 C162 296 126 289 109 306 C89 326 105 351 136 355 C160 359 182 350 185 331Z" fill="url(#limb)"/><path d="M109 335 Q135 354 173 335 Q165 355 137 355 Q116 353 109 335" fill="${shade(c,-28)}" opacity=".26"/>${glint(133,308,12,7,8)}</g>
+    <g id="antenna"><g id="antenna-base"><ellipse cx="300" cy="149" rx="17" ry="4" fill="${dark}" opacity=".26"/><path d="M288 148 L293 126 Q300 118 307 126 L313 148 Q301 153 288 148" fill="url(#limb)"/></g><g id="antenna-orb"><circle cx="301" cy="108" r="28" fill="url(#gold)"/><ellipse cx="309" cy="95" rx="10" ry="8" fill="#fffef4" transform="rotate(18 309 95)"/></g></g>`}
+
+  function robotStructure(){return `
+    <g id="thruster"><ellipse cx="300" cy="481" rx="61" ry="16" fill="none" stroke="#fffdf2" stroke-width="9" transform="rotate(20 300 481)"/><path d="M257 462 Q301 443 342 462" fill="none" stroke="#fffdf5" stroke-width="6" stroke-linecap="round" opacity=".9"/></g>
+    <g id="torso"><path d="M257 340 C234 361 221 399 229 422 C235 451 344 459 363 427 C378 402 362 362 344 343Z" fill="url(#shell)"/><path d="M233 423 Q299 408 362 426 Q353 451 299 450 Q251 451 233 423" fill="url(#rim)"/><ellipse cx="299" cy="440" rx="43" ry="15" fill="url(#inside)"/><ellipse cx="299" cy="447" rx="28" ry="7" fill="${light}"/></g>
+    <g id="arm-left"><path d="M234 362 C216 350 190 351 180 369 C171 388 185 410 207 409 C229 408 244 380 234 362Z" fill="url(#porcelain)"/><ellipse cx="184" cy="386" rx="30" ry="28" fill="url(#limb)"/>${glint(176,374,10,6,-25)}</g>
+    <g id="arm-right"><path d="M366 362 C384 350 410 351 420 369 C429 388 415 410 393 409 C371 408 356 380 366 362Z" fill="url(#porcelain)"/><ellipse cx="416" cy="386" rx="30" ry="28" fill="url(#limb)"/>${glint(410,374,10,6,-25)}</g>
+    <path id="shell-back" d="${robotPath}" fill="url(#shell-depth)"/>
+    <path id="robot-head" d="${robotPath}" fill="url(#shell)"/>
+    ${sculpt()}
+    <path id="head-highlight" d="M167 245 C180 184 233 148 291 146 C351 140 407 182 424 228 C390 185 351 167 297 163 C240 159 203 188 167 245Z" fill="${light}" opacity=".8"/>
+    <g id="shell-glint">${glint(365,174,18,7,35)}</g>
+    <g id="robot-ears"><g id="ear-left"><ellipse cx="167" cy="275" rx="25" ry="43" fill="url(#shell-depth)"/><ellipse cx="157" cy="275" rx="31" ry="56" fill="url(#inside)"/><ellipse cx="146" cy="274" rx="28" ry="52" fill="url(#rim)"/><g id="ear-left-cap"><ellipse cx="132" cy="275" rx="26" ry="47" fill="url(#porcelain)"/><ellipse cx="126" cy="276" rx="19" ry="34" fill="url(#shell)"/><ellipse cx="124" cy="276" rx="11" ry="21" fill="url(#porcelain)"/><ellipse cx="121" cy="273" rx="7" ry="14" fill="white"/></g></g><g id="ear-right"><ellipse cx="435" cy="275" rx="25" ry="43" fill="url(#shell-depth)"/><ellipse cx="442" cy="275" rx="27" ry="51" fill="url(#inside)"/><g id="ear-right-cap"><ellipse cx="455" cy="274" rx="23" ry="43" fill="url(#porcelain)"/><ellipse cx="460" cy="274" rx="16" ry="35" fill="url(#shell)"/></g></g></g>
+    <g id="antenna"><g id="antenna-base"><ellipse cx="300" cy="145" rx="17" ry="4" fill="${dark}" opacity=".25"/><path d="M288 145 L293 123 Q300 116 307 123 L313 145 Q301 151 288 145" fill="url(#limb)"/></g><g id="antenna-orb"><circle cx="301" cy="104" r="29" fill="url(#gold)"/><ellipse cx="309" cy="91" rx="10" ry="8" fill="#fffef4" transform="rotate(18 309 91)"/></g></g>`}
+
+  function sculpt(){return '<g id="sculpted-light" clip-path="url(#shell-clip)"><ellipse cx="256" cy="190" rx="163" ry="122" fill="url(#sculpt-light)"/><ellipse cx="406" cy="302" rx="66" ry="175" fill="url(#sculpt-shadow)"/><ellipse cx="195" cy="379" rx="42" ry="82" fill="url(#sculpt-shadow)" opacity=".65"/><ellipse cx="248" cy="202" rx="105" ry="80" fill="url(#ceramic-glow)" opacity=".7"/><ellipse cx="309" cy="390" rx="130" ry="65" fill="url(#sculpt-shadow)" opacity=".48"/></g>'}
+  function eyes(){const e=s.expression;const wrap=(x,content)=>`<g id="eye-${x<300?'left':'right'}">${content}</g>`;
+    const eye=x=>wrap(x,`<ellipse cx="${x}" cy="275" rx="18" ry="25" fill="url(#eye)"/><ellipse cx="${x-1}" cy="263" rx="6.5" ry="8" fill="#fffefd" transform="rotate(-20 ${x-1} 263)"/>${star(x-2,288,.22,'#ffe187')}<ellipse cx="${x+10}" cy="279" rx="2.5" ry="3.5" fill="#b895f8" opacity=".4"/>`);
+    if(e==='sleepy')return [252,348].map(x=>wrap(x,`<path d="M${x-15} 276 Q${x} 292 ${x+15} 277" fill="none" stroke="#30205e" stroke-width="7" stroke-linecap="round"/>`)).join('');
+    if(e==='wink')return wrap(252,'<path d="M236 276 Q251 263 267 279" fill="none" stroke="#30205e" stroke-width="9" stroke-linecap="round"/>')+eye(348);
+    if(e==='love')return [252,348].map(x=>wrap(x,`<path d="M${x} 296 C${x-40} 273 ${x-15} 248 ${x} 268 C${x+15} 248 ${x+40} 273 ${x} 296Z" fill="#ef72a8"/>${glint(x-10,269,4,6,-15)}`)).join('');
+    if(e==='focused')return wrap(252,'<path d="M238 270 L266 279" fill="none" stroke="#30205e" stroke-width="8" stroke-linecap="round"/>')+wrap(348,'<path d="M334 279 L362 270" fill="none" stroke="#30205e" stroke-width="8" stroke-linecap="round"/>');
+    return eye(252)+eye(348);
+  }
+  function mouth(){if(s.expression==='surprised')return '<ellipse cx="300" cy="311" rx="12" ry="16" fill="url(#mouth-fill)"/><ellipse cx="300" cy="319" rx="7" ry="5" fill="#ff8db5"/>';
+    if(['sleepy','wink','focused'].includes(s.expression))return '<path d="M287 309 Q300 322 313 309" fill="none" stroke="#30205e" stroke-width="5" stroke-linecap="round"/>';
+    return '<path d="M279 302 Q299 309 320 302 C324 326 313 339 300 339 C286 339 277 321 279 302Z" fill="url(#mouth-fill)"/><path d="M283 324 C292 316 306 318 316 326 Q310 339 300 339 Q289 338 283 324Z" fill="#ff8caf"/>';
+  }
+}
+
+</script><script>
+/* Analytic volume projection into editable SVG. A shared head frame projects
+   the shell, ceramic panel, features, ear sockets and antenna. The volume is
+   expressed as paths, not a loaded mesh or a WebGL scene. */
+const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+const radians=d=>d*Math.PI/180;
+const rounded=n=>Number(n.toFixed(4));
+function rigMatrix(x,y,a,b,c,d,dx=0,dy=0){return `matrix(${[a,b,c,d,x+dx-a*x-c*y,y+dy-b*x-d*y].map(rounded).join(' ')})`}
+function springStep(current,velocity,target,dt,omega=11){
+  const delta=current-target,temp=(velocity+omega*delta)*dt,decay=Math.exp(-omega*dt);
+  return [target+(delta+temp)*decay,(velocity-omega*temp)*decay];
+}
+function headPoint(x,y,yaw,pitch,roll=0,depth=0){
+  const u=x-300,v=y-330,z=52+depth;
+  const horizontal=u*Math.cos(yaw)+z*Math.sin(yaw),turnedZ=-u*Math.sin(yaw)+z*Math.cos(yaw);
+  const vertical=v*Math.cos(pitch)-turnedZ*Math.sin(pitch),viewZ=v*Math.sin(pitch)+turnedZ*Math.cos(pitch);
+  const perspective=clamp(1/(1-(viewZ-z)/1050),.86,1.14);
+  return [300+(horizontal*Math.cos(roll)-vertical*Math.sin(roll))*perspective,330+(horizontal*Math.sin(roll)+vertical*Math.cos(roll))*perspective];
+}
+function surfacePoint(x,y,yaw,pitch,roll=0){
+  const u=x-300,v=y-270,depth=7-2*u*u/16000-v*v/16000;
+  return headPoint(x,y,yaw,pitch,roll,depth);
+}
+function matrixFor(map,x,y){
+  const [px,py]=map(x,y),e=.05,[xx,xy]=map(x+e,y),[yx,yy]=map(x,y+e);
+  return rigMatrix(x,y,(xx-px)/e,(xy-py)/e,(yx-px)/e,(yy-py)/e,px-x,py-y);
+}
+function surfaceMatrix(x,y,yaw,pitch,roll=0){return matrixFor((a,b)=>surfacePoint(a,b,yaw,pitch,roll),x,y)}
+function tokensFor(node){return node.getAttribute('d').match(/[a-z]|[-+]?(?:\d*\.?\d+)(?:e[-+]?\d+)?/gi)}
+function warpPathTokens(tokens,map){
+  const out=[];
+  for(let i=0;i<tokens.length;i++){
+    if(/^[a-z]$/i.test(tokens[i]))out.push(tokens[i]);
+    else{const [x,y]=map(Number(tokens[i]),Number(tokens[++i]));out.push(rounded(x),rounded(y))}
+  }
+  return out.join(' ');
+}
+function bellBend(x,y,yaw,pitch,roll=0,depth=0){
+  pitch=clamp(pitch,-radians(18),radians(18));roll=clamp(roll,-radians(8),radians(8));
+  if(y<=350)return headPoint(x,y,yaw,pitch,roll,depth);
+  if(y>=435)return [x,y];
+  // A monotone neck-to-skirt transition avoids a folded silhouette when the
+  // head looks down. The complete face stays in the rigid upper region.
+  const length=85,t=(y-350)/length,p=headPoint(x,350,yaw,pitch,roll,depth),q=headPoint(x,350.01,yaw,pitch,roll,depth),gap=435-p[1];
+  const hermite=(a,b,m0,m1)=>((2*t-3)*t*t+1)*a+((t-2)*t+1)*t*m0+(-2*t+3)*t*t*b+(t-1)*t*t*m1;
+  return [hermite(p[0],x,(q[0]-p[0])/.01*length,0),hermite(p[1],435,clamp((q[1]-p[1])/.01*length,0,gap*1.5),Math.min(length,gap*1.5))];
+}
+class VectorRig {
+  constructor(svg,prefix=''){this.svg=svg;this.P=prefix;this.current={headYaw:0,headPitch:0,headRoll:0,bodyYaw:0,bodyPitch:0,bodyRoll:0};this.velocity={...this.current}}
+  bind(robot){
+    this.robot=robot;this.nodes={};const find=id=>this.nodes[id]=this.svg.querySelector('#'+this.P+id);
+    const root=find('design-angle'),children=[...root.children].filter(n=>n.id!=='sparkles');
+    this.body=document.createElementNS('http://www.w3.org/2000/svg','g');this.body.id=this.P+'body-rig';root.append(this.body);this.body.append(...children);
+    if(robot){
+      this.head=document.createElementNS('http://www.w3.org/2000/svg','g');this.head.id=this.P+'head-rig';this.body.insertBefore(this.head,find('shell-back'));
+      const neck=document.createElementNS('http://www.w3.org/2000/svg','ellipse');neck.id=this.P+'neck-joint';
+      for(const [k,v] of Object.entries({cx:300,cy:348,rx:37,ry:19,fill:'url(#'+this.P+'limb)'}))neck.setAttribute(k,v);
+      this.body.insertBefore(neck,this.head);
+      // Sockets stay behind the front shell; their collars are occluded by it.
+      for(const id of ['shell-back','robot-ears','robot-head','sculpted-light','head-highlight','shell-glint','antenna','face'])this.head.append(find(id));
+    }else this.head=null;
+    for(const id of ['face','eyes','eye-left','eye-right','cheek-left','cheek-right','mouth','face-contact-shadow','arm-left','arm-right','antenna','antenna-base','antenna-orb','bell-rim','clapper','torso','thruster','ear-left','ear-right','ear-left-cap','ear-right-cap','shell','faceLight','shell-glint','shell-left-light','ground-shadow','shell-back'])find(id);
+    // Keep a stable occlusion order. Hands can pass behind a head, never pop
+    // across its face when a turn crosses a sign threshold.
+    if(!robot){this.body.prepend(find('arm-right'));this.body.insertBefore(find('arm-left'),find('antenna'));this.body.append(find('face'))}
+    this.facePaths=['face-border','face-porcelain','brow-left','brow-right'].map(id=>{const node=find(id);return {node,tokens:tokensFor(node)}});
+    this.shellPaths=(robot?['robot-head','head-highlight']:['bell-body','shell-left-light']).map(id=>{const node=find(id);return {node,tokens:tokensFor(node)}});
+    this.backTokens=tokensFor(find('shell-back'));this.clip=find('shell-clip').querySelector('path');
+    this.lights=[...this.svg.querySelectorAll('#'+this.P+'sculpted-light ellipse')].map(node=>({node,x:Number(node.getAttribute('cx')),y:Number(node.getAttribute('cy'))}));
+  }
+  step(target,dt,snap=false){
+    for(const key of Object.keys(this.current)){
+      if(snap){this.current[key]=target[key];this.velocity[key]=0}
+      else [this.current[key],this.velocity[key]]=springStep(this.current[key],this.velocity[key],target[key],dt,key.startsWith('body')?8.5:11);
+    }
+  }
+  apply(s,t,pose,blink,gazeOffset=0,ex={}){
+    const n=this.nodes,h=this.current,by=radians(h.bodyYaw),bp=radians(h.bodyPitch);
+    const yaw=radians(clamp(h.headYaw+h.bodyYaw*.48,-40,40)),pitch=radians(clamp(h.headPitch+h.bodyPitch*.3,this.robot?-28:-18,this.robot?28:18)),roll=radians(clamp(h.headRoll,this.robot?-18:-8,this.robot?18:8));
+    const turn=Math.sin(by),nod=Math.sin(bp),headTurn=Math.sin(yaw);
+    this.body.setAttribute('transform',rigMatrix(300,340,Math.cos(by*.3),-turn*.025,turn*nod*.06,Math.cos(bp*.35)));
+    const shellMap=(x,y)=>this.robot?headPoint(x,y,yaw,pitch,roll):bellBend(x,y,yaw,pitch,roll);
+    const backMap=(x,y)=>this.robot?headPoint(x,y,yaw,pitch,roll,-42):bellBend(x,y,yaw,pitch,roll,-42);
+    const faceMap=(x,y)=>surfacePoint(x,y,yaw,pitch,roll);
+    n.face.removeAttribute('transform');
+    for(const {node,tokens} of this.shellPaths)node.setAttribute('d',warpPathTokens(tokens,shellMap));
+    n['shell-back'].setAttribute('d',warpPathTokens(this.backTokens,backMap));
+    this.clip.setAttribute('d',n[this.robot?'robot-head':'bell-body'].getAttribute('d'));
+    for(const {node,tokens} of this.facePaths)node.setAttribute('d',warpPathTokens(tokens,faceMap));
+    for(const [id,x,y] of [['eye-left',252,275],['eye-right',348,275],['cheek-left',222,304],['cheek-right',378,304],['mouth',300,315],['face-contact-shadow',302,337]]){
+      let transform=matrixFor(faceMap,x,y);
+      if(id.startsWith('eye-'))transform+=` translate(${x} ${y}) scale(1 ${blink?.08:1}) translate(${-x} ${-y})`;
+      n[id].setAttribute('transform',transform);
+    }
+    const gaze=Number(s.gaze)+gazeOffset;
+    n.eyes.setAttribute('transform',`translate(${rounded(gaze*Math.cos(yaw))} ${rounded(gaze*Math.sin(roll)+(ex.eyeUp||0))})`);
+    if(ex.mouth!==undefined&&ex.mouth!==1)n.mouth.setAttribute('transform',n.mouth.getAttribute('transform')+` translate(300 304) scale(1 ${rounded(ex.mouth)}) translate(-300 -304)`);
+    if(n['bell-rim'])n['bell-rim'].setAttribute('transform',rigMatrix(300,428,1,turn*.015,turn*nod*.08,1+nod*.72,0,-nod*3));
+    if(n.clapper)n.clapper.setAttribute('transform',`translate(${rounded(turn*8+(ex.clap||0))} ${rounded(nod*5+Math.sin(t*2.2)*2-Math.abs(ex.clap||0)*.25)})`);
+    if(n.torso)n.torso.setAttribute('transform',rigMatrix(300,394,Math.cos(by*.8),0,turn*nod*.07,1,turn*7,-nod*4));
+    if(n.thruster)n.thruster.setAttribute('transform',rigMatrix(300,481,1,0,turn*.12,1+nod*.25,-turn*4,0));
+    for(const [id,cx,cy,angle] of [['arm-left',this.robot?226:182,this.robot?375:322,pose[0]],['arm-right',this.robot?374:411,this.robot?375:320,pose[1]]]){
+      const attach=this.robot?rigMatrix(cx,cy,1,0,0,1,turn*7,-nod*4):matrixFor(shellMap,cx,cy);
+      n[id].setAttribute('transform',`${attach} rotate(${rounded(angle)} ${cx} ${cy})`);
+      n[id].removeAttribute('opacity');
+    }
+    if(this.robot){
+      n['ear-left'].setAttribute('transform',matrixFor(shellMap,150,275));n['ear-right'].setAttribute('transform',matrixFor(shellMap,448,275));
+      n['ear-left-cap'].setAttribute('transform',rigMatrix(132,275,1+headTurn*.32,0,0,1));
+      n['ear-right-cap'].setAttribute('transform',rigMatrix(455,275,1-headTurn*.32,0,0,1));
+    }
+    const wobble=clamp(-this.velocity.headYaw*.025+Math.sin(t*3)*.7,-4,4);
+    n['antenna-base'].setAttribute('transform',`${matrixFor(shellMap,300,149)} rotate(${rounded(wobble)} 300 149)`);
+    const orbY=this.robot?104:108,w=radians(wobble),orbX=300+Math.cos(w)-Math.sin(w)*(orbY-149),orbLocalY=149+Math.sin(w)+Math.cos(w)*(orbY-149),orbCenter=shellMap(orbX,orbLocalY);
+    // A sphere keeps its round silhouette as the supporting stem turns.
+    n['antenna-orb'].setAttribute('transform',`translate(${rounded(orbCenter[0]-301)} ${rounded(orbCenter[1]-orbY)})`);
+    n['shell-glint'].setAttribute('transform',matrixFor(shellMap,this.robot?365:354,174));
+    n.shell.setAttribute('cx',String(rounded(.32-headTurn*.09)));n.shell.setAttribute('cy',String(rounded(.12+Math.sin(pitch)*.05)));
+    n.faceLight.setAttribute('cx',String(rounded(.44-headTurn*.13)));
+    if(n['shell-left-light'])n['shell-left-light'].setAttribute('opacity',String(rounded(.5+headTurn*.14)));
+    for(const light of this.lights)light.node.setAttribute('transform',matrixFor(shellMap,light.x,light.y));
+    this.maps={shellMap,faceMap,yaw,pitch,roll,turn,nod};
+    this.svg.setAttribute('data-head-yaw',h.headYaw.toFixed(2));this.svg.setAttribute('data-head-pitch',h.headPitch.toFixed(2));this.svg.setAttribute('data-body-yaw',h.bodyYaw.toFixed(2));
+    const center=headPoint(300,270,yaw,pitch,roll),panel=faceMap(300,270);
+    this.svg.setAttribute('data-panel-offset',Math.hypot(panel[0]-center[0],panel[1]-center[1]).toFixed(3));
+  }
+}
+
+</script><script>
+/* Yadimo accessories. Drawn in the same 600 × 600 space as the character. Hats are pinned to the head surface,
+   glasses to the face and neck pieces to the body, so they turn with the 2.5D head instead of floating in front. */
+const ACC_DEFS = `
+  <linearGradient id="acc-purple" x1="0" y1="0" x2=".9" y2="1"><stop stop-color="#b9a3ff"/><stop offset=".45" stop-color="#7c5cf0"/><stop offset="1" stop-color="#3f27a8"/></linearGradient>
+  <linearGradient id="acc-pink" x1="0" y1="0" x2=".9" y2="1"><stop stop-color="#ffc2dc"/><stop offset=".5" stop-color="#ff7fae"/><stop offset="1" stop-color="#c93d78"/></linearGradient>
+  <linearGradient id="acc-red" x1="0" y1="0" x2=".9" y2="1"><stop stop-color="#ff9a9a"/><stop offset=".5" stop-color="#ef4a5a"/><stop offset="1" stop-color="#a51f35"/></linearGradient>
+  <linearGradient id="acc-white" x1="0" y1="0" x2=".7" y2="1"><stop stop-color="#ffffff"/><stop offset=".6" stop-color="#f6f1ff"/><stop offset="1" stop-color="#d9cbf7"/></linearGradient>
+  <linearGradient id="acc-dark" x1="0" y1="0" x2=".7" y2="1"><stop stop-color="#5b5486"/><stop offset=".55" stop-color="#2a2450"/><stop offset="1" stop-color="#120e2a"/></linearGradient>
+  <linearGradient id="acc-green" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#b6f5c8"/><stop offset=".5" stop-color="#4fcf86"/><stop offset="1" stop-color="#1f8a52"/></linearGradient>
+  <linearGradient id="acc-blue" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#bfe3ff"/><stop offset=".5" stop-color="#5aa8f5"/><stop offset="1" stop-color="#2463c4"/></linearGradient>
+  <linearGradient id="acc-lens" x1="0" y1="0" x2=".3" y2="1"><stop stop-color="#4b4475"/><stop offset="1" stop-color="#0c0920"/></linearGradient>
+  <radialGradient id="acc-shine"><stop stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>`;
+
+const star5 = (cx, cy, R, r, rot = -90) => Array.from({length: 10}, (_, i) => {
+  const a = (rot + i * 36) * Math.PI / 180, q = i % 2 ? r : R; return `${(cx + Math.cos(a) * q).toFixed(1)},${(cy + Math.sin(a) * q).toFixed(1)}`; }).join(' ');
+const heartPath = (x, y, k) => `M${x} ${y + 22 * k} C${x - 44 * k} ${y - 2 * k} ${x - 20 * k} ${y - 40 * k} ${x} ${y - 16 * k} C${x + 20 * k} ${y - 40 * k} ${x + 44 * k} ${y - 2 * k} ${x} ${y + 22 * k}Z`;
+const shine = (x, y, rx, ry, r = -25, o = .55) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" transform="rotate(${r} ${x} ${y})" fill="white" opacity="${o}"/>`;
+const soft = (x, y, rx, ry, o = .22) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#1b1040" opacity="${o}"/>`;
+
+/* Hats: anchor (300, 196) = the line where a hat sits on the dome. */
+const HATS = {
+  none:   {n: 'بدون', svg: () => ''},
+  party:  {n: 'کلاه جشن', svg: () => `${soft(300, 200, 70, 13)}<g transform="rotate(9 300 196)">
+      <path d="M234 196 L304 30 L370 196 Q302 214 234 196Z" fill="url(#acc-purple)"/>
+      <clipPath id="acc-party-clip"><path d="M234 196 L304 30 L370 196 Q302 214 234 196Z"/></clipPath>
+      <g clip-path="url(#acc-party-clip)" stroke="url(#gold)" stroke-width="15" stroke-linecap="round"><path d="M220 160 L390 132"/><path d="M220 104 L390 76"/></g>
+      <circle cx="270" cy="182" r="6" fill="#ff8fb4"/><circle cx="318" cy="120" r="6" fill="#6fe0b2"/><circle cx="292" cy="80" r="5" fill="#7cc0ff"/>
+      ${shine(266, 130, 8, 34, 22, .4)}<circle cx="304" cy="28" r="24" fill="url(#gold)"/>${shine(296, 18, 8, 6, 0, .9)}</g>`},
+  cap:    {n: 'کلاه کپ', svg: () => `${soft(300, 206, 112, 14)}
+      <path d="M186 204 C178 92 422 92 414 204 Q300 222 186 204Z" fill="url(#acc-purple)"/>
+      <path d="M300 104 C366 104 410 146 414 204 Q356 214 300 216Z" fill="url(#gold)"/>
+      <path d="M300 104 V216" stroke="#3f27a8" stroke-width="3" opacity=".45"/>
+      <path d="M388 196 Q486 176 512 212 Q456 230 384 216Z" fill="url(#acc-purple)"/>${shine(462, 196, 30, 6, -10, .35)}
+      <circle cx="300" cy="104" r="12" fill="url(#gold)"/>${shine(236, 140, 14, 30, 30, .45)}`},
+  crown:  {n: 'تاج', svg: () => `${soft(300, 204, 92, 12)}
+      <path d="M210 202 L198 112 L252 158 L300 84 L348 158 L402 112 L390 202 Q300 220 210 202Z" fill="url(#gold)"/>
+      <path d="M214 188 Q300 204 386 188" stroke="#b07a00" stroke-width="4" fill="none" opacity=".45"/>
+      ${[[198, 108, '#ff5c8a'], [300, 80, '#5aa8f5'], [402, 108, '#4fcf86'], [300, 184, '#ff5c8a']].map(([x, y, c]) => `<circle cx="${x}" cy="${y}" r="13" fill="${c}"/>${shine(x - 4, y - 4, 4, 3, 0, .9)}`).join('')}
+      ${shine(232, 160, 6, 22, 15, .5)}`},
+  beanie: {n: 'کلاه بافتنی', svg: () => `${soft(300, 214, 120, 14)}
+      <path d="M182 210 C172 80 428 80 418 210Z" fill="url(#acc-purple)"/>
+      ${[214, 256, 300, 344, 386].map(x => `<path d="M${x} 200 Q${x + (x - 300) * .1} 140 ${x + (x - 300) * .2} 102" stroke="#fff" stroke-opacity=".14" stroke-width="10" fill="none" stroke-linecap="round"/>`).join('')}
+      <path d="M174 196 Q300 164 426 196 L424 240 Q300 210 176 240Z" fill="url(#gold)"/>
+      ${[200, 244, 288, 332, 376, 410].map(x => `<path d="M${x} 194 V232" stroke="#b07a00" stroke-width="5" opacity=".25"/>`).join('')}
+      <circle cx="300" cy="80" r="34" fill="url(#acc-white)"/>${shine(288, 66, 12, 8, 0, .9)}`},
+  phones: {n: 'هدفون', svg: () => `<path d="M168 292 C146 66 454 66 432 292" fill="none" stroke="url(#acc-purple)" stroke-width="20" stroke-linecap="round"/>
+      <path d="M196 150 C240 100 330 92 392 126" fill="none" stroke="#fff" stroke-opacity=".4" stroke-width="5" stroke-linecap="round"/>
+      ${[164, 436].map(x => `<ellipse cx="${x}" cy="296" rx="32" ry="54" fill="url(#acc-purple)"/><ellipse cx="${x}" cy="296" rx="18" ry="34" fill="url(#gold)"/>${shine(x - 10, 274, 6, 14, 0, .5)}`).join('')}`},
+  bow:    {n: 'پاپیون', svg: () => `<g transform="translate(226 178) rotate(-22)">
+      <path d="M0 0 Q-50 -62 -76 -14 Q-60 40 0 0Z" fill="url(#acc-pink)"/><path d="M0 0 Q50 -62 76 -14 Q60 40 0 0Z" fill="url(#acc-pink)"/>
+      ${shine(-46, -20, 10, 18, 40, .5)}${shine(40, -24, 8, 14, -40, .45)}<circle r="18" fill="url(#acc-pink)"/>${shine(-5, -6, 6, 4, 0, .8)}</g>`},
+  wizard: {n: 'جادوگر', svg: () => `${soft(300, 206, 118, 16)}
+      <path d="M210 196 C226 132 252 66 320 -4 C334 -16 356 -10 362 6 C352 16 344 24 342 40 C350 98 370 150 392 196Z" fill="url(#acc-purple)"/>
+      <path d="M342 40 C350 98 370 150 392 196 L346 196 C350 140 346 92 330 10Z" fill="#241270" opacity=".3"/>
+      <path d="M362 6 C392 2 412 26 404 58 C394 40 380 32 358 36Z" fill="url(#acc-purple)"/>
+      <ellipse cx="300" cy="198" rx="150" ry="30" fill="url(#acc-purple)"/><ellipse cx="300" cy="192" rx="146" ry="20" fill="#fff" opacity=".1"/>
+      <path d="M212 180 Q300 214 388 180 L392 202 Q300 238 208 202Z" fill="url(#gold)"/>
+      <rect x="282" y="190" width="36" height="28" rx="7" fill="#ffe27a"/><rect x="292" y="198" width="16" height="12" rx="3" fill="#6a4fd8"/>
+      <polygon points="${star5(276, 104, 16, 7)}" fill="url(#gold)"/><polygon points="${star5(326, 142, 11, 5)}" fill="url(#gold)"/><polygon points="${star5(250, 158, 9, 4)}" fill="url(#gold)"/>
+      <path d="M308 50 A18 18 0 1 0 324 76 A14 14 0 1 1 308 50Z" fill="url(#gold)"/>${shine(246, 128, 8, 40, 25, .35)}`},
+  grad:   {n: 'فارغ‌التحصیلی', svg: () => `<path d="M224 176 Q300 220 376 176 L376 214 Q300 256 224 214Z" fill="url(#acc-dark)"/>
+      <path d="M128 150 L300 98 L472 150 L300 202Z" fill="url(#acc-dark)"/><path d="M300 202 L472 150 L472 160 L300 214 L128 160 L128 150Z" fill="#0c0920" opacity=".6"/>
+      ${shine(228, 132, 50, 8, -17, .2)}<circle cx="300" cy="150" r="9" fill="url(#gold)"/>
+      <path d="M300 150 Q420 152 452 168 L456 236" fill="none" stroke="url(#gold)" stroke-width="6" stroke-linecap="round"/>
+      <path d="M442 230 L470 230 L474 272 L438 272Z" fill="url(#gold)"/>`},
+  chef:   {n: 'کلاه آشپز', svg: () => `${soft(300, 214, 104, 12)}
+      ${[[214, 120, 44], [386, 120, 44], [256, 82, 52], [344, 82, 52], [300, 62, 50]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="url(#acc-white)"/>`).join('')}
+      <path d="M200 162 H400 V206 Q300 224 200 206Z" fill="url(#acc-white)"/>
+      <path d="M244 168 V208M300 170 V214M356 168 V208" stroke="#d8cbf5" stroke-width="5"/>${shine(268, 56, 16, 10, -20, .8)}`},
+  flowers:{n: 'تاج گل', svg: () => {
+      const leaf = (x, y, r) => `<ellipse cx="${x}" cy="${y}" rx="24" ry="10" transform="rotate(${r} ${x} ${y})" fill="url(#acc-green)"/>`;
+      const fl = (x, y, c) => [0, 72, 144, 216, 288].map(a => `<circle cx="${(x + Math.cos(a * Math.PI / 180) * 12).toFixed(1)}" cy="${(y + Math.sin(a * Math.PI / 180) * 12).toFixed(1)}" r="11" fill="${c}"/>`).join('') + `<circle cx="${x}" cy="${y}" r="8" fill="url(#gold)"/>`;
+      return `<path d="M176 214 Q300 96 424 214" fill="none" stroke="#2f9a5e" stroke-width="10" stroke-linecap="round"/>` +
+        leaf(196, 186, -60) + leaf(226, 150, -40) + leaf(266, 128, -14) + leaf(334, 128, 14) + leaf(374, 150, 40) + leaf(404, 186, 60) +
+        fl(214, 170, '#ff9ec7') + fl(300, 120, '#fff3a0') + fl(386, 170, '#ff9ec7') + fl(256, 136, '#ffffff') + fl(344, 136, '#c9b8ff'); }},
+  night:  {n: 'کلاه خواب', svg: () => `<path d="M184 214 C170 90 330 52 420 116 C470 150 470 192 462 246 C436 180 380 166 300 168 C250 168 210 182 184 214Z" fill="url(#acc-blue)"/>
+      <path d="M180 212 Q300 162 422 198 L416 232 Q300 192 186 246Z" fill="url(#acc-white)"/>
+      <circle cx="462" cy="250" r="26" fill="url(#acc-white)"/>${shine(452, 240, 8, 6, 0, .9)}
+      <polygon points="${star5(318, 106, 12, 5)}" fill="url(#gold)"/><polygon points="${star5(378, 132, 9, 4)}" fill="url(#gold)"/>${shine(240, 130, 10, 34, 40, .35)}`},
+};
+
+/* Glasses: in the face plane (eyes at 252 and 348, y 275). */
+const GLASSES = {
+  none:  {n: 'بدون', svg: () => ''},
+  round: {n: 'گرد', svg: () => `<g fill="#fff" fill-opacity=".2" stroke="#3b2a7a" stroke-width="7"><circle cx="252" cy="275" r="36"/><circle cx="348" cy="275" r="36"/></g>
+      <path d="M288 272 Q300 260 312 272M216 268 L190 258M384 268 L410 258" fill="none" stroke="#3b2a7a" stroke-width="7" stroke-linecap="round"/>
+      <path d="M230 254 Q240 244 254 243" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" opacity=".85"/>`},
+  sun:   {n: 'آفتابی', svg: () => `${[252, 348].map(x => `<path d="M${x - 44} 252 H${x + 44} V272 Q${x + 44} 310 ${x} 310 Q${x - 44} 310 ${x - 44} 272Z" fill="url(#acc-lens)"/>${shine(x - 18, 264, 14, 5, -10, .5)}`).join('')}
+      <path d="M296 258 H304M208 256 L188 250M392 256 L412 250" stroke="#0c0920" stroke-width="8" stroke-linecap="round"/>`},
+  star:  {n: 'ستاره‌ای', svg: () => `<polygon points="${star5(252, 278, 46, 21)}" fill="url(#gold)"/><polygon points="${star5(348, 278, 46, 21)}" fill="url(#gold)"/>
+      <path d="M286 274 H314" stroke="#b07a00" stroke-width="6"/>${shine(236, 258, 6, 10, 20, .7)}${shine(332, 258, 6, 10, 20, .7)}`},
+  heart: {n: 'قلبی', svg: () => `<path d="${heartPath(252, 280, 1.15)}" fill="url(#acc-pink)" fill-opacity=".92"/><path d="${heartPath(348, 280, 1.15)}" fill="url(#acc-pink)" fill-opacity=".92"/>
+      <path d="M282 268 Q300 258 318 268" stroke="#c93d78" stroke-width="6" fill="none"/>${shine(232, 262, 6, 9, 30, .8)}${shine(328, 262, 6, 9, 30, .8)}`},
+};
+
+/* Neck pieces: anchor (300, 362) on the bell, (300, 346) on the bot. */
+const NECK = {
+  none:   {n: 'بدون', svg: () => ''},
+  bowtie: {n: 'پاپیون گردن', svg: () => `<path d="M300 362 L248 334 Q236 362 248 390Z" fill="url(#acc-red)"/><path d="M300 362 L352 334 Q364 362 352 390Z" fill="url(#acc-red)"/>
+      <ellipse cx="300" cy="362" rx="14" ry="15" fill="url(#acc-red)"/>${shine(256, 350, 5, 10, 20, .45)}`},
+  scarf:  {n: 'شال', svg: () => `<path d="M170 350 Q300 394 430 350 L436 384 Q300 432 164 384Z" fill="url(#gold)"/>
+      ${[204, 252, 300, 348, 396].map(x => `<path d="M${x} ${364 + Math.abs(300 - x) * -.06} v32" stroke="#b07a00" stroke-width="6" opacity=".25" stroke-linecap="round"/>`).join('')}
+      <path d="M352 392 L392 386 L404 470 L360 476Z" fill="url(#gold)"/>`},
+  medal:  {n: 'مدال', svg: () => `<path d="M256 344 L288 404 M344 344 L312 404" stroke="url(#acc-red)" stroke-width="16" stroke-linecap="round"/>
+      <circle cx="300" cy="418" r="30" fill="url(#gold)"/><polygon points="${star5(300, 418, 17, 8)}" fill="#fff" opacity=".9"/>`},
+  tie:    {n: 'کراوات', svg: () => `<path d="M284 350 H316 L310 368 L326 438 L300 462 L274 438 L290 368Z" fill="url(#acc-blue)"/>
+      <path d="M288 354 H312 L308 368 H292Z" fill="#2463c4"/><path d="M292 400 L318 390M288 424 L320 412" stroke="#fff" stroke-opacity=".35" stroke-width="5"/>`},
+};
+
+/* Hand items, drawn around the hand (hx, hy) and turned with the arm. */
+const ITEMS = {
+  none:    {n: 'بدون', svg: () => ''},
+  wand:    {n: 'ستاره', svg: (x, y) => `<path d="M${x - 6} ${y + 10} L${x + 22} ${y - 70}" stroke="url(#gold)" stroke-width="9" stroke-linecap="round"/>
+      <polygon points="${star5(x + 26, y - 86, 34, 14)}" fill="url(#gold)"/>${shine(x + 14, y - 98, 6, 9, 20, .8)}`},
+  cup:     {n: 'قهوه', svg: (x, y) => `<path d="M${x - 30} ${y - 64} H${x + 30} L${x + 22} ${y - 8} Q${x + 20} ${y + 4} ${x + 6} ${y + 4} H${x - 6} Q${x - 20} ${y + 4} ${x - 22} ${y - 8}Z" fill="url(#acc-white)"/>
+      <path d="M${x + 30} ${y - 52} Q${x + 58} ${y - 52} ${x + 54} ${y - 30} Q${x + 50} ${y - 12} ${x + 24} ${y - 16}" fill="none" stroke="url(#acc-white)" stroke-width="9"/>
+      <ellipse cx="${x}" cy="${y - 62}" rx="26" ry="6" fill="#7a4a2a"/><path d="M${x - 8} ${y - 78} q-8 -16 4 -28M${x + 10} ${y - 78} q-8 -16 4 -28" stroke="#b8acd6" stroke-width="5" fill="none" stroke-linecap="round" opacity=".7"/>`},
+  phone:   {n: 'گوشی', svg: (x, y) => `<rect x="${x - 26}" y="${y - 94}" width="52" height="92" rx="14" fill="url(#acc-purple)"/><rect x="${x - 19}" y="${y - 84}" width="38" height="70" rx="6" fill="#f3efff"/>
+      <path d="M${x - 9} ${y - 50} l7 8 l14 -18" fill="none" stroke="#6a4fd8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>`},
+  balloon: {n: 'بادکنک', svg: (x, y) => `<path d="M${x} ${y} Q${x - 14} ${y - 40} ${x + 6} ${y - 76}" fill="none" stroke="#8a80b8" stroke-width="3"/>
+      <ellipse cx="${x + 12}" cy="${y - 128}" rx="40" ry="50" fill="url(#acc-pink)"/><path d="M${x + 12} ${y - 78} l-8 10 h16Z" fill="#c93d78"/>${shine(x - 4, y - 150, 9, 16, 25, .7)}`},
+  flag:    {n: 'پرچم', svg: (x, y) => `<path d="M${x} ${y + 14} V${y - 150}" stroke="#8a5a2a" stroke-width="8" stroke-linecap="round"/>
+      <path d="M${x + 4} ${y - 150} Q${x + 44} ${y - 166} ${x + 84} ${y - 146} Q${x + 56} ${y - 130} ${x + 84} ${y - 110} Q${x + 44} ${y - 92} ${x + 4} ${y - 112}Z" fill="url(#acc-purple)"/>
+      <polygon points="${star5(x + 38, y - 130, 13, 6)}" fill="url(#gold)"/><circle cx="${x}" cy="${y - 154}" r="9" fill="url(#gold)"/>`},
+};
+
+</script><script>
+/* Costumes and items inspired by well-known characters (shipped as optional accessories).
+   A costume can fill several layers: back (cape behind the body), mask (painted on the head, clipped to its shape),
+   chest (emblem or collar), head (in the hat layer) and face (on the face plane, above the mask). */
+const T_DEFS = `
+  <linearGradient id="acc-black" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#55506e"/><stop offset=".5" stop-color="#26223c"/><stop offset="1" stop-color="#0d0b18"/></linearGradient>
+  <linearGradient id="acc-silver" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#ffffff"/><stop offset=".45" stop-color="#cfd5e6"/><stop offset="1" stop-color="#7b84a3"/></linearGradient>
+  <linearGradient id="acc-straw" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#fff0b8"/><stop offset=".5" stop-color="#f0cc6a"/><stop offset="1" stop-color="#b98a2e"/></linearGradient>
+  <linearGradient id="acc-ice" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#ffffff"/><stop offset=".5" stop-color="#e3f4ff"/><stop offset="1" stop-color="#9fcbe8"/></linearGradient>
+  <linearGradient id="acc-gray" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#d9dcea"/><stop offset=".5" stop-color="#8d93ad"/><stop offset="1" stop-color="#4c516b"/></linearGradient>
+  <linearGradient id="acc-joker" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#b9f5a6"/><stop offset=".5" stop-color="#4ccf5e"/><stop offset="1" stop-color="#1c7a33"/></linearGradient>
+  <linearGradient id="acc-navy" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#6f8fe0"/><stop offset=".5" stop-color="#2e4fa8"/><stop offset="1" stop-color="#16285e"/></linearGradient>
+  <linearGradient id="acc-saber" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#7ef0ff" stop-opacity="0"/><stop offset=".5" stop-color="#7ef0ff"/><stop offset="1" stop-color="#7ef0ff" stop-opacity="0"/></linearGradient>`;
+
+const mirrorX = d => d.replace(/(-?\d+\.?\d*)\s+(-?\d+\.?\d*)/g, (m, x, y) => `${600 - Number(x)} ${y}`);
+const braidChain = (x0, y0, x1, y1, c1, c2, tie) => {
+  let o = ''; const n = 9;
+  for (let i = 0; i <= n; i++) { const k = i / n, x = x0 + (x1 - x0) * k + (i % 2 ? 7 : -7), y = y0 + (y1 - y0) * k;
+    o += `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="${(22 - k * 6).toFixed(1)}" ry="${(17 - k * 4).toFixed(1)}" fill="${i % 2 ? c1 : c2}"/>`; }
+  return o + `<circle cx="${x1}" cy="${y1 + 18}" r="12" fill="${tie}"/>`;
+};
+const cape = (robot, fill, scallop) => {
+  const d = robot ? 'M240 346 Q196 420 188 474 Q300 494 412 474 Q404 420 360 346Z'
+    : (scallop ? 'M168 300 Q96 420 66 520 Q100 548 132 530 Q170 560 214 538 Q256 566 300 544 Q344 566 386 538 Q430 560 468 530 Q500 548 534 520 Q504 420 432 300Z'
+               : 'M168 300 Q96 420 70 522 Q300 566 530 522 Q504 420 432 300Z');
+  return `<path d="${d}" fill="${fill}"/><path d="M190 340 Q140 430 120 500M410 340 Q460 430 480 500" stroke="#fff" stroke-opacity=".14" stroke-width="9" fill="none" stroke-linecap="round"/>`;
+};
+const chestAt = robot => robot ? [300, 404] : [300, 392];
+
+const COSTUMES = {
+  none: {n: 'بدون'},
+  bat: {n: 'خفاش‌نما',
+    back: r => cape(r, 'url(#acc-black)', true),
+    mask: () => `<path d="M0 30 H600 V238 Q470 250 404 246 L344 258 Q300 296 256 258 L196 246 Q130 250 0 238Z" fill="url(#acc-black)"/><ellipse cx="250" cy="150" rx="70" ry="30" fill="#fff" opacity=".08"/>`,
+    head: () => `<path d="M216 178 L194 64 L266 150Z" fill="url(#acc-black)"/><path d="M384 178 L406 64 L334 150Z" fill="url(#acc-black)"/>`,
+    chest: r => { const [x, y] = chestAt(r); return `<ellipse cx="${x}" cy="${y}" rx="52" ry="30" fill="url(#gold)"/><path d="M${x - 44} ${y - 2} Q${x - 22} ${y - 26} ${x - 10} ${y - 10} L${x} ${y - 24} L${x + 10} ${y - 10} Q${x + 22} ${y - 26} ${x + 44} ${y - 2} Q${x + 24} ${y + 4} ${x + 16} ${y + 18} Q${x + 8} ${y + 6} ${x} ${y + 20} Q${x - 8} ${y + 6} ${x - 16} ${y + 18} Q${x - 24} ${y + 4} ${x - 44} ${y - 2}Z" fill="#14111f"/>`; }},
+  plumber: {n: 'کلاه قرمز و سبیل',
+    head: () => `<path d="M186 206 C178 94 422 94 414 206 Q300 224 186 206Z" fill="url(#acc-red)"/><path d="M176 202 Q300 236 424 202 L432 226 Q300 270 168 226Z" fill="#b81f34"/>
+      <circle cx="300" cy="148" r="32" fill="url(#acc-white)"/><path d="M284 148 l12 12 l22 -24" fill="none" stroke="#ef4a5a" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>${shine(232, 140, 12, 28, 30, .4)}`,
+    face: () => `<path d="M300 300 Q270 278 232 300 Q258 330 300 316 Q342 330 368 300 Q330 278 300 300Z" fill="#3a2418"/><path d="M252 298 Q268 290 284 296" stroke="#fff" stroke-opacity=".25" stroke-width="5" fill="none" stroke-linecap="round"/>`},
+  spider: {n: 'تارعنکبوتی',
+    mask: () => { let w = '';
+      for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6 + .2; w += `<path d="M300 272 L${(300 + Math.cos(a) * 340).toFixed(0)} ${(272 + Math.sin(a) * 340).toFixed(0)}"/>`; }
+      for (const k of [1, 2, 3]) w += `<ellipse cx="300" cy="272" rx="${k * 62}" ry="${k * 46}"/>`;
+      return `<rect x="0" y="30" width="600" height="352" fill="url(#acc-red)"/><g stroke="#7a1018" stroke-width="3" fill="none" opacity=".55">${w}</g><ellipse cx="250" cy="160" rx="80" ry="34" fill="#fff" opacity=".12"/>`; },
+    face: () => `<path d="M222 282 Q230 234 286 252 Q298 288 262 306 Q224 306 222 282Z" fill="url(#acc-white)" stroke="#111" stroke-width="8" stroke-linejoin="round"/>
+      <path d="M378 282 Q370 234 314 252 Q302 288 338 306 Q376 306 378 282Z" fill="url(#acc-white)" stroke="#111" stroke-width="8" stroke-linejoin="round"/>`},
+  iron: {n: 'آهنی',
+    mask: () => `<rect x="0" y="30" width="600" height="352" fill="url(#acc-red)"/><ellipse cx="250" cy="160" rx="80" ry="34" fill="#fff" opacity=".16"/>`,
+    face: () => `<path d="M196 232 Q300 200 404 232 L396 318 Q300 366 204 318Z" fill="url(#gold)"/><path d="M214 244 Q300 220 386 244 L380 300 Q300 340 220 300Z" fill="#fff" opacity=".12"/>
+      <path d="M226 266 L284 276 L280 292 L228 282Z" fill="#c9f6ff" stroke="#2a1f5e" stroke-width="3"/><path d="M374 266 L316 276 L320 292 L372 282Z" fill="#c9f6ff" stroke="#2a1f5e" stroke-width="3"/>
+      <path d="M262 326 Q300 338 338 326M300 214 V258" stroke="#8a5a00" stroke-width="4" fill="none" stroke-linecap="round" opacity=".6"/>`},
+  straw: {n: 'کلاه حصیری',
+    head: () => `${soft(300, 200, 150, 16)}<ellipse cx="300" cy="194" rx="176" ry="36" fill="url(#acc-straw)"/><path d="M210 194 C202 102 398 102 390 194Z" fill="url(#acc-straw)"/>
+      <path d="M211 168 Q300 196 389 168 L390 194 Q300 224 210 194Z" fill="url(#acc-red)"/><path d="M140 196 Q300 236 460 196M240 132 Q300 150 360 132" stroke="#b98a2e" stroke-width="3" fill="none" opacity=".55"/>${shine(250, 130, 12, 26, 30, .45)}`,
+    face: () => `<path d="M234 304 L246 334M228 314 H246M231 324 H249" stroke="#7a3b2e" stroke-width="4" stroke-linecap="round" fill="none"/>`},
+  ninja: {n: 'سربند نینجا',
+    head: () => `<path d="M166 222 Q300 196 434 222 L434 260 Q300 234 166 260Z" fill="url(#acc-navy)"/><rect x="258" y="210" width="84" height="44" rx="10" fill="url(#acc-silver)"/>
+      <path d="M300 232 m-14 0 a14 14 0 0 1 28 0 a9 9 0 0 1 -18 0 a4 4 0 0 1 8 0" fill="none" stroke="#2e3a6a" stroke-width="4" stroke-linecap="round"/>
+      <path d="M428 236 L478 212 L468 246 L498 272 L434 264Z" fill="url(#acc-navy)"/>`,
+    face: () => `<g stroke="#4a3a6a" stroke-width="4" stroke-linecap="round" opacity=".75"><path d="M218 300 L190 292M218 312 L188 312M218 324 L190 332"/><path d="M382 300 L410 292M382 312 L412 312M382 324 L410 332"/></g>`},
+  ice: {n: 'موی یخی و بافت',
+    head: () => `<path d="M168 270 C148 160 228 106 300 106 C380 106 454 160 434 272 C418 216 384 196 342 214 C306 180 236 194 200 238Z" fill="url(#acc-ice)"/>
+      ${braidChain(184, 262, 152, 452, '#e3f4ff', '#bfe0f5', '#6ec6ff')}<path d="M248 140 L262 110 L276 132 L300 92 L324 132 L338 110 L352 140Z" fill="url(#acc-ice)" stroke="#9fcbe8" stroke-width="3"/>${shine(232, 150, 14, 34, 35, .6)}`},
+  thor: {n: 'کلاه‌خود بالدار',
+    back: r => cape(r, 'url(#acc-red)', false),
+    head: () => `<path d="M188 214 C180 98 420 98 412 214 Q300 232 188 214Z" fill="url(#acc-silver)"/><path d="M190 196 Q300 222 410 196" stroke="#8b94ac" stroke-width="6" fill="none"/>
+      <path d="M196 168 Q120 150 82 76 Q150 108 176 124 Q118 118 102 176 Q160 160 192 196Z" fill="url(#acc-white)"/><path d="${mirrorX('M196 168 Q120 150 82 76 Q150 108 176 124 Q118 118 102 176 Q160 160 192 196Z')}" fill="url(#acc-white)"/>${shine(240, 140, 12, 30, 30, .7)}`},
+  elf: {n: 'کلاه سبز بلند',
+    head: () => `<path d="M188 214 C176 98 340 62 432 138 C482 180 502 250 492 322 C462 252 422 222 382 212 Q300 198 188 214Z" fill="url(#acc-green)"/>
+      <path d="M190 212 Q290 196 382 210" stroke="#fff" stroke-opacity=".3" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M262 120 Q340 106 410 150" stroke="#1f8a52" stroke-width="5" fill="none" opacity=".5"/>`},
+  graywiz: {n: 'جادوگر پیر',
+    head: () => `${soft(300, 206, 118, 16)}<path d="M210 196 C226 132 252 66 320 -4 C334 -16 356 -10 362 6 C352 16 344 24 342 40 C350 98 370 150 392 196Z" fill="url(#acc-gray)"/>
+      <ellipse cx="300" cy="198" rx="150" ry="30" fill="url(#acc-gray)"/><path d="M212 180 Q300 214 388 180 L392 202 Q300 238 208 202Z" fill="#5d6380"/>${shine(246, 128, 8, 40, 25, .35)}`,
+    face: () => `<path d="M196 300 Q202 388 244 436 Q300 506 356 436 Q398 388 404 300 Q382 326 346 322 Q322 312 300 318 Q278 312 254 322 Q218 326 196 300Z" fill="url(#acc-white)"/>
+      <path d="M244 378 Q300 418 356 378M234 410 Q300 460 366 410" stroke="#d8cdf2" stroke-width="6" fill="none" stroke-linecap="round"/>`},
+  joker: {n: 'موی سبز',
+    head: () => `<path d="M174 264 C158 168 220 108 300 110 C380 106 442 168 426 264 C406 216 384 228 366 206 C346 232 328 208 300 224 C274 208 256 232 236 206 C216 228 194 216 174 264Z" fill="url(#acc-joker)"/>
+      <path d="M252 118 Q236 70 272 50 Q264 84 288 100M346 112 Q366 66 330 44 Q344 80 318 98" stroke="url(#acc-joker)" stroke-width="13" fill="none" stroke-linecap="round"/>`,
+    face: () => `<path d="M236 300 Q300 364 364 300 Q300 336 236 300Z" fill="url(#acc-red)"/><path d="M236 300 Q222 290 214 266M364 300 Q378 290 386 266" stroke="#ef4a5a" stroke-width="8" fill="none" stroke-linecap="round"/>`},
+  wed: {n: 'موی مشکی و بافت',
+    mask: r => r ? '' : `<rect x="0" y="352" width="600" height="200" fill="url(#acc-black)"/>`,
+    head: () => `<path d="M172 264 C162 160 228 114 300 114 C372 114 438 160 428 264 L412 214 Q360 232 300 226 Q240 232 188 214Z" fill="url(#acc-black)"/>
+      ${braidChain(176, 262, 150, 440, '#3a3556', '#26223c', '#fff')}${braidChain(424, 262, 450, 440, '#3a3556', '#26223c', '#fff')}${shine(236, 150, 14, 30, 35, .25)}`,
+    chest: r => { const [x, y] = chestAt(r); return `<path d="M${x - 62} ${y - 38} L${x} ${y + 18} L${x + 62} ${y - 38} L${x + 34} ${y - 48} L${x} ${y - 14} L${x - 34} ${y - 48}Z" fill="url(#acc-white)"/>`; }},
+  saiyan: {n: 'موی سیخی',
+    head: () => `<path d="M182 232 L156 118 L222 172 L214 64 L270 150 L300 34 L330 150 L386 64 L378 172 L444 118 L418 232 Q300 196 182 232Z" fill="url(#acc-black)"/>
+      <path d="M240 130 L254 108M300 96 V66M360 130 L346 108" stroke="#fff" stroke-opacity=".25" stroke-width="7" stroke-linecap="round"/>`},
+  hero: {n: 'ابرقهرمان',
+    back: r => cape(r, 'url(#acc-red)', false),
+    head: () => `<path d="M186 216 C180 118 420 118 414 216 C384 182 330 178 300 192 C270 178 216 182 186 216Z" fill="url(#acc-black)"/>
+      <path d="M298 188 c-26 10 -20 46 12 38 c20 -8 16 -32 -4 -30" fill="none" stroke="url(#acc-black)" stroke-width="12" stroke-linecap="round"/>`,
+    chest: r => { const [x, y] = chestAt(r); return `<path d="M${x - 48} ${y - 34} H${x + 48} L${x + 36} ${y + 14} L${x} ${y + 44} L${x - 36} ${y + 14}Z" fill="url(#gold)"/>
+      <path d="M${x - 36} ${y - 26} H${x + 36} L${x + 27} ${y + 10} L${x} ${y + 33} L${x - 27} ${y + 10}Z" fill="url(#acc-red)"/><polygon points="${star5(x, y - 2, 20, 9)}" fill="#fff"/>`; }},
+  pirate: {n: 'ناخدا',
+    head: () => `${soft(300, 206, 130, 14)}<path d="M146 212 Q172 110 300 100 Q428 110 454 212 Q382 180 300 184 Q218 180 146 212Z" fill="url(#acc-black)"/>
+      <path d="M146 212 Q218 180 300 184 Q382 180 454 212 L446 228 Q380 198 300 202 Q220 198 154 228Z" fill="url(#gold)"/>
+      <circle cx="300" cy="146" r="22" fill="url(#acc-white)"/><rect x="288" y="160" width="24" height="14" rx="5" fill="url(#acc-white)"/><circle cx="292" cy="144" r="5" fill="#26223c"/><circle cx="308" cy="144" r="5" fill="#26223c"/>`,
+    face: () => `<path d="M206 236 L282 258M318 258 L420 224" stroke="#1b1830" stroke-width="6" fill="none" stroke-linecap="round"/><ellipse cx="252" cy="272" rx="32" ry="30" fill="url(#acc-black)"/>${shine(240, 260, 8, 5, -20, .3)}`},
+};
+
+const TITEMS = {
+  hammer: {n: 'چکش', svg: (x, y) => `<rect x="${x - 7}" y="${y - 66}" width="14" height="86" rx="7" fill="#8a5a2a"/><rect x="${x - 46}" y="${y - 112}" width="92" height="54" rx="12" fill="url(#acc-silver)"/>
+      <path d="M${x - 24} ${y - 104} V${y - 66}M${x + 24} ${y - 104} V${y - 66}" stroke="#7b84a3" stroke-width="5"/>${shine(x - 22, y - 100, 16, 5, 0, .7)}`},
+  shield: {n: 'سپر گرد', svg: (x, y) => `<circle cx="${x + 6}" cy="${y - 54}" r="58" fill="url(#acc-red)"/><circle cx="${x + 6}" cy="${y - 54}" r="44" fill="url(#acc-white)"/><circle cx="${x + 6}" cy="${y - 54}" r="32" fill="url(#acc-red)"/>
+      <circle cx="${x + 6}" cy="${y - 54}" r="21" fill="url(#acc-navy)"/><polygon points="${star5(x + 6, y - 54, 17, 7)}" fill="#fff"/>${shine(x - 22, y - 86, 10, 18, 40, .5)}`},
+  ball: {n: 'توپ قرمز و سفید', svg: (x, y) => `<circle cx="${x}" cy="${y - 42}" r="38" fill="url(#acc-white)"/><path d="M${x - 38} ${y - 42} A38 38 0 0 1 ${x + 38} ${y - 42}Z" fill="url(#acc-red)"/>
+      <path d="M${x - 38} ${y - 42} H${x + 38}" stroke="#1b1830" stroke-width="7"/><circle cx="${x}" cy="${y - 42}" r="12" fill="url(#acc-white)" stroke="#1b1830" stroke-width="6"/>${shine(x - 14, y - 64, 8, 6, -20, .8)}`},
+  saber: {n: 'شمشیر نورانی', svg: (x, y) => `<rect x="${x - 20}" y="${y - 200}" width="40" height="160" rx="20" fill="url(#acc-saber)" opacity=".7"/><rect x="${x - 7}" y="${y - 196}" width="14" height="154" rx="7" fill="#e8fdff"/>
+      <rect x="${x - 11}" y="${y - 48}" width="22" height="66" rx="5" fill="url(#acc-silver)"/><path d="M${x - 11} ${y - 30} H${x + 11}M${x - 11} ${y - 14} H${x + 11}" stroke="#4a5068" stroke-width="4"/>`},
+  staff: {n: 'عصای جادو', svg: (x, y) => `<path d="M${x - 4} ${y + 30} L${x + 10} ${y - 170}" stroke="#7a4a22" stroke-width="12" stroke-linecap="round"/>
+      <circle cx="${x + 12}" cy="${y - 186}" r="22" fill="url(#acc-blue)"/>${shine(x + 4, y - 194, 7, 5, -20, .9)}<circle cx="${x + 12}" cy="${y - 186}" r="40" fill="url(#acc-shine)" opacity=".5"/>`},
+};
+
+window.YADIMO_TEST = {COSTUMES, TITEMS, T_DEFS};
+
+</script><script>
+/* Puts accessories in 2.5D: every shape of a layer is turned into an absolute path once ("baked", including any
+   transforms), then every frame each point goes through the same projection as the head or face it sits on.
+   So a mask, a hat or a beard narrows, shifts and leans with the head instead of staying a flat sticker. */
+const Warp = (() => {
+  const NS = 'http://www.w3.org/2000/svg', K = 0.5522847498;
+  const num = (el, a) => parseFloat(el.getAttribute(a) || '0');
+
+  // SVG path data -> absolute segments: M, L, C, Q, Z (arcs become cubic curves)
+  function parse(d) {
+    const tk = d.match(/[MmLlHhVvCcSsQqTtAaZz]|[-+]?(?:\d*\.\d+|\d+\.?)(?:e[-+]?\d+)?/g) || [];
+    const out = []; let i = 0, cmd = '', x = 0, y = 0, sx = 0, sy = 0, lc = null, lq = null;
+    const n = () => parseFloat(tk[i++]);
+    while (i < tk.length) {
+      if (/[a-z]/i.test(tk[i])) cmd = tk[i++];
+      const rel = cmd === cmd.toLowerCase(), C = cmd.toUpperCase(), ox = rel ? x : 0, oy = rel ? y : 0;
+      if (C === 'Z') { out.push({c: 'Z'}); x = sx; y = sy; lc = lq = null; continue; }
+      if (C === 'M') { x = ox + n(); y = oy + n(); sx = x; sy = y; out.push({c: 'M', p: [x, y]}); cmd = rel ? 'l' : 'L'; lc = lq = null; continue; }
+      if (C === 'L') { x = ox + n(); y = oy + n(); out.push({c: 'L', p: [x, y]}); lc = lq = null; continue; }
+      if (C === 'H') { x = ox + n(); out.push({c: 'L', p: [x, y]}); lc = lq = null; continue; }
+      if (C === 'V') { y = oy + n(); out.push({c: 'L', p: [x, y]}); lc = lq = null; continue; }
+      if (C === 'C' || C === 'S') {
+        let x1, y1;
+        if (C === 'C') { x1 = ox + n(); y1 = oy + n(); } else { x1 = lc ? 2 * x - lc[0] : x; y1 = lc ? 2 * y - lc[1] : y; }
+        const x2 = ox + n(), y2 = oy + n(), ex = ox + n(), ey = oy + n();
+        out.push({c: 'C', p: [x1, y1, x2, y2, ex, ey]}); lc = [x2, y2]; lq = null; x = ex; y = ey; continue;
+      }
+      if (C === 'Q' || C === 'T') {
+        let qx, qy;
+        if (C === 'Q') { qx = ox + n(); qy = oy + n(); } else { qx = lq ? 2 * x - lq[0] : x; qy = lq ? 2 * y - lq[1] : y; }
+        const ex = ox + n(), ey = oy + n();
+        out.push({c: 'Q', p: [qx, qy, ex, ey]}); lq = [qx, qy]; lc = null; x = ex; y = ey; continue;
+      }
+      if (C === 'A') {
+        const rx = n(), ry = n(), rot = n(), large = n(), sweep = n(), ex = ox + n(), ey = oy + n();
+        for (const s of arc(x, y, rx, ry, rot, large, sweep, ex, ey)) out.push({c: 'C', p: s});
+        x = ex; y = ey; lc = lq = null; continue;
+      }
+      i++;   // unknown token
+    }
+    return out;
+  }
+  // endpoint arc -> cubic curves (standard conversion)
+  function arc(x1, y1, rx, ry, phi, fa, fs, x2, y2) {
+    if (!rx || !ry) return [[x1, y1, x2, y2, x2, y2]];
+    const p = phi * Math.PI / 180, cp = Math.cos(p), sp = Math.sin(p);
+    const dx = (x1 - x2) / 2, dy = (y1 - y2) / 2, x1p = cp * dx + sp * dy, y1p = -sp * dx + cp * dy;
+    rx = Math.abs(rx); ry = Math.abs(ry);
+    const lam = x1p * x1p / (rx * rx) + y1p * y1p / (ry * ry); if (lam > 1) { rx *= Math.sqrt(lam); ry *= Math.sqrt(lam); }
+    let co = Math.sqrt(Math.max(0, (rx * rx * ry * ry - rx * rx * y1p * y1p - ry * ry * x1p * x1p) / (rx * rx * y1p * y1p + ry * ry * x1p * x1p)));
+    if (fa == fs) co = -co;
+    const cxp = co * rx * y1p / ry, cyp = -co * ry * x1p / rx, cx = cp * cxp - sp * cyp + (x1 + x2) / 2, cy = sp * cxp + cp * cyp + (y1 + y2) / 2;
+    const ang = (ux, uy, vx, vy) => { const a = Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy); return a; };
+    let t1 = ang(1, 0, (x1p - cxp) / rx, (y1p - cyp) / ry), dt = ang((x1p - cxp) / rx, (y1p - cyp) / ry, (-x1p - cxp) / rx, (-y1p - cyp) / ry);
+    if (!fs && dt > 0) dt -= 2 * Math.PI; if (fs && dt < 0) dt += 2 * Math.PI;
+    const segs = Math.ceil(Math.abs(dt) / (Math.PI / 2)), d = dt / segs, k = 4 / 3 * Math.tan(d / 4), out = [];
+    const pt = (t) => [cx + rx * Math.cos(t) * cp - ry * Math.sin(t) * sp, cy + rx * Math.cos(t) * sp + ry * Math.sin(t) * cp];
+    const dv = (t) => [-rx * Math.sin(t) * cp - ry * Math.cos(t) * sp, -rx * Math.sin(t) * sp + ry * Math.cos(t) * cp];
+    for (let s = 0; s < segs; s++) {
+      const a = t1 + s * d, b = a + d, p0 = pt(a), p3 = pt(b), d0 = dv(a), d3 = dv(b);
+      out.push([p0[0] + k * d0[0], p0[1] + k * d0[1], p3[0] - k * d3[0], p3[1] - k * d3[1], p3[0], p3[1]]);
+    }
+    return out;
+  }
+  function ellipse(cx, cy, rx, ry) {
+    const a = rx * K, b = ry * K;
+    return [{c: 'M', p: [cx + rx, cy]}, {c: 'C', p: [cx + rx, cy + b, cx + a, cy + ry, cx, cy + ry]}, {c: 'C', p: [cx - a, cy + ry, cx - rx, cy + b, cx - rx, cy]},
+      {c: 'C', p: [cx - rx, cy - b, cx - a, cy - ry, cx, cy - ry]}, {c: 'C', p: [cx + a, cy - ry, cx + rx, cy - b, cx + rx, cy]}, {c: 'Z'}];
+  }
+  function shape(el) {
+    switch (el.tagName.toLowerCase()) {
+      case 'path': return parse(el.getAttribute('d') || '');
+      case 'circle': return ellipse(num(el, 'cx'), num(el, 'cy'), num(el, 'r'), num(el, 'r'));
+      case 'ellipse': return ellipse(num(el, 'cx'), num(el, 'cy'), num(el, 'rx'), num(el, 'ry'));
+      case 'line': return [{c: 'M', p: [num(el, 'x1'), num(el, 'y1')]}, {c: 'L', p: [num(el, 'x2'), num(el, 'y2')]}];
+      case 'polygon': case 'polyline': {
+        const v = (el.getAttribute('points') || '').trim().split(/[\s,]+/).map(Number), o = [];
+        for (let i = 0; i + 1 < v.length; i += 2) o.push({c: i ? 'L' : 'M', p: [v[i], v[i + 1]]});
+        if (el.tagName.toLowerCase() === 'polygon') o.push({c: 'Z'}); return o;
+      }
+      case 'rect': {
+        const x = num(el, 'x'), y = num(el, 'y'), w = num(el, 'width'), h = num(el, 'height');
+        let r = Math.min(num(el, 'rx') || num(el, 'ry'), w / 2, h / 2); const k = r * (1 - K);
+        if (!r) return [{c: 'M', p: [x, y]}, {c: 'L', p: [x + w, y]}, {c: 'L', p: [x + w, y + h]}, {c: 'L', p: [x, y + h]}, {c: 'Z'}];
+        return [{c: 'M', p: [x + r, y]}, {c: 'L', p: [x + w - r, y]}, {c: 'C', p: [x + w - k, y, x + w, y + k, x + w, y + r]},
+          {c: 'L', p: [x + w, y + h - r]}, {c: 'C', p: [x + w, y + h - k, x + w - k, y + h, x + w - r, y + h]},
+          {c: 'L', p: [x + r, y + h]}, {c: 'C', p: [x + k, y + h, x, y + h - k, x, y + h - r]},
+          {c: 'L', p: [x, y + r]}, {c: 'C', p: [x, y + k, x + k, y, x + r, y]}, {c: 'Z'}];
+      }
+    }
+    return null;
+  }
+  function matrixTo(el, root) {
+    let m = new DOMMatrix();
+    for (let n = el; n && n !== root; n = n.parentNode) {
+      const t = n.transform && n.transform.baseVal && n.transform.baseVal.consolidate();
+      if (t) { const s = t.matrix; m = new DOMMatrix([s.a, s.b, s.c, s.d, s.e, s.f]).multiply(m); }
+    }
+    return m;
+  }
+  const GEOM = new Set(['d', 'cx', 'cy', 'r', 'rx', 'ry', 'x', 'y', 'width', 'height', 'points', 'x1', 'y1', 'x2', 'y2', 'transform']);
+  /* Turn every shape under root into an absolute path in root's coordinates. Returns what to warp each frame. */
+  function bake(root) {
+    const items = [];
+    for (const el of [...root.querySelectorAll('path,circle,ellipse,rect,polygon,polyline,line')]) {
+      const segs = shape(el); if (!segs) continue;
+      const m = matrixTo(el, root);
+      for (const s of segs) if (s.p) for (let i = 0; i < s.p.length; i += 2) { const q = m.transformPoint({x: s.p[i], y: s.p[i + 1]}); s.p[i] = q.x; s.p[i + 1] = q.y; }
+      const p = document.createElementNS(NS, 'path');
+      for (const a of [...el.attributes]) if (!GEOM.has(a.name)) p.setAttribute(a.name, a.value);
+      // strokes keep their thickness after baking a scale
+      const sc = Math.sqrt(Math.abs(m.a * m.d - m.b * m.c));
+      if (p.hasAttribute('stroke-width') && Math.abs(sc - 1) > .01) p.setAttribute('stroke-width', String(parseFloat(p.getAttribute('stroke-width')) * sc));
+      p.setAttribute('d', toD(segs)); el.replaceWith(p); items.push({el: p, segs});
+    }
+    for (const g of root.querySelectorAll('[transform]')) g.removeAttribute('transform');
+    return items;
+  }
+  const f = v => Math.round(v * 10) / 10;
+  function toD(segs, map) {
+    let s = '';
+    for (const g of segs) {
+      if (g.c === 'Z') { s += 'Z'; continue; }
+      s += g.c;
+      for (let i = 0; i < g.p.length; i += 2) { const q = map ? map(g.p[i], g.p[i + 1]) : [g.p[i], g.p[i + 1]]; s += f(q[0]) + ' ' + f(q[1]) + ' '; }
+    }
+    return s;
+  }
+  function apply(items, map) { for (const it of items) it.el.setAttribute('d', toD(it.segs, map)); }
+  return {bake, apply};
+})();
+
+</script><script>
+/* Yadimo engine: one living character on one SVG (used by the studio page and by the app). */
+/* Yadimo studio: moods, accessories and scenes on top of the 2.5D vector rig (art.js + volume.js).
+   Several Yadimos can live on one page; each one prefixes its SVG ids. */
+function shade(hex, n) { return '#' + hex.slice(1).match(/../g).map(v => Math.max(0, Math.min(255, parseInt(v, 16) + n)).toString(16).padStart(2, '0')).join(''); }
+
+const COLORS = {
+  lilac: {n: 'یاسی', body: '#9976f5', accent: '#ffc746'},
+  sky:   {n: 'آسمانی', body: '#4f9ef0', accent: '#ffc746'},
+  mint:  {n: 'نعنایی', body: '#36c08f', accent: '#ffc746'},
+  peach: {n: 'هلویی', body: '#ff8f5e', accent: '#ffd25a'},
+  sun:   {n: 'آفتابی', body: '#f2b12a', accent: '#ff7b54'},
+  rose:  {n: 'صورتی', body: '#f06aa3', accent: '#ffc746'},
+  night: {n: 'شب', body: '#4b4f96', accent: '#ffc746'},
+  galaxy: {n: 'کهکشانی', body: '#3a2384', accent: '#ffd84a'},
+};
+const FACES = {happy: 'خوشحال', wink: 'چشمک', love: 'عاشق', surprised: 'تعجب', focused: 'جدی', sleepy: 'خواب‌آلود'};
+const VARIANTS = {bell: 'زنگوله', robot: 'ربات'};
+/* Each mood sets a pose, a motion and sometimes a face, and adds its own little extras. */
+const MOODS = {
+  idle:      {n: 'ایستاده', pose: 'rest', motion: 'curious'},
+  wave:      {n: 'سلام', pose: 'wave', motion: 'float', expr: 'happy', sparkles: true},
+  talk:      {n: 'حرف زدن', pose: 'point', motion: 'float', expr: 'happy'},
+  think:     {n: 'فکر', pose: 'rest', motion: 'still', expr: 'happy'},
+  ring:      {n: 'زنگ', pose: 'yay', motion: 'ring', expr: 'surprised'},
+  celebrate: {n: 'جشن', pose: 'yay', motion: 'bounce', expr: 'wink', sparkles: true},
+  love:      {n: 'ذوق', pose: 'rest', motion: 'float', expr: 'love', sparkles: true},
+  sleep:     {n: 'خواب', pose: 'rest', motion: 'float', expr: 'sleepy'},
+  fly:       {n: 'پرواز به بالا', pose: 'yay', motion: 'float', expr: 'happy'},
+};
+const COVERS_ANTENNA = new Set(['party', 'cap', 'crown', 'beanie', 'wizard', 'grad', 'chef', 'night', 'flowers']);
+const SVGNS = 'http://www.w3.org/2000/svg';
+let YID = 0;
+const TEST = window.YADIMO_TEST || {COSTUMES: {none: {n: 'بدون'}}, TITEMS: {}, T_DEFS: ''};
+
+class Yadimo {
+  constructor(svg, o = {}) {
+    this.svg = svg; this.P = 'y' + (++YID) + '-';
+    this.o = Object.assign({variant: 'bell', color: 'lilac', face: 'happy', hat: 'none', glass: 'none', neck: 'none', item: 'none', costume: 'none', follow: false}, o);
+    this.act = null; this.nextAct = 3;
+    this.mood = 'idle'; this.t = 0; this.mt = 0; this.parts = []; this.pointer = {x: 0, y: 0, active: false};
+    this.rig = new VectorRig(svg, this.P);
+    this.posX = {x: 0, v: 0, t: 0}; this.posY = {x: 0, v: 0, t: 0};
+    this.nextBlink = 2; this.blinkAt = -9; this.wasUp = false;
+    this.render();
+  }
+  set(o) { Object.assign(this.o, o); this.render(); }
+  setMood(m) {
+    const before = MOODS[this.mood].expr || this.o.face;
+    this.mood = m; this.mt = 0;
+    if (m === 'fly') { this.posY.x = 560; this.posY.v = -2200; this.posY.t = 0; }
+    if ((MOODS[m].expr || this.o.face) !== before || !!MOODS[m].sparkles !== this.sparkles) this.render();
+  }
+  prefix(s) { return s.replace(/id="([^"]+)"/g, `id="${this.P}$1"`).replace(/url\(#([^)]+)\)/g, `url(#${this.P}$1)`); }
+  q(id) { return this.svg.querySelector('#' + this.P + id); }
+  render() {
+    const m = MOODS[this.mood], c = COLORS[this.o.color] || COLORS.lilac, robot = this.o.variant === 'robot';
+    this.sparkles = !!m.sparkles;
+    const s = {variant: this.o.variant, expression: m.expr || this.o.face, gaze: '0', bodyColor: c.body, accentColor: c.accent,
+      cheekColor: '#f5a2c6', sparkles: this.sparkles, blush: true};
+    this.svg.innerHTML = this.prefix(mascotArt(s));
+    this.svg.querySelector('defs').insertAdjacentHTML('beforeend', this.prefix(ACC_DEFS + TEST.T_DEFS));
+    this.rig.bind(robot);
+    const body = this.rig.body, face = this.q('face');
+    const group = html => { const g = document.createElementNS(SVGNS, 'g'); g.innerHTML = this.prefix(html); return g; };
+    // neck piece under the face (bell) or under the head (bot)
+    this.gNeck = group((NECK[this.o.neck] || NECK.none).svg());
+    if (robot) body.insertBefore(this.gNeck, this.rig.head);
+    else body.insertBefore(this.gNeck, face);
+    // glasses on the face, hat on top of everything on the head
+    this.gGlass = group((GLASSES[this.o.glass] || GLASSES.none).svg()); face.append(this.gGlass);
+    const cos = TEST.COSTUMES[this.o.costume] || {};
+    this.gHat = group((HATS[this.o.hat] || HATS.none).svg() + (cos.head ? cos.head(robot) : '')); body.append(this.gHat);
+    if (COVERS_ANTENNA.has(this.o.hat) || cos.head || cos.mask) this.q('antenna').setAttribute('visibility', 'hidden');
+    // costume layers: cape behind everything; mask painted on the head (clipped to its moving outline); chest; face parts on top
+    this.gBack = cos.back ? group(cos.back(robot)) : null; if (this.gBack) body.insertBefore(this.gBack, body.firstChild);
+    const mask = cos.mask ? cos.mask(robot) : '';
+    this.gMask = group(mask ? `<g clip-path="url(#shell-clip)">${mask}</g>` : ''); face.after(this.gMask);
+    this.gChest = group(cos.chest ? cos.chest(robot) : '');
+    if (robot) body.insertBefore(this.gChest, this.rig.head); else this.gMask.after(this.gChest);
+    this.gFace2 = group(cos.face ? cos.face(robot) : ''); (robot ? this.gMask : this.gChest).after(this.gFace2);
+    // the bot floats on its own; the old ring under it looked stiff
+    const thr = this.q('thruster'); if (thr) thr.setAttribute('visibility', 'hidden');
+    // the item sits in the right hand and turns with the arm
+    const hand = robot ? [474, 386] : [500, 300], itemSvg = (ITEMS[this.o.item] || TEST.TITEMS[this.o.item] || ITEMS.none).svg(hand[0], hand[1]);
+    // the bell's right arm is behind its body; the bot's arms are behind its head, so its item gets its own top layer
+    this.gItem = null;
+    if (robot) { this.gItem = group(itemSvg); body.insertBefore(this.gItem, this.gHat); }
+    else this.q('arm-right').insertAdjacentHTML('beforeend', this.prefix(itemSvg));
+    // 2.5D: every accessory point follows the projection of the surface it sits on
+    this.warps = [];
+    const bake = (g, kind) => this.warps.push({items: Warp.bake(g), kind});
+    bake(this.gHat, 'hat'); bake(this.gGlass, 'face'); bake(this.gFace2, 'face'); bake(this.gMask, 'shell');
+    if (!robot) { bake(this.gNeck, 'shell'); bake(this.gChest, 'shell'); if (this.gBack) bake(this.gBack, 'back'); }
+    this.fx = document.createElementNS(SVGNS, 'g'); this.svg.append(this.fx);
+    this.rig.step(this.target(this.t), 0, true);
+  }
+  armAngles() {
+    const robot = this.o.variant === 'robot', pose = MOODS[this.mood].pose;
+    const poses = robot ? {rest: [0, 0], wave: [0, -65], yay: [65, -65], point: [0, -30]} : {rest: [-15, 25], wave: [0, -55], yay: [75, -55], point: [0, -15]};
+    const a = poses[pose].slice();
+    if (this.o.item !== 'none' && pose === 'rest') a[1] = robot ? -20 : 0;
+    return a;
+  }
+  target(t) {
+    const m = this.mood, mt = this.mt, tracking = this.o.follow && this.pointer.active;
+    let yaw = tracking ? this.pointer.x * 35 : 0, pitch = tracking ? -this.pointer.y * 22 : 0, lean = 0;
+    if (!tracking) {
+      yaw += Math.sin(t * .8) * 4; pitch += Math.sin(t * .61) * 2; lean += Math.sin(t * .7) * 1.2;
+      if (m === 'idle') { yaw += Math.sin(t * 1.05) * 26; pitch += Math.sin(t * .7) * 9; lean += Math.sin(t * .8) * 3; }
+      if (m === 'think') { yaw = -16 + Math.sin(t * .9) * 3; pitch = 14; lean = -7; }
+      if (m === 'sleep') { yaw = 6; pitch = -16 + Math.sin(t * 1.1) * 2; lean = 7; }
+      if (m === 'talk') { yaw += Math.sin(mt * 2.3) * 10; pitch += Math.sin(mt * 4.6) * 5; }
+      if (m === 'wave') { yaw += 8; lean -= 4; }
+      if (m === 'love') { lean += Math.sin(mt * 2.4) * 7; }
+      if (m === 'ring') { yaw += Math.sin(mt * 19) * 12; }
+    }
+    const k = {headYaw: yaw * .72, headPitch: pitch * .76, headRoll: lean - yaw * .09, bodyYaw: yaw * .38, bodyPitch: pitch * .3, bodyRoll: lean * .2 - yaw * .12};
+    const max = {headYaw: 35, headPitch: 22, headRoll: 18, bodyYaw: 30, bodyPitch: 18, bodyRoll: 10};
+    for (const key in k) k[key] = Math.max(-max[key], Math.min(max[key], k[key]));
+    return k;
+  }
+  spring(s, dt, k = 120, d = 13) { s.v += (k * (s.t - s.x) - d * s.v) * dt; s.x += s.v * dt; }
+  update(dt) {
+    const m = this.mood, slow = m === 'sleep' ? .55 : 1;
+    this.t += dt * slow; this.mt += dt;
+    const t = this.t, mt = this.mt, motion = MOODS[m].motion;
+    this.rig.step(this.target(t), dt);
+    let y = 0, angle = this.rig.current.bodyRoll, sx = 1, sy = 1;
+    if (m === 'idle' && !this.act && mt > this.nextAct) { const kinds = ['hop', 'wiggle', 'spin', 'sparkle', 'stretch']; this.act = {k: kinds[Math.floor(Math.random() * kinds.length)], s: mt}; }
+    if (this.act) { const p = (mt - this.act.s) / .9;
+      if (p >= 1 || m !== 'idle') { this.act = null; this.nextAct = mt + 3 + Math.random() * 4; }
+      else if (this.act.k === 'hop') { y -= Math.sin(Math.PI * Math.min(1, p * 1.6)) * 34; if (p < .12 || (p > .62 && p < .75)) { sy *= .93; sx *= 1.05; } }
+      else if (this.act.k === 'wiggle') angle += Math.sin(p * Math.PI * 5) * 7 * (1 - p);
+      else if (this.act.k === 'spin') angle += Math.sin(p * Math.PI) * 14;
+      else if (this.act.k === 'stretch') { const e = Math.sin(Math.PI * p); sy *= 1 + .07 * e; sx *= 1 - .04 * e; }
+      else if (this.act.k === 'sparkle' && p < .05) this.burst('spark', 7); }
+    if (motion === 'float') y = Math.sin(t * 2) * 9;
+    if (motion === 'curious') y = Math.sin(t * 1.5) * (this.o.variant === 'robot' ? 10 : 5);
+    if (motion === 'ring') angle += Math.sin(mt * 26) * 8;
+    if (motion === 'bounce') {
+      const b = Math.abs(Math.sin(mt * 3.2)); y = -b * 46;
+      const ground = b < .14; sy = ground ? 1 - .09 * (1 - b / .14) : 1 + .05 * b; sx = ground ? 1 + .07 * (1 - b / .14) : 1 - .03 * b;
+      const up = Math.cos(mt * 3.2) * Math.sin(mt * 3.2) < 0 ? false : true;
+      if (b > .2 && b < .35 && up && !this.wasUp) this.burst('conf', 16);
+      this.wasUp = b > .2 && up;
+    }
+    sx *= 1 + Math.sin(t * 1.8) * .006; sy *= 1 - Math.sin(t * 1.8) * .006;
+    // fly in from below: an underdamped spring overshoots and settles like a real jump
+    if (m === 'fly') {
+      this.spring(this.posY, dt, 70, 9);
+      const v = this.posY.v; sy *= 1 + Math.max(-.08, Math.min(.14, -v / 3000)); sx *= 1 - Math.max(-.08, Math.min(.14, -v / 3000)) * .6;
+      if (mt < .7 && Math.random() < .7) this.parts.push({type: 'spark', x: 300 + (Math.random() - .5) * 120, y: 480 + this.posY.x, vx: 0, vy: 80, life: .6, r: 0});
+    } else { this.posY.t = 0; this.spring(this.posY, dt, 90, 14); }
+    this.spring(this.posX, dt, 60, 12);
+    y += this.posY.x;
+    this.q('position').setAttribute('transform', `translate(${this.posX.x.toFixed(2)} ${y.toFixed(2)})`);
+    this.q('character').setAttribute('transform', `translate(300 330) rotate(${angle.toFixed(2)}) scale(${sx.toFixed(4)} ${sy.toFixed(4)}) translate(-300 -330)`);
+    const gs = this.q('ground-shadow'); gs.setAttribute('opacity', String(Math.max(.15, 1 + Math.min(0, y) / 140)));
+    gs.setAttribute('cx', String(300 + this.posX.x)); gs.setAttribute('rx', String(177 * Math.max(.6, 1 + Math.min(0, y) / 400)));
+    // eyes: random blinks
+    if (t > this.nextBlink) { this.blinkAt = t; this.nextBlink = t + 2 + Math.random() * 3.5; }
+    const blink = t - this.blinkAt < .13 && !['sleepy', 'love'].includes(MOODS[m].expr || this.o.face);
+    const pose = this.armAngles();
+    if (MOODS[m].pose === 'wave' || (m === 'fly' && mt > 1.2)) pose[1] += Math.sin(mt * 9) * 12;
+    if (m === 'fly' && mt > 1.2) { pose[0] = this.o.variant === 'robot' ? 0 : -15; pose[1] -= 0; }
+    if (m === 'talk') pose[1] += Math.sin(mt * 5) * 10;
+    if (m === 'idle' || m === 'think' || m === 'sleep') { pose[0] += Math.sin(t * 1.7) * 5; pose[1] -= Math.sin(t * 1.7 + 1) * 5; }
+    if (m === 'ring') { pose[0] += Math.sin(mt * 30) * 8; pose[1] += Math.sin(mt * 30 + 1) * 8; }
+    if (m === 'celebrate') { pose[0] += Math.sin(mt * 12) * 8; pose[1] -= Math.sin(mt * 12) * 8; }
+    const ex = {};
+    if (m === 'talk') ex.mouth = .3 + .7 * Math.abs(Math.sin(mt * 11) * Math.sin(mt * 3.7 + 1));
+    if (m === 'think') ex.eyeUp = -7;
+    if (m === 'ring') ex.clap = Math.sin(mt * 26) * 26;
+    const gaze = this.o.follow && this.pointer.active ? this.pointer.x * 4 : (m === 'think' ? -4 : 0);
+    this.rig.apply({gaze: '0'}, motion === 'still' ? 0 : t, pose, blink, gaze, ex);
+    // accessories follow the projected head and face
+    const mp = this.rig.maps;
+    if (mp) {
+      const robot = this.o.variant === 'robot', {yaw, pitch, roll} = mp;
+      const maps = {
+        hat: (x, y) => robot ? headPoint(x, y, yaw, pitch, roll, -26) : bellBend(x, y, yaw, pitch, roll, -26),
+        shell: mp.shellMap, face: mp.faceMap,
+        back: (x, y) => bellBend(x, y, yaw, pitch, roll, -42),
+      };
+      for (const w of this.warps) Warp.apply(w.items, maps[w.kind]);
+      if (robot) {   // the bot's chest pieces and cape ride on its torso
+        const tt = this.q('torso').getAttribute('transform') || '';
+        this.gNeck.setAttribute('transform', tt + ' translate(0 -16)'); this.gChest.setAttribute('transform', tt); if (this.gBack) this.gBack.setAttribute('transform', tt);
+      }
+      if (this.gItem) this.gItem.setAttribute('transform', this.q('arm-right').getAttribute('transform') || '');
+    }
+    this.effects(dt, y);
+  }
+  burst(type, n) {
+    const cols = ['#ffd24d', '#ff7fae', '#6fe0b2', '#7cc0ff', '#a993ff'];
+    for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, sp = 120 + Math.random() * 240;
+      this.parts.push({type, x: 300 + this.posX.x, y: 230 + this.posY.x, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 260, life: 1.3, r: Math.random() * 6, vr: (Math.random() - .5) * 12, c: cols[i % 5]}); }
+  }
+  effects(dt, y) {
+    const m = this.mood, mt = this.mt, cx = 300 + this.posX.x;
+    if (m === 'love' && Math.random() < dt * 3) this.parts.push({type: 'heart', x: cx + (Math.random() - .5) * 220, y: 200 + y, vx: (Math.random() - .5) * 30, vy: -90, life: 1.6, r: 0});
+    if (m === 'sleep' && Math.random() < dt * .9) this.parts.push({type: 'z', x: cx + 120, y: 170 + y, vx: 34, vy: -50, life: 2.2, r: 0, size: 30 + Math.random() * 26});
+    let h = '';
+    for (const p of this.parts) {
+      p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.r += (p.vr || 0) * dt;
+      if (p.type === 'conf' || p.type === 'spark') p.vy += 620 * dt;
+      const o = Math.max(0, Math.min(1, p.life));
+      if (p.type === 'conf') h += `<rect x="-7" y="-11" width="14" height="22" rx="3" fill="${p.c}" opacity="${o}" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${(p.r * 57).toFixed(0)})"/>`;
+      else if (p.type === 'spark') h += `<polygon points="${star5(p.x, p.y, 13, 5)}" fill="${p.c || '#fff'}" opacity="${o * .95}"/>`;
+      else if (p.type === 'heart') h += `<path d="${heartPath(p.x, p.y, .7)}" fill="#ff5c93" opacity="${o}"/>`;
+      else if (p.type === 'z') h += `<text x="${p.x.toFixed(1)}" y="${p.y.toFixed(1)}" font-size="${p.size}" font-weight="800" font-family="system-ui" fill="#7a62e0" opacity="${o}">z</text>`;
+    }
+    this.parts = this.parts.filter(p => p.life > 0);
+    if (m === 'ring') for (let i = 0; i < 3; i++) {
+      const ph = (mt * 1.4 + i / 3) % 1, r = 200 + ph * 110, o = (1 - ph) * .9;
+      for (const sgn of [-1, 1]) { const a0 = sgn < 0 ? Math.PI - .5 : -.5, a1 = a0 + 1;
+        h += `<path d="M${(cx + Math.cos(a0) * r).toFixed(1)} ${(300 + y + Math.sin(a0) * r).toFixed(1)} A${r} ${r} 0 0 1 ${(cx + Math.cos(a1) * r).toFixed(1)} ${(300 + y + Math.sin(a1) * r).toFixed(1)}" fill="none" stroke="#ffc746" stroke-width="${(12 * (1 - ph) + 3).toFixed(1)}" stroke-linecap="round" opacity="${o.toFixed(2)}"/>`; }
+    }
+    if (m === 'think') { const k = Math.max(0, Math.min(1, (mt - 1) * 3)), bx = cx + 170, by = 90 + y;
+      if (k > 0) h += `<g transform="translate(${bx} ${by}) scale(${k.toFixed(3)})"><circle r="70" fill="url(#${this.P}acc-shine)" opacity=".7"/><circle cy="-6" r="34" fill="url(#${this.P}gold)"/>
+        <rect x="-16" y="24" width="32" height="20" rx="7" fill="#a49ad0"/><path d="M-60 -6 H-78M60 -6 H78M-44 -50 L-56 -62M44 -50 L56 -62M0 -66 V-84" stroke="#ffc746" stroke-width="8" stroke-linecap="round"/></g>`; }
+    this.fx.innerHTML = h;
+  }
+}
+
+
+</script>
+<script>
+const NS = 'http://www.w3.org/2000/svg';
+let uid = 0;
+const TIERS = {
+  none:    {fa: 'بدون خرید', sub: 'بدون قاب', metal: null},
+  bronze:  {fa: 'برنزی', sub: 'زیر ۲۰۰ توکن', metal: ['#5a2e12', '#b8723c', '#f6c79a', '#a8602c', '#4a240c'], gem: ['#3a1a0b', '#120703'], stars: 0, glow: '#ff9a4a'},
+  silver:  {fa: 'نقره‌ای', sub: '۲۰۰ تا ۵۰۰', metal: ['#5d6678', '#c9d2e0', '#ffffff', '#aab4c6', '#4b5466'], gem: ['#1d2a4d', '#0a1022'], stars: 1, glow: '#cfe0ff', double: true},
+  gold:    {fa: 'طلایی', sub: '۵۰۰ تا ۱۵۰۰', metal: ['#7a4e00', '#e2a92a', '#fff2b0', '#d69a1a', '#6a4200'], gem: ['#3d2300', '#140b00'], stars: 2, glow: '#ffc93d', double: true, crest: true},
+  diamond: {fa: 'الماسی', sub: 'بیش از ۱۵۰۰', metal: ['#2b6fb8', '#8fd6ff', '#ffffff', '#5fb4ff', '#1d4f8f'], gem: ['#0d2a5c', '#050c22'], stars: 3, glow: '#8fe4ff', double: true, crest: true, wings: true},
+  admin:   {fa: 'ادمین 👑', sub: 'یادیموی کهکشانی', metal: ['#3b1680', '#a067ff', '#ffe08a', '#7b3cff', '#2a0c5c'], gem: ['#1a0838', '#05010f'], stars: 3, glow: '#b98cff', double: true, wings: true, crown: true},
+};
+
+function hex(cx, cy, r) { return [...Array(6)].map((_, k) => { const a = Math.PI / 180 * (60 * k - 90); return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`; }).join(' '); }
+function star(cx, cy, r) { return [...Array(10)].map((_, k) => { const a = Math.PI / 5 * k - Math.PI / 2, rr = k % 2 ? r * .45 : r; return `${(cx + rr * Math.cos(a)).toFixed(1)},${(cy + rr * Math.sin(a)).toFixed(1)}`; }).join(' '); }
+
+/** The frame as SVG (100×100 box, the picture sits inside a hexagon of radius ~33). */
+function frameSVG(key, gemOnly) {
+  const t = TIERS[key], id = 'f' + (++uid);
+  if (!t.metal) return `<svg class="f" viewBox="0 0 100 100"><defs><radialGradient id="${id}g"><stop offset="0" stop-color="#2a3560"/><stop offset="1" stop-color="#151d38"/></radialGradient></defs>
+    <circle cx="50" cy="50" r="38" fill="url(#${id}g)" stroke="#2c3a6a" stroke-width="1.5"/></svg>`;
+  const [d1, m1, hl, m2, d2] = t.metal;
+  let s = `<svg class="f" viewBox="0 0 100 100"><defs>
+    <linearGradient id="${id}m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${m1}"/><stop offset=".35" stop-color="${hl}"/><stop offset=".55" stop-color="${m2}"/><stop offset="1" stop-color="${d2}"/></linearGradient>
+    <linearGradient id="${id}e" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${hl}"/><stop offset=".5" stop-color="${d1}"/><stop offset="1" stop-color="${m1}"/></linearGradient>
+    <radialGradient id="${id}gem" cx=".5" cy=".38" r=".7"><stop offset="0" stop-color="${t.gem[0]}"/><stop offset="1" stop-color="${t.gem[1]}"/></radialGradient>
+    <linearGradient id="${id}s" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <clipPath id="${id}c"><polygon points="${hex(50, 50, 43)}"/></clipPath>
+  </defs>`;
+  // wings behind the frame (diamond, admin)
+  if (t.wings) for (const side of [-1, 1]) {
+    const w = (x, y) => `${50 + side * x},${y}`;
+    s += `<g><polygon points="${[w(30, 24), w(56, 10), w(50, 30), w(60, 26), w(48, 44), w(54, 44), w(38, 58)].join(' ')}" fill="url(#${id}m)" stroke="${d1}" stroke-width=".8"/>
+      <polyline points="${[w(36, 28), w(50, 20)].join(' ')}" stroke="${hl}" stroke-width="1.2" opacity=".8"/><polyline points="${[w(38, 40), w(50, 34)].join(' ')}" stroke="${hl}" stroke-width="1.2" opacity=".6"/></g>`;
+  }
+  // crest on top (gold+) or crown (admin)
+  if (t.crown) s += `<g transform="translate(50 6) scale(1.35) translate(-50 -6) translate(0 -7)"><polygon points="36,10 41,1 46,8 50,-1 54,8 59,1 64,10 62,15 38,15" fill="url(#${id}m)" stroke="${d1}" stroke-width=".8"/>
+      <circle cx="50" cy="5" r="2.2" fill="#ff6fb1"/><circle cx="41" cy="5" r="1.5" fill="#7fe6ff"/><circle cx="59" cy="5" r="1.5" fill="#7fe6ff"/></g>`;
+  else if (t.crest) s += `<polygon points="40,9 50,1 60,9 56,12 44,12" fill="url(#${id}m)" stroke="${d1}" stroke-width=".8"/>`;
+  // the hexagon: outer bevel, (second ring), gem
+  s += `<polygon points="${hex(50, 50, 44)}" fill="url(#${id}e)" stroke="${d2}" stroke-width=".8"/>
+    <polygon points="${hex(50, 50, 40.5)}" fill="url(#${id}m)"/>`;
+  if (t.double) s += `<polygon points="${hex(50, 50, 37.5)}" fill="${d2}"/><polygon points="${hex(50, 50, 36.2)}" fill="url(#${id}e)"/>`;
+  s += `<polygon points="${hex(50, 50, t.double ? 33.5 : 35.5)}" fill="url(#${id}gem)" stroke="${d2}" stroke-width="1"/>`;
+  // the running shine
+  s += `<g clip-path="url(#${id}c)"><rect x="-60" y="-10" width="40" height="120" fill="url(#${id}s)" transform="rotate(20 50 50)">
+      <animate attributeName="x" values="-60;130" dur="2.8s" repeatCount="indefinite"/></rect></g>`;
+  // stars at the bottom
+  const xs = t.stars === 1 ? [50] : t.stars === 2 ? [43, 57] : t.stars === 3 ? [37, 50, 63] : [];
+  xs.forEach((x, i) => { const y = t.stars === 3 && i === 1 ? 94 : 91;
+    s += `<polygon points="${star(x, y, t.stars === 3 && i === 1 ? 6.5 : 5.2)}" fill="url(#${id}m)" stroke="${d2}" stroke-width=".7"/>`; });
+  return s + '</svg>';
+}
+
+/** The small hexagon with the level number, in the tier's metal. */
+function medalSVG(key, level, size = 30) {
+  const t = TIERS[key].metal ? TIERS[key] : {metal: ['#2c3a6a', '#55608f', '#9aa6d6', '#46507c', '#1d2648'], gem: ['#1b2446', '#0c1124']};
+  const [d1, m1, hl, m2, d2] = t.metal, id = 'm' + (++uid);
+  return `<svg class="medal" width="${size}" height="${size}" viewBox="0 0 40 40"><defs>
+    <linearGradient id="${id}m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${m1}"/><stop offset=".4" stop-color="${hl}"/><stop offset="1" stop-color="${d2}"/></linearGradient>
+    <radialGradient id="${id}g" cy=".35"><stop offset="0" stop-color="${t.gem[0]}"/><stop offset="1" stop-color="${t.gem[1]}"/></radialGradient></defs>
+    <polygon points="${hex(20, 20, 19)}" fill="url(#${id}m)" stroke="${d2}"/><polygon points="${hex(20, 20, 14.5)}" fill="url(#${id}g)"/>
+    <text x="20" y="25.5" text-anchor="middle" font-size="14" font-weight="800" fill="${hl}" font-family="system-ui">${level}</text></svg>`;
+}
+
+/** Effects around Yadimo for each tier. */
+function effects(key, px) {
+  const t = TIERS[key]; if (!t.metal) return '';
+  let h = `<div class="aura" style="width:${px * .78}px;height:${px * .78}px;background:radial-gradient(circle,${t.glow}88,transparent 68%)"></div>`;
+  if (key === 'diamond' || key === 'admin') h += `<div class="rays" style="width:${px * .95}px;height:${px * .95}px"></div>`;
+  const sparks = {bronze: 0, silver: 2, gold: 5, diamond: 7, admin: 6}[key];
+  const color = {silver: '#ffffff', gold: '#ffe27a', diamond: '#d7f6ff', admin: '#ffe08a'}[key];
+  for (let i = 0; i < sparks; i++) { const a = i / sparks * Math.PI * 2 + .4, r = px * .3;
+    h += `<span class="spark" style="color:${color};left:${px / 2 + Math.cos(a) * r - 6}px;top:${px / 2 + Math.sin(a) * r - 6}px;animation-delay:${(i * .37) % 1.8}s"></span>`; }
+  if (key === 'admin') { h += `<div class="orbit" style="width:${px * .74}px;height:${px * .74}px">`;
+    for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2; h += `<i style="left:${50 + 50 * Math.cos(a)}%;top:${50 + 50 * Math.sin(a)}%;margin:-3px"></i>`; } h += '</div>'; }
+  return h;
+}
+
+/** A living Yadimo; the admin's one is the galaxy colour with stars drifting over its body. */
+const engines = [];
+function yadimo(el, key, look) {
+  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', '0 0 600 600'); el.append(svg);
+  const y = new Yadimo(svg, Object.assign({variant: 'robot', color: key === 'admin' ? 'galaxy' : 'lilac', hat: 'none', glass: 'none'}, look || {}));
+  if (key === 'admin') {
+    const base = y.render.bind(y);
+    const galaxy = () => {
+      const g = document.createElementNS(NS, 'g'); g.setAttribute('clip-path', `url(#${y.P}shell-clip)`); g.setAttribute('class', 'gx');
+      let h = `<defs><radialGradient id="${y.P}neb1"><stop offset="0" stop-color="#ff6fd8" stop-opacity=".7"/><stop offset="1" stop-color="#ff6fd8" stop-opacity="0"/></radialGradient>
+        <radialGradient id="${y.P}neb2"><stop offset="0" stop-color="#3ad6ff" stop-opacity=".6"/><stop offset="1" stop-color="#3ad6ff" stop-opacity="0"/></radialGradient></defs>
+        <ellipse cx="220" cy="230" rx="170" ry="120" fill="url(#${y.P}neb1)"><animate attributeName="cx" values="200;330;200" dur="9s" repeatCount="indefinite"/></ellipse>
+        <ellipse cx="380" cy="330" rx="160" ry="110" fill="url(#${y.P}neb2)"><animate attributeName="cy" values="300;380;300" dur="7s" repeatCount="indefinite"/></ellipse>`;
+      for (let i = 0; i < 26; i++) { const x = 120 + (i * 137) % 360, yy = 120 + (i * 89) % 300, r = i % 4 ? 2.2 : 4;
+        h += `<circle cx="${x}" cy="${yy}" r="${r}" fill="#fff"><animate attributeName="opacity" values="1;.15;1" dur="${1.5 + (i % 5) * .5}s" repeatCount="indefinite"/></circle>`; }
+      g.innerHTML = h; const face = y.q('face'); if (face) face.before(g); else svg.append(g);
+    };
+    y.render = () => { base(); galaxy(); }; y.render();
+  }
+  engines.push(y); return y;
+}
+
+function frame(key, px, look) {
+  const d = document.createElement('div'); d.className = 'frame'; d.style.width = d.style.height = px + 'px';
+  d.innerHTML = `<div class="fx">${effects(key, px)}</div>` + frameSVG(key);
+  const inner = document.createElement('div'); inner.className = 'yad'; inner.style.width = inner.style.height = px * .62 + 'px'; d.append(inner);
+  yadimo(inner, key, look); return d;
+}
+
+const LOOKS = {none: {hat: 'none'}, bronze: {color: 'peach', hat: 'cap'}, silver: {color: 'sky', glass: 'round'}, gold: {color: 'sun', hat: 'crown'},
+  diamond: {color: 'mint', hat: 'party', glass: 'sun'}, admin: {hat: 'none'}};
+const LEVELS = {none: 2, bronze: 5, silver: 8, gold: 12, diamond: 17, admin: 20};
+const grid = document.getElementById('tiers');
+for (const key of Object.keys(TIERS)) {
+  const c = document.createElement('div'); c.className = 'card';
+  c.append(frame(key, 168, LOOKS[key]));
+  c.insertAdjacentHTML('beforeend', `<div class="name">${TIERS[key].fa}${medalSVG(key, LEVELS[key])}</div><div class="s">${TIERS[key].sub}</div>`);
+  grid.append(c);
+}
+// a profile header
+const pr = document.getElementById('profile');
+pr.append(frame('gold', 230, LOOKS.gold));
+pr.insertAdjacentHTML('beforeend', `<div class="name" style="font-size:20px">امین ${medalSVG('gold', 12, 34)}</div>
+  <div class="s" style="color:#ffc93d;font-weight:700">🥇 طلایی • قهرمان کارها</div>`);
+// group members
+const mm = document.getElementById('members');
+[['امین', 'admin', 20], ['سارا', 'diamond', 17], ['رضا', 'gold', 12], ['مریم', 'silver', 8], ['علی', 'bronze', 5], ['نگار', 'none', 3]].forEach(([n, k, lv]) => {
+  const row = document.createElement('div'); row.className = 'member';
+  row.append(frame(k, 64, LOOKS[k]));
+  row.insertAdjacentHTML('beforeend', `<div><div class="nm">${n} ${medalSVG(k, lv, 24)}</div><div class="lv">${TIERS[k].fa}</div></div>`);
+  mm.append(row);
+});
+// moods, to see the effects with Yadimo doing different things
+const moods = document.getElementById('moods');
+[['idle', 'ایستاده'], ['wave', 'سلام'], ['celebrate', 'جشن'], ['love', 'ذوق'], ['sleep', 'خواب']].forEach(([m, fa], i) => {
+  const b = document.createElement('button'); b.textContent = fa; if (!i) b.className = 'on';
+  b.onclick = () => { engines.forEach(e => e.setMood(m)); [...moods.children].forEach(x => x.classList.toggle('on', x === b)); }; moods.append(b);
+});
+let last = performance.now();
+(function loop(now) { const dt = Math.min(.05, (now - last) / 1000); last = now; engines.forEach(e => e.update(dt)); requestAnimationFrame(loop); })(last);
+</script></body></html>
