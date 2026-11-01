@@ -161,7 +161,7 @@ private fun GroupPage(g: Groups.Group, me: String, onEdit: (EditorRequest) -> Un
                         Surface(shape = CircleShape, color = if (m.active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,
                             modifier = Modifier.combinedClickable(onClick = { viewing = m }, onLongClick = { if (g.isOwner && m.id != me) removing = m })) {
                             Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                m.tier?.let { Text(it.emoji, fontSize = 13.sp); Spacer(Modifier.width(4.dp)) }
+                                if (m.active) { LevelMedal(m.tier, m.level, 22.dp); Spacer(Modifier.width(5.dp)) }
                                 Text(label, style = MaterialTheme.typography.labelLarge)
                             }
                         }
@@ -308,15 +308,14 @@ private fun MemberDialog(m: Groups.Member, onDone: () -> Unit) {
     AlertDialog(onDismissRequest = onDone, confirmButton = { TextButton(onClick = onDone) { Text(t("بستن", "Close")) } },
         text = {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                TierRing(m.tier, 112.dp, 5.dp) {
-                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(84.dp)) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(m.name.trim().removePrefix("@").take(1).uppercase().ifBlank { "?" }, fontSize = 36.sp, fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer)
-                        }
-                    }
+                // their Yadimo in their frame (the admin's in galaxy colours)
+                TierFrame(m.tier, 190.dp) {
+                    YadimoView(YadimoMood.WAVE, size = 92.dp, config = YadimoConfig(), fx = if (m.admin) "galaxy" else "", tappable = false)
                 }
-                Text(m.name, style = MaterialTheme.typography.titleLarge)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    LevelMedal(m.tier, m.level, 28.dp); Spacer(Modifier.width(6.dp))
+                    Text(m.name, style = MaterialTheme.typography.titleLarge)
+                }
                 if (m.username.isNotBlank()) Text("@" + m.username, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 m.tier?.let { TierChip(it) }
                 Text(t("سطح ${n(m.level)} • ", "Level ${m.level} • ") + GameRules.title(m.level, fa), style = MaterialTheme.typography.titleSmall,

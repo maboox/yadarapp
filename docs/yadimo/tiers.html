@@ -86,14 +86,19 @@ function frameSVG(key, gemOnly) {
       <polyline points="${[w(36, 28), w(50, 20)].join(' ')}" stroke="${hl}" stroke-width="1.2" opacity=".8"/><polyline points="${[w(38, 40), w(50, 34)].join(' ')}" stroke="${hl}" stroke-width="1.2" opacity=".6"/></g>`;
   }
   // crest on top (gold+) or crown (admin)
-  if (t.crown) s += `<g transform="translate(50 6) scale(1.35) translate(-50 -6) translate(0 -7)"><polygon points="36,10 41,1 46,8 50,-1 54,8 59,1 64,10 62,15 38,15" fill="url(#${id}m)" stroke="${d1}" stroke-width=".8"/>
-      <circle cx="50" cy="5" r="2.2" fill="#ff6fb1"/><circle cx="41" cy="5" r="1.5" fill="#7fe6ff"/><circle cx="59" cy="5" r="1.5" fill="#7fe6ff"/></g>`;
-  else if (t.crest) s += `<polygon points="40,9 50,1 60,9 56,12 44,12" fill="url(#${id}m)" stroke="${d1}" stroke-width=".8"/>`;
+  if (t.crest && !t.crown) s += `<polygon points="40,9 50,1 60,9 56,12 44,12" fill="url(#${id}m)" stroke="${d1}" stroke-width=".8"/>`;
   // the hexagon: outer bevel, (second ring), gem
   s += `<polygon points="${hex(50, 50, 44)}" fill="url(#${id}e)" stroke="${d2}" stroke-width=".8"/>
     <polygon points="${hex(50, 50, 40.5)}" fill="url(#${id}m)"/>`;
   if (t.double) s += `<polygon points="${hex(50, 50, 37.5)}" fill="${d2}"/><polygon points="${hex(50, 50, 36.2)}" fill="url(#${id}e)"/>`;
   s += `<polygon points="${hex(50, 50, t.double ? 33.5 : 35.5)}" fill="url(#${id}gem)" stroke="${d2}" stroke-width="1"/>`;
+  // the crown sits on the frame's top corner, in the same metal (admin)
+  if (t.crown) s += `<g>
+      <path d="M33 13 L35 -1 L42 6 L50 -7 L58 6 L65 -1 L67 13 Z" fill="url(#${id}m)" stroke="${d2}" stroke-width=".9" stroke-linejoin="round"/>
+      <path d="M36 9 L37 3 L42 8 L50 -1 L58 8 L63 3 L64 9" fill="none" stroke="${hl}" stroke-width=".8" opacity=".7"/>
+      <rect x="32" y="10" width="36" height="6" rx="2" fill="url(#${id}e)" stroke="${d2}" stroke-width=".9"/>
+      <circle cx="50" cy="13" r="2" fill="#ff6fb1" stroke="${hl}" stroke-width=".5"/><circle cx="41" cy="13" r="1.4" fill="#7fe6ff"/><circle cx="59" cy="13" r="1.4" fill="#7fe6ff"/>
+      <circle cx="35" cy="-1" r="1.6" fill="${hl}"/><circle cx="50" cy="-7" r="1.9" fill="${hl}"/><circle cx="65" cy="-1" r="1.6" fill="${hl}"/></g>`;
   // the running shine
   s += `<g clip-path="url(#${id}c)"><rect x="-60" y="-10" width="40" height="120" fill="url(#${id}s)" transform="rotate(20 50 50)">
       <animate attributeName="x" values="-60;130" dur="2.8s" repeatCount="indefinite"/></rect></g>`;
@@ -133,21 +138,7 @@ function effects(key, px) {
 const engines = [];
 function yadimo(el, key, look) {
   const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', '0 0 600 600'); el.append(svg);
-  const y = new Yadimo(svg, Object.assign({variant: 'robot', color: key === 'admin' ? 'galaxy' : 'lilac', hat: 'none', glass: 'none'}, look || {}));
-  if (key === 'admin') {
-    const base = y.render.bind(y);
-    const galaxy = () => {
-      const g = document.createElementNS(NS, 'g'); g.setAttribute('clip-path', `url(#${y.P}shell-clip)`); g.setAttribute('class', 'gx');
-      let h = `<defs><radialGradient id="${y.P}neb1"><stop offset="0" stop-color="#ff6fd8" stop-opacity=".7"/><stop offset="1" stop-color="#ff6fd8" stop-opacity="0"/></radialGradient>
-        <radialGradient id="${y.P}neb2"><stop offset="0" stop-color="#3ad6ff" stop-opacity=".6"/><stop offset="1" stop-color="#3ad6ff" stop-opacity="0"/></radialGradient></defs>
-        <ellipse cx="220" cy="230" rx="170" ry="120" fill="url(#${y.P}neb1)"><animate attributeName="cx" values="200;330;200" dur="9s" repeatCount="indefinite"/></ellipse>
-        <ellipse cx="380" cy="330" rx="160" ry="110" fill="url(#${y.P}neb2)"><animate attributeName="cy" values="300;380;300" dur="7s" repeatCount="indefinite"/></ellipse>`;
-      for (let i = 0; i < 26; i++) { const x = 120 + (i * 137) % 360, yy = 120 + (i * 89) % 300, r = i % 4 ? 2.2 : 4;
-        h += `<circle cx="${x}" cy="${yy}" r="${r}" fill="#fff"><animate attributeName="opacity" values="1;.15;1" dur="${1.5 + (i % 5) * .5}s" repeatCount="indefinite"/></circle>`; }
-      g.innerHTML = h; const face = y.q('face'); if (face) face.before(g); else svg.append(g);
-    };
-    y.render = () => { base(); galaxy(); }; y.render();
-  }
+  const y = new Yadimo(svg, Object.assign({variant: 'robot', color: 'lilac', hat: 'none', glass: 'none'}, look || {}, key === 'admin' ? {fx: 'galaxy'} : {}));
   engines.push(y); return y;
 }
 

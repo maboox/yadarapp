@@ -53,7 +53,8 @@ class Yadimo {
   prefix(s) { return s.replace(/id="([^"]+)"/g, `id="${this.P}$1"`).replace(/url\(#([^)]+)\)/g, `url(#${this.P}$1)`); }
   q(id) { return this.svg.querySelector('#' + this.P + id); }
   render() {
-    const m = MOODS[this.mood], c = COLORS[this.o.color] || COLORS.lilac, robot = this.o.variant === 'robot';
+    // fx 'galaxy' (the admin's own Yadimo): the galaxy colour with clouds and stars drifting over its body
+    const m = MOODS[this.mood], c = this.o.fx === 'galaxy' ? COLORS.galaxy : COLORS[this.o.color] || COLORS.lilac, robot = this.o.variant === 'robot';
     this.sparkles = !!m.sparkles;
     const s = {variant: this.o.variant, expression: m.expr || this.o.face, gaze: '0', bodyColor: c.body, accentColor: c.accent,
       cheekColor: '#f5a2c6', sparkles: this.sparkles, blush: true};
@@ -91,8 +92,20 @@ class Yadimo {
     const bake = (g, kind) => this.warps.push({items: Warp.bake(g), kind});
     bake(this.gHat, 'hat'); bake(this.gGlass, 'face'); bake(this.gFace2, 'face'); bake(this.gMask, 'shell');
     if (!robot) { bake(this.gNeck, 'shell'); bake(this.gChest, 'shell'); if (this.gBack) bake(this.gBack, 'back'); }
+    if (this.o.fx === 'galaxy') this.galaxy(face);
     this.fx = document.createElementNS(SVGNS, 'g'); this.svg.append(this.fx);
     this.rig.step(this.target(this.t), 0, true);
+  }
+  /** Nebula clouds and twinkling stars on the body, under the face, clipped to the shell as it turns. */
+  galaxy(face) {
+    const g = document.createElementNS(SVGNS, 'g'); g.setAttribute('clip-path', `url(#${this.P}shell-clip)`);
+    let h = `<defs><radialGradient id="${this.P}neb1"><stop offset="0" stop-color="#ff6fd8" stop-opacity=".7"/><stop offset="1" stop-color="#ff6fd8" stop-opacity="0"/></radialGradient>
+      <radialGradient id="${this.P}neb2"><stop offset="0" stop-color="#3ad6ff" stop-opacity=".6"/><stop offset="1" stop-color="#3ad6ff" stop-opacity="0"/></radialGradient></defs>
+      <ellipse cx="220" cy="230" rx="170" ry="120" fill="url(#${this.P}neb1)"><animate attributeName="cx" values="200;330;200" dur="9s" repeatCount="indefinite"/></ellipse>
+      <ellipse cx="380" cy="330" rx="160" ry="110" fill="url(#${this.P}neb2)"><animate attributeName="cy" values="300;380;300" dur="7s" repeatCount="indefinite"/></ellipse>`;
+    for (let i = 0; i < 26; i++) h += `<circle cx="${120 + (i * 137) % 360}" cy="${120 + (i * 89) % 300}" r="${i % 4 ? 2.2 : 4}" fill="#fff"><animate attributeName="opacity" values="1;.15;1" dur="${1.5 + (i % 5) * .5}s" repeatCount="indefinite"/></circle>`;
+    g.innerHTML = h;
+    if (face) face.before(g); else this.svg.append(g);
   }
   armAngles() {
     const robot = this.o.variant === 'robot', pose = MOODS[this.mood].pose;

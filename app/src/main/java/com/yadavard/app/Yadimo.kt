@@ -113,8 +113,12 @@ fun rememberYadimoConfig(): YadimoConfig { YadimoStore.ensure(LocalContext.curre
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun YadimoView(mood: YadimoMood, modifier: Modifier = Modifier, size: Dp = 120.dp, config: YadimoConfig = rememberYadimoConfig(),
-               peekIn: Boolean? = null, replay: Int = 0, tappable: Boolean = true, onCatalog: ((String) -> Unit)? = null) {
+               peekIn: Boolean? = null, replay: Int = 0, tappable: Boolean = true, onCatalog: ((String) -> Unit)? = null,
+               /** "galaxy", "" or null = as for this account (the admin's own Yadimo is the galaxy one). */
+               fx: String? = null) {
     val context = LocalContext.current
+    val admin = Account.profile.collectAsState().value?.admin == true
+    val effect = fx ?: if (admin) "galaxy" else ""
     var ready by remember { mutableStateOf(false) }
     val web = remember {
         WebView(context).apply {
@@ -134,7 +138,9 @@ fun YadimoView(mood: YadimoMood, modifier: Modifier = Modifier, size: Dp = 120.d
     }
     DisposableEffect(Unit) { onDispose { web.stopLoading(); web.destroy() } }
     fun js(code: String) = web.evaluateJavascript(code, null)
-    LaunchedEffect(ready, config) { if (ready) js("yadimo.config(${JSONObject.quote(config.toJson())})") }
+    LaunchedEffect(ready, config, effect) {
+        if (ready) js("yadimo.config(${JSONObject.quote(JSONObject(config.toJson()).put("fx", effect).toString())})")
+    }
     var peekStarted by remember { mutableStateOf(false) }
     LaunchedEffect(ready, peekIn) {
         if (!ready || peekIn == null) return@LaunchedEffect

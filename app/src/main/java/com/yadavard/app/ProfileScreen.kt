@@ -231,16 +231,20 @@ private fun LevelHeader(s: Game.State?, onName: () -> Unit, onUsername: () -> Un
         Column(Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             // the ring your token purchases earned goes round the level ring
             val tier = profile?.let { Tier.of(it.purchased, it.admin) }
-            TierRing(tier, 196.dp, 7.dp) {
-                LevelRing(s?.progress ?: 0f, level, 168.dp) {
-                    if (rememberYadimoEnabled()) YadimoView(YadimoMood.IDLE, size = 140.dp)
-                    else Icon(Icons.Rounded.Face, null, Modifier.size(72.dp), tint = MaterialTheme.colorScheme.primary)
-                }
+            // with a tier: Yadimo in the frame the purchases earned; without: the level ring
+            if (tier != null) TierFrame(tier, 250.dp) {
+                if (rememberYadimoEnabled()) YadimoView(YadimoMood.IDLE, size = 120.dp)
+                else Icon(Icons.Rounded.Face, null, Modifier.size(72.dp), tint = MaterialTheme.colorScheme.primary)
+            }
+            else LevelRing(s?.progress ?: 0f, level, 168.dp) {
+                if (rememberYadimoEnabled()) YadimoView(YadimoMood.IDLE, size = 140.dp)
+                else Icon(Icons.Rounded.Face, null, Modifier.size(72.dp), tint = MaterialTheme.colorScheme.primary)
             }
             Spacer(Modifier.height(10.dp))
             val name = remember(Names.tick) { Prefs.userName(context) }
             // your name (what Yadimo calls you) and your username (how others find you), each edited with a tap
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onName).padding(horizontal = 8.dp)) {
+                LevelMedal(tier, level, 30.dp); Spacer(Modifier.width(6.dp))
                 Text(name.ifBlank { t("اسمت چیه؟", "What's your name?") }, style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.width(6.dp)); Icon(Icons.Rounded.Edit, t("ویرایش اسم", "Edit name"), Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
             }
