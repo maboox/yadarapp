@@ -97,9 +97,13 @@ func groupView(app core.App, g *core.Record, me string) map[string]any {
 		}
 		// what others see when they tap a member: level, badges and the ring their purchases earned
 		g := loadGame(u)
+		var look any
+		if raw := u.GetString("yadimo_look"); raw != "" && raw != "null" {
+			_ = json.Unmarshal([]byte(raw), &look)
+		}
 		members = append(members, map[string]any{"id": u.Id, "name": displayName(u), "username": u.GetString("username"),
 			"role": m.GetString("role"), "status": m.GetString("status"), "level": gameLevel(u), "badges": g.Badges,
-			"streak": g.Streak, "done": g.Done, "purchased": purchasedTokens(app, u.Id), "admin": u.GetBool("is_admin")})
+			"streak": g.Streak, "done": g.Done, "purchased": purchasedTokens(app, u.Id), "admin": u.GetBool("is_admin"), "look": look})
 	}
 	owner, _ := app.FindRecordById("users", g.GetString("owner"))
 	return map[string]any{"id": g.Id, "name": g.GetString("name"), "owner": g.GetString("owner"), "owner_name": displayName(owner),

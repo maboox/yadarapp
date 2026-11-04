@@ -114,11 +114,9 @@ fun rememberYadimoConfig(): YadimoConfig { YadimoStore.ensure(LocalContext.curre
 @Composable
 fun YadimoView(mood: YadimoMood, modifier: Modifier = Modifier, size: Dp = 120.dp, config: YadimoConfig = rememberYadimoConfig(),
                peekIn: Boolean? = null, replay: Int = 0, tappable: Boolean = true, onCatalog: ((String) -> Unit)? = null,
-               /** "galaxy", "" or null = as for this account (the admin's own Yadimo is the galaxy one). */
-               fx: String? = null) {
+               /** Another admin's Yadimo (in a group) keeps its admin colour for everyone to see. */
+               forceCosmic: Boolean = false) {
     val context = LocalContext.current
-    val admin = Account.profile.collectAsState().value?.admin == true
-    val effect = fx ?: if (admin) "galaxy" else ""
     var ready by remember { mutableStateOf(false) }
     val web = remember {
         WebView(context).apply {
@@ -138,9 +136,10 @@ fun YadimoView(mood: YadimoMood, modifier: Modifier = Modifier, size: Dp = 120.d
     }
     DisposableEffect(Unit) { onDispose { web.stopLoading(); web.destroy() } }
     fun js(code: String) = web.evaluateJavascript(code, null)
-    LaunchedEffect(ready, config, effect) {
-        if (ready) js("yadimo.config(${JSONObject.quote(JSONObject(config.toJson()).put("fx", effect).toString())})")
-    }
+    // the admin's own colour is shown only to admin accounts (a copy of someone else's look falls back to the default)
+    val admin = Account.profile.collectAsState().value?.admin == true
+    val shownConfig = if (config.color == "cosmic" && !admin && !forceCosmic) config.copy(color = "lilac") else config
+    LaunchedEffect(ready, shownConfig) { if (ready) js("yadimo.config(${JSONObject.quote(shownConfig.toJson())})") }
     var peekStarted by remember { mutableStateOf(false) }
     LaunchedEffect(ready, peekIn) {
         if (!ready || peekIn == null) return@LaunchedEffect
@@ -346,7 +345,8 @@ fun YadimoCustomizer(modifier: Modifier = Modifier, onLeave: () -> Unit = {}, on
                 items(YadimoMood.entries.toList()) { m -> FilterChip(mood == m, { mood = m; replay++ }, { Text(moodLabel(m)) }) }
             }
             Choices(t("شخصیت", "Character"), "variants", "variant", shown.variant) { cfg.copy(variant = it.id) }
-            val colors = options("colors")
+            // the admin's own colour is offered to admin accounts only
+            val colors = options("colors").filter { it.id != "cosmic" || profile?.admin == true }
             if (colors.isNotEmpty()) {
                 Text(t("رنگ", "Colour"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

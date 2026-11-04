@@ -65,7 +65,7 @@ object YadimoShop {
     fun isFree(id: String): Boolean = tier(id) != "level" && price(id) <= 0.0
     /** The level an earned part needs, or null when it is not one of them. */
     fun needsLevel(id: String): Int? = if (tier(id) == "level") levels[id] ?: 99 else null
-    fun canWear(id: String): Boolean = needsLevel(id)?.let { (Game.state?.level ?: 1) >= it } ?: (isFree(id) || unlimited || id in owned)
+    fun canWear(id: String): Boolean = if (id == "color:cosmic") Account.profile.value?.admin == true else needsLevel(id)?.let { (Game.state?.level ?: 1) >= it } ?: (isFree(id) || unlimited || id in owned)
 
     /** Names of the earned parts, for the "level up" cheer. */
     fun partName(id: String): String = when (id) {

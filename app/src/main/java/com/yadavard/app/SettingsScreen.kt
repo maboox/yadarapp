@@ -262,11 +262,13 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onBa
             }
         }
 
+        item { GroupsToggleCard() }
         item { AiCard() }
 
         item {
-            // A 3-second hold on the icon opens the hidden settings (groups for everyone; more for the admin).
-            SettingsCard(t("پشتیبان‌گیری", "Backup"), Icons.Rounded.Backup, onIconHold = { hidden = true },
+            // The hidden settings exist only for the admin account; for everyone else the icon is just an icon.
+            val admin = Account.profile.collectAsState().value?.admin == true
+            SettingsCard(t("پشتیبان‌گیری", "Backup"), Icons.Rounded.Backup, onIconHold = if (admin) ({ hidden = true }) else null,
                 summary = t("${n(count)} یادآوری • همگام‌سازی ابری و فایل پشتیبان", "$count reminders • cloud sync and backup files"), collapsible = true) {
                 CloudSyncSection()
                 Text(t("${n(count)} یادآوری روی این گوشی ذخیره است. نسخه‌های جدید را روی همین نصب کن تا اطلاعات بماند. یادیمو بعد از هر تغییر یک نسخهٔ پشتیبان خودکار در پوشهٔ Download/Yadar می‌گذارد که با حذف برنامه هم پاک نمی‌شود؛ با «بازیابی» برش گردان. کلید هوش مصنوعی داخل پشتیبان نیست.",
@@ -298,14 +300,9 @@ fun SettingsScreen(padding: PaddingValues, count: Int, permissionTick: Int, onBa
                     IconButton(onClick = { hidden = false }) { Icon(Icons.Rounded.Close, t("بستن", "Close")) }
                     Text(t("تنظیمات پنهان", "Hidden settings"), style = MaterialTheme.typography.titleLarge)
                 }
-                // everyone may try groups from here; the rest is only for the admin account
-                val admin = Account.profile.collectAsState().value?.admin == true
                 LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(16.dp, 4.dp, 16.dp, 48.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    item { GroupsToggleCard() }
-                    if (admin) {
-                        item { AnnounceCard() }
-                        item { AiCard(advancedUnlocked = true) }
-                    }
+                    item { AnnounceCard() }
+                    item { AiCard(advancedUnlocked = true) }
                 }
             }
         }
@@ -372,19 +369,25 @@ private fun CloudSyncSection() {
         dismissButton = { TextButton(onClick = { confirmWipe = false }) { Text(t("انصراف", "Cancel")) } })
 }
 
-/** Hidden settings: turn groups (shared reminders, still being tried out) on or off. */
+/** Turn groups (shared reminders with family and friends) on or off; they start off. */
 @Composable
 private fun GroupsToggleCard() {
     val context = LocalContext.current
     var on by remember { mutableStateOf(Groups.enabled(context)) }
-    SettingsCard(t("گروه‌ها (آزمایشی)", "Groups (preview)"), Icons.Rounded.Groups) {
+    val profile by Account.profile.collectAsState()
+    SettingsCard(t("گروه‌ها", "Groups"), Icons.Rounded.Groups,
+        summary = t("یادآوری مشترک با خانواده و دوستان", "Shared reminders with family and friends"), collapsible = true, startExpanded = on) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(t("یادآوری گروهی روشن باشد", "Turn on group reminders"), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+            Text(t("گروه‌ها روشن باشد", "Turn on groups"), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
             Switch(on, { on = it; Groups.setEnabled(context, it) })
         }
-        Text(t("با روشن کردنش، بالای صفحهٔ خانه دکمهٔ «گروه‌ها» می‌آید: گروه بساز، دیگران را با نام کاربری دعوت کن و یادآوری مشترک داشته باشید. برای این کار باید وارد حساب باشی و نام کاربری داشته باشی.",
-            "Turning it on adds a Groups button at the top of the home screen: make a group, invite people by username and share reminders. You need to be signed in and have a username."),
+        Text(t("با روشن کردنش، بالای صفحهٔ خانه دکمهٔ 👥 می‌آید: گروه بساز (مثلاً «خانواده»)، دیگران را با نام کاربری دعوت کن و یادآوری مشترک داشته باشید: قبض‌ها، خرید، داروی مامان… هر یادآوری می‌تواند برای همه یا فقط یک نفر باشد. خاموش بماند، چیزی در برنامه عوض نمی‌شود.",
+            "Turning it on adds a 👥 button at the top of the home screen: make a group (e.g. “Family”), invite people by username and share reminders: bills, shopping, mum's pills… each for everyone or just one person. Left off, nothing in the app changes."),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (on && profile == null) Text(t("برای استفاده باید وارد حسابت شوی.", "You need to be signed in to use groups."),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        else if (on && profile?.username.isNullOrBlank()) Text(t("یک نام کاربری هم لازم داری؛ از «پروفایل» انتخابش کن.", "You also need a username; pick one on your Profile."),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
     }
 }
 

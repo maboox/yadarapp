@@ -154,7 +154,8 @@ fun EditorScreen(request: EditorRequest, onClose: () -> Unit, onSave: (Reminder)
                     title = { Text(if (original == null) t("یادآوری جدید", "New reminder") else t("ویرایش یادآوری", "Edit reminder")) },
                     navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, t("بستن", "Close")) } },
                     actions = {
-                        if (original != null) IconButton(onClick = { confirmDelete = true }) {
+                        // a repeating reminder asks "only this one or the whole series?" itself, so no second question here
+                        if (original != null) IconButton(onClick = { if (original.unit != RepeatUnit.NONE && !original.inGroup) onDelete(original) else confirmDelete = true }) {
                             Icon(Icons.Rounded.DeleteOutline, t("حذف", "Delete"), tint = MaterialTheme.colorScheme.error)
                         }
                         Button(onClick = ::save, modifier = Modifier.padding(end = 8.dp)) { Text(t("ذخیره", "Save")) }

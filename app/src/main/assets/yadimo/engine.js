@@ -12,6 +12,8 @@ const COLORS = {
   rose:  {n: 'صورتی', body: '#f06aa3', accent: '#ffc746'},
   night: {n: 'شب', body: '#4b4f96', accent: '#ffc746'},
   galaxy: {n: 'کهکشانی', body: '#3a2384', accent: '#ffd84a'},
+  // the admin's own colour: deep space with drifting clouds and twinkling stars (offered only to admin accounts)
+  cosmic: {n: 'کهکشان سلطنتی 👑', body: '#2a1170', accent: '#ffd84a'},
 };
 const FACES = {happy: 'خوشحال', wink: 'چشمک', love: 'عاشق', surprised: 'تعجب', focused: 'جدی', sleepy: 'خواب‌آلود'};
 const VARIANTS = {bell: 'زنگوله', robot: 'ربات'};
@@ -53,8 +55,7 @@ class Yadimo {
   prefix(s) { return s.replace(/id="([^"]+)"/g, `id="${this.P}$1"`).replace(/url\(#([^)]+)\)/g, `url(#${this.P}$1)`); }
   q(id) { return this.svg.querySelector('#' + this.P + id); }
   render() {
-    // fx 'galaxy' (the admin's own Yadimo): the galaxy colour with clouds and stars drifting over its body
-    const m = MOODS[this.mood], c = this.o.fx === 'galaxy' ? COLORS.galaxy : COLORS[this.o.color] || COLORS.lilac, robot = this.o.variant === 'robot';
+    const m = MOODS[this.mood], c = COLORS[this.o.color] || COLORS.lilac, robot = this.o.variant === 'robot';
     this.sparkles = !!m.sparkles;
     const s = {variant: this.o.variant, expression: m.expr || this.o.face, gaze: '0', bodyColor: c.body, accentColor: c.accent,
       cheekColor: '#f5a2c6', sparkles: this.sparkles, blush: true};
@@ -92,7 +93,7 @@ class Yadimo {
     const bake = (g, kind) => this.warps.push({items: Warp.bake(g), kind});
     bake(this.gHat, 'hat'); bake(this.gGlass, 'face'); bake(this.gFace2, 'face'); bake(this.gMask, 'shell');
     if (!robot) { bake(this.gNeck, 'shell'); bake(this.gChest, 'shell'); if (this.gBack) bake(this.gBack, 'back'); }
-    if (this.o.fx === 'galaxy') this.galaxy(face);
+    if (this.o.color === 'cosmic') this.galaxy(face);
     this.fx = document.createElementNS(SVGNS, 'g'); this.svg.append(this.fx);
     this.rig.step(this.target(this.t), 0, true);
   }

@@ -308,6 +308,8 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
         }
     }
 
+    // deleting a repeating reminder asks whether to remove just this time or the whole series
+    var deleteAsk by remember { mutableStateOf<Reminder?>(null) }
     val actions = remember(vm) {
         ReminderActions(
             open = { editor = EditorRequest(it, null) },
@@ -331,6 +333,8 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                 }
             },
             delete = { r ->
+              if (r.unit != RepeatUnit.NONE && !r.inGroup && !r.done) deleteAsk = r
+              else {
                 vm.delete(r)
                 scope.launch {
                     snackbar.currentSnackbarData?.dismiss()
@@ -338,6 +342,7 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                         duration = SnackbarDuration.Long)
                     if (res == SnackbarResult.ActionPerformed) vm.restore(r)
                 }
+              }
             },
             reopen = { r ->
                 vm.reopen(r)
@@ -400,7 +405,7 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                         onPin = { vm.saveNote(it.copy(pinned = !it.pinned)) }, onDelete = { vm.deleteNote(it) },
                         onSave = { vm.saveNote(it) })
                     Tab.STATS -> StatsScreen(items, now, padding)
-                    Tab.PROFILE -> ProfileScreen(padding, settingsAlert, onSettings = { tab = Tab.SETTINGS }) { mission ->
+                    Tab.PROFILE -> ProfileScreen(padding, settingsAlert, onSettings = { tab = Tab.SETTINGS }, onHelp = { showHelp = true }) { mission ->
                         // each mission takes you to where it is done
                         when (mission) {
                             "first_reminder" -> { tab = Tab.HOME; editor = EditorRequest(null, null) }
@@ -464,6 +469,36 @@ fun AppRoot(command: Intent?, consumed: () -> Unit) {
                     if (result != null) vm.saveNote(result)
                 }, onDelete = { noteEditor = null; vm.deleteNote(it) })
             }
+        }
+        deleteAsk?.let { r ->
+            AlertDialog(onDismissRequest = { deleteAsk = null },
+                icon = { Icon(Icons.Rounded.Repeat, null) },
+                title = { Text(t("«${r.title}» تکرار می‌شود", "“${r.title}” repeats")) },
+                text = { Text(t("فقط همین بار را رد کنم و بقیهٔ تکرارها بماند، یا همهٔ تکرارهای این یادآوری حذف شود؟",
+                    "Skip just this time and keep the rest, or delete every repeat of this reminder?")) },
+                confirmButton = {
+                    Column(horizontalAlignment = Alignment.End) {
+                        TextButton(onClick = {
+                            deleteAsk = null
+                            vm.skip(r)
+                            scope.launch {
+                                snackbar.currentSnackbarData?.dismiss()
+                                val res = snackbar.showSnackbar(t("«${r.title}» این بار رد شد", "“${r.title}” skipped this time"), t("برگرداندن", "Undo"), duration = SnackbarDuration.Long)
+                                if (res == SnackbarResult.ActionPerformed) vm.restore(r)
+                            }
+                        }) { Text(t("فقط همین بار", "Only this time")) }
+                        TextButton(onClick = {
+                            deleteAsk = null
+                            vm.delete(r)
+                            scope.launch {
+                                snackbar.currentSnackbarData?.dismiss()
+                                val res = snackbar.showSnackbar(t("«${r.title}» با همهٔ تکرارهایش حذف شد", "“${r.title}” and all its repeats deleted"), t("برگرداندن", "Undo"), duration = SnackbarDuration.Long)
+                                if (res == SnackbarResult.ActionPerformed) vm.restore(r)
+                            }
+                        }) { Text(t("همهٔ تکرارها", "All repeats"), color = MaterialTheme.colorScheme.error) }
+                        TextButton(onClick = { deleteAsk = null }) { Text(t("انصراف", "Cancel")) }
+                    }
+                })
         }
         packImport?.let { pack -> PackImportDialog(pack) { packImport = null } }
         // the groups open over the home screen; the editor (for a group's reminder) opens over them

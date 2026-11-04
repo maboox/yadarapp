@@ -308,9 +308,9 @@ private fun MemberDialog(m: Groups.Member, onDone: () -> Unit) {
     AlertDialog(onDismissRequest = onDone, confirmButton = { TextButton(onClick = onDone) { Text(t("بستن", "Close")) } },
         text = {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                // their Yadimo in their frame (the admin's in galaxy colours)
+                // their own Yadimo (as they dressed it) in their frame
                 TierFrame(m.tier, 190.dp) {
-                    YadimoView(YadimoMood.WAVE, size = 92.dp, config = YadimoConfig(), fx = if (m.admin) "galaxy" else "", tappable = false)
+                    YadimoView(YadimoMood.WAVE, size = 92.dp, config = m.look ?: YadimoConfig(variant = "robot"), tappable = false, forceCosmic = m.admin)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     LevelMedal(m.tier, m.level, 28.dp); Spacer(Modifier.width(6.dp))

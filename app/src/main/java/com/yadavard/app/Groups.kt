@@ -31,7 +31,9 @@ import java.util.concurrent.TimeUnit
 object Groups {
     data class Member(val id: String, val name: String, val username: String, val role: String, val active: Boolean,
                       val level: Int = 1, val badges: List<String> = emptyList(), val streak: Int = 0, val done: Int = 0,
-                      val purchased: Double = 0.0, val admin: Boolean = false) {
+                      val purchased: Double = 0.0, val admin: Boolean = false,
+                      /** The look this person chose for their Yadimo (null: not known, e.g. an older server). */
+                      val look: YadimoConfig? = null) {
         val tier: Tier? get() = Tier.of(purchased, admin)
     }
     data class Group(val id: String, val name: String, val owner: String, val ownerName: String, val editMode: String, val role: String,
@@ -281,7 +283,8 @@ object Groups {
                     val badges = x.optJSONArray("badges")
                     Member(x.getString("id"), x.optString("name"), x.optString("username"), x.optString("role"), x.optString("status") == "active",
                         x.optInt("level", 1).coerceAtLeast(1), badges?.let { b -> List(b.length()) { b.getString(it) } }.orEmpty(),
-                        x.optInt("streak"), x.optInt("done"), x.optDouble("purchased", 0.0), x.optBoolean("admin"))
+                        x.optInt("streak"), x.optInt("done"), x.optDouble("purchased", 0.0), x.optBoolean("admin"),
+                        x.optJSONObject("look")?.let { l -> YadimoConfig.fromJson(l.toString()) })
                 }, g.optString("invited_by"))
         }
     }

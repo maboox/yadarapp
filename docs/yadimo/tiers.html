@@ -138,7 +138,7 @@ function effects(key, px) {
 const engines = [];
 function yadimo(el, key, look) {
   const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', '0 0 600 600'); el.append(svg);
-  const y = new Yadimo(svg, Object.assign({variant: 'robot', color: 'lilac', hat: 'none', glass: 'none'}, look || {}, key === 'admin' ? {fx: 'galaxy'} : {}));
+  const y = new Yadimo(svg, Object.assign({variant: 'robot', color: key === 'admin' ? 'cosmic' : 'lilac', hat: 'none', glass: 'none'}, look || {}));
   engines.push(y); return y;
 }
 

@@ -15,6 +15,7 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.rounded.MilitaryTech
@@ -47,7 +48,7 @@ import kotlinx.coroutines.withContext
  * [onMission] takes the missions that are done elsewhere in the app; [settingsAlert] puts a dot on the gear.
  */
 @Composable
-fun ProfileScreen(padding: PaddingValues, settingsAlert: Boolean, onSettings: () -> Unit, onMission: (String) -> Unit) {
+fun ProfileScreen(padding: PaddingValues, settingsAlert: Boolean, onSettings: () -> Unit, onHelp: () -> Unit, onMission: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { withContext(Dispatchers.IO) { Game.sync(context) } }
@@ -61,6 +62,8 @@ fun ProfileScreen(padding: PaddingValues, settingsAlert: Boolean, onSettings: ()
         item {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
                 Text(t("پروفایل", "Profile"), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                FilledTonalIconButton(onClick = onHelp) { Icon(Icons.Rounded.Lightbulb, t("راهنما", "Guide")) }
+                Spacer(Modifier.width(8.dp))
                 FilledTonalIconButton(onClick = onSettings) {
                     BadgedBox(badge = { if (settingsAlert) Badge() }) { Icon(Icons.Rounded.Settings, t("تنظیمات", "Settings")) }
                 }
